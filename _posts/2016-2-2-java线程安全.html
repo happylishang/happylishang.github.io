@@ -247,7 +247,8 @@ sup {
 </ul>
 
 
-<pre><code>   @Override public V put(K key, V value) {
+<pre><code>
+    @Override public V put(K key, V value) {
         if (key == null) {
             return putValueForNullKey(value);
         }
@@ -280,26 +281,27 @@ sup {
 </ul>
 
 
-<p>```
-    public synchronized V put(K key, V value) {
-        if (key == null) {
-            throw new NullPointerException("key == null");
-        } else if (value == null) {
-            throw new NullPointerException("value == null");
-        }
-        int hash = secondaryHash(key.hashCode());
-        HashtableEntry&lt;K, V>[] tab = table;
-        int index = hash &amp; (tab.length - 1);
-        HashtableEntry&lt;K, V> first = tab[index];
-        for (HashtableEntry&lt;K, V> e = first; e != null; e = e.next) {
-            if (e.hash == hash &amp;&amp; key.equals(e.key)) {
-                V oldValue = e.value;
-                e.value = value;
-                return oldValue;
-            }
-        }</p>
+<p>```</p>
 
-<pre><code>    // No entry for key is present; create one
+<pre><code>public synchronized V put(K key, V value) {
+    if (key == null) {
+        throw new NullPointerException("key == null");
+    } else if (value == null) {
+        throw new NullPointerException("value == null");
+    }
+    int hash = secondaryHash(key.hashCode());
+    HashtableEntry&lt;K, V&gt;[] tab = table;
+    int index = hash &amp; (tab.length - 1);
+    HashtableEntry&lt;K, V&gt; first = tab[index];
+    for (HashtableEntry&lt;K, V&gt; e = first; e != null; e = e.next) {
+        if (e.hash == hash &amp;&amp; key.equals(e.key)) {
+            V oldValue = e.value;
+            e.value = value;
+            return oldValue;
+        }
+    }
+
+    // No entry for key is present; create one
     modCount++;
     if (size++ &gt; threshold) {
         rehash();  // Does nothing!!
@@ -310,6 +312,7 @@ sup {
     tab[index] = new HashtableEntry&lt;K, V&gt;(key, value, hash, first);
     return null;
 }
+
 ```
 </code></pre>
 </body>
