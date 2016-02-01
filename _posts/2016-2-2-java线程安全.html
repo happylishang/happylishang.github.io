@@ -277,7 +277,7 @@ sup {
 </code></pre>
 
 <ul>
-<li>HashTable是线程安全的；</li>
+<li>HashTable是线程安全的</li>
 </ul>
 
 
@@ -300,8 +300,6 @@ sup {
             return oldValue;
         }
     }
-
-    // No entry for key is present; create one
     modCount++;
     if (size++ &gt; threshold) {
         rehash();  // Does nothing!!
@@ -312,7 +310,6 @@ sup {
     tab[index] = new HashtableEntry&lt;K, V&gt;(key, value, hash, first);
     return null;
 }
-
 ```
 </code></pre>
 </body>
