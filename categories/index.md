@@ -1,6 +1,6 @@
 ---
 title: 分类目录
-layout: page
+layout: default
 comments: yes
 ---
 
