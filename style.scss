@@ -69,7 +69,6 @@ p {
 }
 
 pre { 
-    background-color: #F8F8F8;    
     border: 1px solid #CCCCCC;
     border-radius: 3px;
     overflow: auto;
@@ -77,16 +76,15 @@ pre {
 }
  
 pre code {
-    background-color: #F8F8F8;
     border: none;    
     padding: 0;
 }
  
 code {
     font-family: Consolas, Monaco, Andale Mono, monospace;
-    background-color:#F8F8F8;
     border: 1px solid #CCCCCC;
     border-radius: 3px;
+      font-size: 16px;
     padding: 0 0.2em;
     line-height: 1;
 }
