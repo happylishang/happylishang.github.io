@@ -10,7 +10,7 @@ comments: yes
 {% endfor %}
 </div>
 
-<ul class="listing">
+<ul >
 {% for cat in site.categories %}
   <li class="listing-seperator" id="{{ cat[0] }}">{{ cat[0] }}</li>
 {% for post in cat[1] %}
