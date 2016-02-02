@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Java中的线程安全与非线程安全"
+title: "Hanlder用法与注意事项"
 description: "android"
 category: android
 tags: [android]
