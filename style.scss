@@ -21,6 +21,7 @@ body {
   background: $white;
   font: 18px/1.4 $helvetica;
   color: $darkGray;
+  font-size: 16px
 }
 
 .container {
@@ -45,22 +46,22 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 h1 {
-  font-size: 30px;
+  font-size: 28px;
   a {
     color: inherit;
   }
 }
 
 h2 {
-  font-size: 24px;
+  font-size: 22px;
 }
 
 h3 {
-  font-size: 20px;
+  font-size: 19px;
 }
 
 h4 {
-  font-size: 18px;
+  font-size: 17px;
   color: $gray;
 }
 
@@ -84,7 +85,7 @@ code {
     font-family: Consolas, Monaco, Andale Mono, monospace;
     border: 1px solid #CCCCCC;
     border-radius: 1px;
-    font-size: 15px;
+    font-size: 14px;
     padding: 0 0.2em;
     line-height: 1;
 }
