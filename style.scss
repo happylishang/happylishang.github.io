@@ -25,7 +25,7 @@ body {
 
 .container {
   margin: 0 auto;
-  max-width: 1080px;
+  max-width: 960px;
   padding: 0 10px;
   width: 100%;
 }
@@ -66,11 +66,6 @@ h4 {
 
 p {
   margin: 15px 0;
-}
-
-code {
-  font-size: 18px;
-  color: $gray;
 }
 
 a {
