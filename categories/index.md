@@ -1,5 +1,5 @@
 ---
-title: Category
+title: 分类目录
 layout: page
 comments: yes
 ---
