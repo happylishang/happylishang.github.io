@@ -70,9 +70,9 @@ h4 {
   color: $gray;
 }
 
-p {
-  margin: 15px 0;
-  font-size: 15px;
+
+p, blockquote, ul, ol, dl, li, table, pre {
+    margin: 15px 0;
 }
 
 pre { 
