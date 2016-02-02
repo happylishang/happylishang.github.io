@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Hanlder用法与注意事项"
+title: "Hanlderusage"
 description: "android"
 category: android
 tags: [android]
