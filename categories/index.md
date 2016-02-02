@@ -12,7 +12,7 @@ comments: yes
 
 <ul>
 {% for cat in site.categories %}
-  <li class="listing-seperator" id="{{ cat[0] }}">{{ cat[0] }}</li>
+  <li class="listing-seperator" id="{{ cat[0] }}"> {{ cat[0] }} </li>
 {% for post in cat[1] %}
   <li class="listing-item">
 {{ post.date | date_to_string }}   <a href="{{ site.url }}{{ post.url }}" title="{{ post.title }}">{{ post.title }}</a>
