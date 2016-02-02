@@ -2,11 +2,10 @@
 layout: default
 ---
 
-<article class="page">
+<section class="post">
+{{ content }}
+</section>
+{% if page.comments %}
+{% include comments.md %}
+{% endif %}
 
-  <h1>{{ page.title }}</h1>
-
-  <div class="entry">
-    {{ content }}
-  </div>
-</article>
