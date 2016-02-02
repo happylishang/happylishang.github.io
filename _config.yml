@@ -11,8 +11,6 @@ description: 看书小蜗牛的博客
 # URL of your avatar or profile pic (you could use your GitHub profile pic)
 avatar: https://raw.githubusercontent.com/barryclark/jekyll-now/master/images/jekyll-logo.png
 
-
-url: http://happylishang.github.com
 safe: true
 #
 # Flags below are optional
