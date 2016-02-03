@@ -14,7 +14,7 @@ comments: yes
 {% for cat in site.categories %}
   <li class="listing-seperator" id="{{ cat[0] }}"> {{ cat[0] }} </li>
 {% for post in cat[1] %}
-  <li class="listing-item">{line-height:20px;}
+  <li class="listing-item">{line-height:50px;}
 {{ post.date | date_to_string }}   <a href="{{ site.url }}{{ post.url }}" title="{{ post.title }}">{{ post.title }} <br /></a> 
   </li>
 {% endfor %}
