@@ -4,6 +4,8 @@ layout: default
 
 ---
 
+ 
+
 <div id='tag_cloud'>
 {% for cat in site.categories %}
 <a href="#{{ cat[0] }}" title="{{ cat[0] }}" rel="{{ cat[1].size }}">{{ cat[0] }} ({{ cat[1].size }})</a>
@@ -13,7 +15,7 @@ layout: default
 <ul>
 {% for cat in site.categories %}
 <div style="color:#FF0000">
-  <li class="listing-seperator" id="{{ cat[0] }}"> {{ cat[0] }} </li>
+  <li class="listing-seperator" id="{{ cat[0] }}"> {{ cat[0] }} <div></div></li>
   </div>
 {% for post in cat[1] %}
   <li class="listing-item">
