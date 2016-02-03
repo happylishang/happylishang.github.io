@@ -1,7 +1,7 @@
 ---
 layout: default
 title: 性能调优之SoftReference
-category: android
+category: Java
 
 ---
 
