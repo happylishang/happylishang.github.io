@@ -1,7 +1,7 @@
 ---
 title: 分类目录
 layout: default
-comments: yes
+
 ---
 
 <div id='tag_cloud'>
