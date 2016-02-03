@@ -5,6 +5,12 @@ layout: default
 ---
 
  
+<style type="text/css"> 
+li{ 
+height:50px; 
+list-style-type: none; 
+} 
+</style> 
 
 <div id='tag_cloud'>
 {% for cat in site.categories %}
