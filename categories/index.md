@@ -16,7 +16,7 @@ layout: default
   <li class="listing-seperator" id="{{ cat[0] }}"> {{ cat[0] }} </li>
   </div>
 {% for post in cat[1] %}
-  <li class="listing-item">{line-height:50px;}
+  <li class="listing-item">
 {{ post.date | date_to_string }}   <a href="{{ site.url }}{{ post.url }}" title="{{ post.title }}">{{ post.title }} <br /></a> 
   </li>
 {% endfor %}
