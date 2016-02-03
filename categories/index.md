@@ -7,7 +7,7 @@ layout: default
  
 <style type="text/css"> 
 li{ 
-height:50px; 
+height:30px; 
 list-style-type: none; 
 } 
 </style> 
