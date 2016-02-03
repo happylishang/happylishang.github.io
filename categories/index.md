@@ -15,7 +15,7 @@ comments: yes
   <li class="listing-seperator" id="{{ cat[0] }}"> {{ cat[0] }} </li>
 {% for post in cat[1] %}
   <li class="listing-item">
-{{ post.date | date_to_string }}   <a href="{{ site.url }}{{ post.url }}" title="{{ post.title }}">{{ post.title }}</a> <br />
+{{ post.date | date_to_string }}   <a href="{{ site.url }}{{ post.url }}" title="{{ post.title }}">{{ post.title }} <br /></a> 
   </li>
 {% endfor %}
 {% endfor %}
