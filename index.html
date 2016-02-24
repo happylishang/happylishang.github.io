@@ -3,21 +3,15 @@ title: homepage
 layout: default
 
 ---
-<style type="text/css"> 
-li{ 
-height:30px; 
-list-style-type: none; 
-} 
-</style>
-
-　　<ul>
+ 
+  　　<ul>
 　　　　{% for post in site.posts %}
 　　　　
         {% capture y %}{{post.date | date:"%Y-%m"}}{% endcapture %}
            {% if year != y %}
              {% assign year = y %}
-             <div style="color:#FF0000">
-                     <li class="listing-seperator">　{{post.date | date:"%Y-%m"}} </li>
+             <div style="color:#FF0000";font-size:30px>
+                  <li class="listing-seperator">{{post.date|date:"%Y年-%m月"}}</li>
              </div>
      
            {% endif %} 
