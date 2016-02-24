@@ -11,7 +11,7 @@ layout: default
            {% if year != y %}
              {% assign year = y %}
              <div style="color:#FF0000";font-size:30px>
-                  <li class="listing-seperator">{{post.date|date:"%Y年-%m月"}}</li>
+                  <li class="listing-seperator"><b>{{post.date|date:"%Y年-%m月"}}</b></li>
              </div>
      
            {% endif %} 
