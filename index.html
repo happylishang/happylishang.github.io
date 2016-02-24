@@ -5,7 +5,8 @@ layout: default
 ---
 　　<ul>
 　　　　{% for post in site.posts %}
-　　　　{{post.date | date:"%Y-%m"}}{% endcapture %}
+　　　　
+　　　　{{post.date | date:"%Y-%m"}} 
          {% if year != y %}
          {% assign year = y %}
            <li >{{ y }}</li>
