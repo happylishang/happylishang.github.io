@@ -7,10 +7,13 @@ layout: default
 　　　　{% for post in site.posts %}
 　　　　
         {% capture y %}{{post.date | date:"%Y-%m"}}{% endcapture %}
-         {% if year != y %}
-         {% assign year = y %}
-           <li >　{{post.date | date:"%Y-%m"}} </li>
-          {% endif %}
+           {% if year != y %}
+             {% assign year = y %}
+             <div style="color:#FF0000">
+                     <li >　{{post.date | date:"%Y-%m"}} </li>
+             </div>
+     
+           {% endif %} 
   
 　　　　　　<li>{{ post.date | date_to_string }} <a href="{{ site.baseurl }}{{ post.url }}">{{ post.title }}</a></li>
 　　　　{% endfor %}
