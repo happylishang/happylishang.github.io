@@ -347,14 +347,32 @@ ViewRoot相当于是MVC模型中的Controller，它有以下职责：
             
 ### ViewRoot 本质
             
- ViewRoot是GUI管理系统与GUI呈现系统之间的桥梁，根据ViewRoot的定义，我们发现它并不是一个View类型，而是一个Handler。ViewRoot这个类在android的UI结构中扮演的是一个中间者的角色，连接的是PhoneWindow跟WindowManagerService
+ViewRoot是GUI管理系统与GUI呈现系统之间的桥梁，根据ViewRoot的定义，我们发现它并不是一个View类型，而是一个Handler。ViewRoot这个类在android的UI结构中扮演的是一个中间者的角色，连接的是PhoneWindow跟WindowManagerService
 
 它的主要作用如下：
 
 A. 向DecorView分发收到的用户发起的event事件，如按键，触屏，轨迹球等事件；
 
 B. 与WindowManagerService交互，完成整个Activity的GUI的绘制。
+(2)   sWindowSessoin.add()
 
+
+requestLayout();  
+try {  
+    res = sWindowSession.add(mWindow, mWindowAttributes,  
+            getHostVisibility(), mAttachInfo.mContentInsets);  
+} catch (RemoteException e) {  
+
+在这个方法中只需要关注两个步骤
+
+> requestLayout()
+
+  请求WindowManagerService绘制GUI，但是注意一点的是它是在与WindowManagerService建立连接之前绘制，为什么要在建立之前请求绘制呢？其实两者实际的先后顺序是正好相反的，与WMS建立连接在前，绘制GUI在后，那么为什么代码的顺序和执行的顺序不同呢？这里就涉及到ViewRoot的属性了，我们前面提到ViewRoot并不是一个View，而是一个Handler，那么执行的具体流程就是这样的：
+    从字面意思理解的话，IWindowSession sWindowSessoin是ViewRoot和WindowManagerService之间的一个会话层，它的实体是在WMS中定义，作为ViewRoot requests WMS的桥梁。
+
+add()方法的第一个参数mWindow是ViewRoot提供给WMS，以便WMS反向通知ViewRoot的接口。由于ViewRoot处在application端，而WMS处在system_server进程，它们处在不同的进程间，因此需要添加这个IWindow接口便于GUI绘制状态的同步。
+
+![](http://hi.csdn.net/attachment/201111/10/0_13209336991GIN.gif)
 ### 参考文档
 
  
