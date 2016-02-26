@@ -16,9 +16,7 @@
    <a href="#">TOP</a>
 </div> 
 ```
- 添加按钮的css样式
-
-这里我把我的css样式粘上，可以按照自己喜欢修改样式即可。
+ 添加按钮的css样式，可以按照自己喜欢修改样式即可。
 ```
 #backtop a { /* back to top button */
     text-align: center;
