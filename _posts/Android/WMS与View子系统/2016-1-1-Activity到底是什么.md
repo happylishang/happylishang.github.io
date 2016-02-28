@@ -292,6 +292,7 @@ ViewRoot相当于是MVC模型中的Controller，它有以下职责：
         2. 配合WindowManagerService来管理系统的应用程序窗口。
 
         3. 负责管理、布局和渲染应用程序窗口视图的UI。
+        
 当Activity组件被激活的时候，系统如果发现与它的应用程序窗口视图对象所关联的ViewRoot对象还没有创建，那么就会先创建这个ViewRoot对象，以便接下来可以将它的UI渲染出来。Activity组件创建完成之后，就可以将它激活起来了，这是通过调用ActivityThread类的成员函数handleResumeActivity来执行的。 从前面Android应用程序窗口（Activity）的窗口对象（Window）的创建过程分析一文可以知道，LocalWindowManager类的成员变量mWindowManager指向的是一个WindowManagerImpl对
     
     private void addView(View view, ViewGroup.LayoutParams params, boolean nest)
@@ -345,9 +346,9 @@ ViewRoot相当于是MVC模型中的Controller，它有以下职责：
             
             root = new ViewRoot(view.getContext());       
             
-### ViewRoot 本质
+### ViewRoot本质
             
-ViewRoot是GUI管理系统与GUI呈现系统之间的桥梁，根据ViewRoot的定义，我们发现它并不是一个View类型，而是一个Handler。ViewRoot这个类在android的UI结构中扮演的是一个中间者的角色，连接的是PhoneWindow跟WindowManagerService
+ViewRoot是GUI管理系统与GUI呈现系统之间的桥梁，根据ViewRoot的定义，我们发现它并不是一个View类型，而是一个Handler。ViewRoot这个类在android的UI结构中扮演的是一个中间者的角色，连接的是PhoneWindow跟WindowManagerService，
 
 它的主要作用如下：
 
@@ -358,6 +359,7 @@ B. 与WindowManagerService交互，完成整个Activity的GUI的绘制。
 
 
 requestLayout();  
+
 try {  
     res = sWindowSession.add(mWindow, mWindowAttributes,  
             getHostVisibility(), mAttachInfo.mContentInsets);  
@@ -373,6 +375,9 @@ try {
 add()方法的第一个参数mWindow是ViewRoot提供给WMS，以便WMS反向通知ViewRoot的接口。由于ViewRoot处在application端，而WMS处在system_server进程，它们处在不同的进程间，因此需要添加这个IWindow接口便于GUI绘制状态的同步。
 
 ![](http://hi.csdn.net/attachment/201111/10/0_13209336991GIN.gif)
+
 ### 参考文档
 
+图解Android - Android GUI 系统 (2) - 窗口管理 (View, Canvas, Window Manager) <http://www.cnblogs.com/samchen2009/p/3367496.html>
+ Android 4.4(KitKat)窗口管理子系统 - 体系框架 <http://blog.csdn.net/jinzhuojun/article/details/37737439>
  
