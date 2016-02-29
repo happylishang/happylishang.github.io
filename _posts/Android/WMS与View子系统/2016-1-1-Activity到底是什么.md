@@ -5,17 +5,17 @@ categories: [android]
 
 ---
 
-> **分析Android框架的时候谨记：上层都是逻辑封装，包括Activity、View，所有的实现均有相应Servcie来处理，比如View的绘制等**
+> **分析Android框架的时候谨记：上层都是逻辑封装，包括Activity、View所有的实现均由相应Servcie来处理，比如View的绘制等**
 
-### 目录
 
 ### Activity
 
 
 Activity是四大组件之一，那么组件到底是个什么东西，虽然知道Activity是用来显示交互界面，可是Activity本身是一个界面的抽象类吗？是View吗，如果不是那么到底谁负责显示，Activity到底扮演什么角色。
-由于不同版本 ViewRoot ViewRootImp其实对应
- ViewRootImple,  WindowManagerImpl,  WindowManagerGlobals
-WindowManagerImpl: 实现了WindowManager 和 ViewManager的接口，但大部分是调用WindowManagerGlobals的接口实现的。
+Android2.3 采用ViewRoot Android4.3 采用ViewRootImp，其实两者对应，只是采用的不同的类名，ViewRoot也容易混淆。
+
+* ViewRootImp,  WindowManagerImpl,  WindowManagerGlobals
+* WindowManagerImpl: 实现了WindowManager 和 ViewManager的接口，但大部分是调用WindowManagerGlobals的接口实现的。
 
 WindowManagerGlobals: 一个SingleTon对象，对象里维护了三个数组：
 
@@ -26,7 +26,7 @@ WindowManagerGlobals: 一个SingleTon对象，对象里维护了三个数组：
 
 IWindowManager:  主要接口是OpenSession(), 用于在WindowManagerService内部创建和初始化Session, 并返回IBinder对象。
 ISession:  是Activity Window与WindowManagerService 进行对话的主要接口.
-
+<img src="http://img.blog.csdn.net/20140713113402196?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamluemh1b2p1bg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast/" width=900>
 
 >ActivityThread  首先启动performLaunchActivity
 
@@ -523,6 +523,7 @@ A. 向DecorView分发收到的用户发起的event事件，如按键，触屏，
         // cache mView since it is used so much below...
         final View host = mView;
 
+注意performTraversals完完全全在UI线程中，所以布局是否合理直接影响用户体验。
 
 > WindowManagerService通过W与Activity的Window交互，完成手势派发等等。   
  
@@ -552,10 +553,51 @@ b)   requestLayout()其实是向messagequeue发送了一个请求绘制GUI的消
 从字面意思理解的话，IWindowSession sWindowSessoin是ViewRoot和WindowManagerService之间的一个会话层，它的实体是在WMS中定义，作为ViewRoot requests WMS的桥梁。
 
 add()方法的第一个参数mWindow是ViewRoot提供给WMS，以便WMS反向通知ViewRoot的接口。由于ViewRoot处在application端，而WMS处在system_server进程，它们处在不同的进程间，因此需要添加这个IWindow接口便于GUI绘制状态的同步。
+
 ![](http://hi.csdn.net/attachment/201111/10/0_13209336991GIN.gif)
 
+
+> WindowServiceManager
+
+
+            win = new WindowState(session, client, token,
+                    attachedWindow, attrs, viewVisibility);
+                    
+  
+### WindowToken与WindowState
+  
+WindowToken是一个句柄，保存了所有具有同一个token的WindowState。应用请求WindowManagerService添加窗口的时候，提供了一个token，该token标识了被添加窗口的归属，WindowManagerService为该token生成一个WindowToken对象，所有token相同的WindowState被关联到同一个WindowToken。如输入法添加窗口时，会传递一个mCurrToken，墙纸服务添加窗口时，会传递一个newConn.mToken。
+
+        mService.mWindowManager.addAppToken(addPos, r, r.task.taskId,  
+                            r.info.screenOrientation, r.fullscreen);  
+                      
+        r是ActivityRecord类                 
+        class ActivityRecord extends IApplicationToken.Stub {
+
+AppWindowToken继承于WindowToken，专门用于标识一个Activity。AppWindowToken里的token实际上就是指向了一个Activity。ActivityManagerService通知应用启动的时候，在服务端生成一个token用于标识该Activity，其实是ActivityRecord，并且把该token传递到应用客户端，客户端的Activity在申请添加窗口时，以该token作为标识传递到WindowManagerService。同一个Activity中的主窗口、对话框窗口、菜单窗口都关联到同一个AppWindowToken。
+                  
+如果是应用窗口，通过 token 检索出来的 WindowToken，一定不能为空，而且还必须是 Activity 的 mAppToken，同时对应的 Activity 还必须是没有被 finish。之前分析 Activity 的启动过程我们知道，Activity 在启动过程中，会先通过 WmS 的 addAppToken( )添加一个 AppWindowToken 到 mTokenMap 中，其中 key 就用了 IApplicationToken token。而 Activity 中的 mToken，以及 Activity 对应的 PhoneWindow 中的 mAppToken 就是来自 AmS 的 token (代码见 Activity 的 attach 方法)。
+
+如果是子窗口，会通过 attrs.token 去通过 windowForClientLocked 查找其父窗口，如果找不到其父窗口，会抛出异常。或者如果找到的父窗口的类型还是子窗口类型，也会抛出异常。这里查找父窗口的过程，是直接取了 attrs.token 去 mWindowMap 中找对应的 WindowState，而 mWindowMap 中的 key 是 IWindow。所以，由此可见，创建一个子窗口类型，token 必须赋值为其父窗口的 ViewRootImpl 中的 W 类对象 mWindow。
+
+WindowState 创建后，会以 IWindow 为 key (对应应用进程中的 ViewRootImpl.W 类对象 mWindow，重要的事强调多遍！！)，添加到 mWindowMap 中。                  
+
+
+    private final class WindowState implements WindowManagerPolicy.WindowState {
+        final Session mSession;
+        final IWindow mClient;
+        WindowToken mToken;
+        WindowToken mRootToken;
+        AppWindowToken mAppToken;
+        AppWindowToken mTargetAppToken;
+        
+上面的部分足够各部分通信使用
+       
 ### 参考文档
 
 图解Android - Android GUI 系统 (2) - 窗口管理 (View, Canvas, Window Manager) <http://www.cnblogs.com/samchen2009/p/3367496.html>
- Android 4.4(KitKat)窗口管理子系统 - 体系框架 <http://blog.csdn.net/jinzhuojun/article/details/37737439>
- 
+
+** Android 4.4(KitKat)窗口管理子系统 - 体系框架** <http://blog.csdn.net/jinzhuojun/article/details/37737439>***（推荐）***
+
+浅析Android的窗口  <http://bugly.qq.com/bbs/forum.php?mod=viewthread&tid=555>** [赞]**
+  
