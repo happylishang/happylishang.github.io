@@ -9,27 +9,123 @@ categories: [android]
 
 ### 目录
 
- 
-
 ### Activity
 
+
 Activity是四大组件之一，那么组件到底是个什么东西，虽然知道Activity是用来显示交互界面，可是Activity本身是一个界面的抽象类吗？是View吗，如果不是那么到底谁负责显示，Activity到底扮演什么角色。
-
-一个应用可以有多个Activity，每个 Activity 一个Window(PhoneWindow)， 每个Window 有一个DecorView, 一个ViewRootImpl, 对应在WindowManagerService 里有一个Window(WindowState).
-
-3. ViewRootImple,  WindowManagerImpl,  WindowManagerGlobals
+由于不同版本 ViewRoot ViewRootImp其实对应
+ ViewRootImple,  WindowManagerImpl,  WindowManagerGlobals
 WindowManagerImpl: 实现了WindowManager 和 ViewManager的接口，但大部分是调用WindowManagerGlobals的接口实现的。
 
 WindowManagerGlobals: 一个SingleTon对象，对象里维护了三个数组：
 
-mRoots[ ]: 存放所有的ViewRootImpl
-mViews[ ]: 存放所有的ViewRoot
-mParams[ ]: 存放所有的LayoutParams.
-IWindowManager:  主要接口是OpenSession(), 用于在WindowManagerService 内部创建和初始化Session, 并返回IBinder对象。
-ISession:  是Activity Window与WindowManagerService 进行对话的主要接口.
-我们知道，set，但是在此之前就已经实现了一些东西通过 
+* mRoots[ ]: 存放所有的docorView
+* mViews[ ]: 存放所有的ViewRoot
+* mParams[ ]: 存放所有的LayoutParams. 
+ 同时，它还维护了两个全局IBinder对象，用于访问WindowManagerService 提供的两套接口：
 
-	final void attach(Context context, ActivityThread aThread,
+IWindowManager:  主要接口是OpenSession(), 用于在WindowManagerService内部创建和初始化Session, 并返回IBinder对象。
+ISession:  是Activity Window与WindowManagerService 进行对话的主要接口.
+
+
+>ActivityThread  首先启动performLaunchActivity
+
+	public final class ActivityThread {  
+	    ......  
+	    
+	    Instrumentation mInstrumentation;  
+	    ......  
+	  
+	    private final Activity performLaunchActivity(ActivityClientRecord r, Intent customIntent) {  
+	        ......  
+	  
+	        ComponentName component = r.intent.getComponent();  
+	        ......  
+	        
+                try {  
+            Application app = r.packageInfo.makeApplication(false, mInstrumentation);  
+            ......  
+  
+            if (activity != null) {  
+            
+                ContextImpl appContext = new ContextImpl();  
+                ......  
+                appContext.setOuterContext(activity);  
+                ......  
+                Configuration config = new Configuration(mConfiguration);  
+                ......  
+  
+                activity.attach(appContext, this, getInstrumentation(), r.token,  
+                        r.ident, app, r.intent, r.activityInfo, title, r.parent,  
+                        r.embeddedID, r.lastNonConfigurationInstance,  
+                        r.lastNonConfigurationChildInstances, config); 
+                        
+                        
+   
+      final void attach(Context context, ActivityThread aThread,
+            Instrumentation instr, IBinder token, int ident,
+            Application application, Intent intent, ActivityInfo info,
+            CharSequence title, Activity parent, String id,
+            Object lastNonConfigurationInstance,
+            HashMap<String,Object> lastNonConfigurationChildInstances,
+            Configuration config) {
+        attachBaseContext(context);
+         //常见窗口
+        mWindow = PolicyManager.makeNewWindow(this);
+        mWindow.setCallback(this);
+        if (info.softInputMode != WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED) {
+            mWindow.setSoftInputMode(info.softInputMode);
+        }
+        
+        mUiThread = Thread.currentThread();
+        mMainThread = aThread;
+        mInstrumentation = instr;
+        mToken = token;
+        mIdent = ident;
+        mApplication = application;
+        mIntent = intent;
+        mComponent = intent.getComponent();
+        mActivityInfo = info;
+        mTitle = title;
+        mParent = parent;
+        mEmbeddedID = id;
+        mLastNonConfigurationInstance = lastNonConfigurationInstance;
+        mLastNonConfigurationChildInstances = lastNonConfigurationChildInstances;
+       
+       //Window ->  PhoneWindow  -> setWindowManager 
+       
+        mWindow.setWindowManager(null, mToken, mComponent.flattenToString());
+        if (mParent != null) {
+            mWindow.setContainer(mParent.getWindow());
+        }
+        
+       // private WindowManager mWindowManager;
+
+        mWindowManager = mWindow.getWindowManager();
+        
+        mCurrentConfig = config;
+    }                     
+	
+> Window.java	
+
+	    public void setWindowManager(WindowManager wm,
+            IBinder appToken, String appName) {
+        mAppToken = appToken;
+        mAppName = appName;
+        if (wm == null) {
+            wm = WindowManagerImpl.getDefault();
+        }
+        mWindowManager = new LocalWindowManager(wm);
+    }
+  
+>WindowManagerImpl
+    
+     public static WindowManagerImpl getDefault()
+    {
+        return mWindowManager;
+    }
+    
+    private static WindowManagerImpl mWindowManager = new WindowManagerImpl();
 
 > Activity
 		
@@ -284,6 +380,7 @@ ISession:  是Activity Window与WindowManagerService 进行对话的主要接口
 	        android:foreground="?android:attr/windowContentOverlay" />
 	</LinearLayout>
 
+> 接下来 就会有onCreate onResume流程 handleLauchResume，创建ViewRoot
 
 ViewRoot相当于是MVC模型中的Controller，它有以下职责：
 
@@ -293,8 +390,29 @@ ViewRoot相当于是MVC模型中的Controller，它有以下职责：
 
         3. 负责管理、布局和渲染应用程序窗口视图的UI。
         
-当Activity组件被激活的时候，系统如果发现与它的应用程序窗口视图对象所关联的ViewRoot对象还没有创建，那么就会先创建这个ViewRoot对象，以便接下来可以将它的UI渲染出来。Activity组件创建完成之后，就可以将它激活起来了，这是通过调用ActivityThread类的成员函数handleResumeActivity来执行的。 从前面Android应用程序窗口（Activity）的窗口对象（Window）的创建过程分析一文可以知道，LocalWindowManager类的成员变量mWindowManager指向的是一个WindowManagerImpl对
-    
+当Activity组件被激活的时候，系统如果发现与它的应用程序窗口视图对象所关联的ViewRoot对象还没有创建，那么就会先创建这个ViewRoot对象，以便接下来可以将它的UI渲染出来。Activity组件创建完成之后，就可以将它激活起来了，这是通过调用ActivityThread类的成员函数handleResumeActivity来执行的。 从前面Android应用程序窗口（Activity）的窗口对象（Window）的创建过程分析一文可以知道，
+
+>ActivityThread.java  ViewRoot的创建在ActivityThread的 WindowManagerImpl addView地方
+
+     final void handleResumeActivity(IBinder token, boolean clearHide, boolean isForward) {
+        // If we are getting ready to gc after going to the background, well
+        // we are back active so skip it.
+        unscheduleGcIdler();
+
+        ActivityClientRecord r = performResumeActivity(token, clearHide);               ViewManager wm = a.getWindowManager();
+                WindowManager.LayoutParams l = r.window.getAttributes();
+                a.mDecor = decor;
+                l.type = WindowManager.LayoutParams.TYPE_BASE_APPLICATION;
+                l.softInputMode |= forwardBit;
+                if (a.mVisibleFromClient) {
+                    a.mWindowAdded = true;
+                    wm.addView(decor, l);
+                }
+                
+LocalWindowManager类的成员变量mWindowManager指向的是一个WindowManagerImpl对
+
+>LocalWindowManager.java     
+ 
     private void addView(View view, ViewGroup.LayoutParams params, boolean nest)
     {
         if (Config.LOGV) Log.v("WindowManager", "addView view=" + view);
@@ -344,36 +462,96 @@ ViewRoot相当于是MVC模型中的Controller，它有以下职责：
                 }
             }
             
-            root = new ViewRoot(view.getContext());       
-            
-### ViewRoot本质
-            
+            root = new ViewRoot(view.getContext());      
+            ... 
+                  // do this last because it fires off messages to start doing things
+        root.setView(view, wparams, panelParentView);  
+        
+        
+### ViewRoot本质   root.setView(
+      
+      public final class ViewRoot extends Handler implements ViewParent,
+        View.AttachInfo.Callbacks {
+              
 ViewRoot是GUI管理系统与GUI呈现系统之间的桥梁，根据ViewRoot的定义，我们发现它并不是一个View类型，而是一个Handler。ViewRoot这个类在android的UI结构中扮演的是一个中间者的角色，连接的是PhoneWindow跟WindowManagerService，
 
 它的主要作用如下：
 
 A. 向DecorView分发收到的用户发起的event事件，如按键，触屏，轨迹球等事件；
 
-B. 与WindowManagerService交互，完成整个Activity的GUI的绘制。
-(2)   sWindowSessoin.add()
+> ViewRoot.java   通过IWindowSession与WindowManagerService交互，完成整个Activity的GUI的绘制。
 
 
-requestLayout();  
+    public static IWindowSession getWindowSession(Looper mainLooper) {
+        synchronized (mStaticInit) {
+            if (!mInitialized) {
+                try {
+                    InputMethodManager imm = InputMethodManager.getInstance(mainLooper);
+                    sWindowSession = IWindowManager.Stub.asInterface(
+                            ServiceManager.getService("window"))
+                            .openSession(imm.getClient(), imm.getInputContext());
+                    mInitialized = true;
+                } catch (RemoteException e) {
+                }
+            }
+            return sWindowSession;
+        }
+    }
+  
+      
+    public void setView(View view, WindowManager.LayoutParams attrs,
+            View panelParentView) {
+            void requestLayout() 
+            
+            ...
+           mInputChannel = new InputChannel();
+                try {
+                    res = sWindowSession.add(mWindow, mWindowAttributes,
+                            getHostVisibility(), mAttachInfo.mContentInsets,
+                            mInputChannel);
+            
+            
+   
+       public void requestLayout() {
+        checkThread();
+        mLayoutRequested = true;
+        scheduleTraversals();
+    }
+ 
+ 
+     private void performTraversals() {
+        // cache mView since it is used so much below...
+        final View host = mView;
 
-try {  
-    res = sWindowSession.add(mWindow, mWindowAttributes,  
-            getHostVisibility(), mAttachInfo.mContentInsets);  
-} catch (RemoteException e) {  
+
+> WindowManagerService通过W与Activity的Window交互，完成手势派发等等。   
+ 
+    static class W extends IWindow.Stub {
+        private final WeakReference<ViewRoot> mViewRoot;
+
+        public W(ViewRoot viewRoot, Context context) {
+            mViewRoot = new WeakReference<ViewRoot>(viewRoot);
+        }
 
 在这个方法中只需要关注两个步骤
 
-> requestLayout()
+* requestLayout()
 
   请求WindowManagerService绘制GUI，但是注意一点的是它是在与WindowManagerService建立连接之前绘制，为什么要在建立之前请求绘制呢？其实两者实际的先后顺序是正好相反的，与WMS建立连接在前，绘制GUI在后，那么为什么代码的顺序和执行的顺序不同呢？这里就涉及到ViewRoot的属性了，我们前面提到ViewRoot并不是一个View，而是一个Handler，那么执行的具体流程就是这样的：
     从字面意思理解的话，IWindowSession sWindowSessoin是ViewRoot和WindowManagerService之间的一个会话层，它的实体是在WMS中定义，作为ViewRoot requests WMS的桥梁。
 
 add()方法的第一个参数mWindow是ViewRoot提供给WMS，以便WMS反向通知ViewRoot的接口。由于ViewRoot处在application端，而WMS处在system_server进程，它们处在不同的进程间，因此需要添加这个IWindow接口便于GUI绘制状态的同步。
 
+a)  ActivityThread的handler函数注册了启动一个新的Activity的请求处理LAUNCH_ACTIVITY，LAUNCH_ACTIVITY的处理过程调用到了ViewRoot的setView()方法，因此上图代码在被执行时正处于LAUNCH_ACTIVITY消息的处理过程中。
+
+b)   requestLayout()其实是向messagequeue发送了一个请求绘制GUI的消息，并且ViewRoot和ActivityThread共用同一个MessageQueue(如下图)，因此绘制GUI的过程一定是在LAUNCH_ACTIVITY消息被处理完之后，也就是sWindowSessoin.add()方法调用完之后。
+
+
+* sWindowSessoin.add()
+
+从字面意思理解的话，IWindowSession sWindowSessoin是ViewRoot和WindowManagerService之间的一个会话层，它的实体是在WMS中定义，作为ViewRoot requests WMS的桥梁。
+
+add()方法的第一个参数mWindow是ViewRoot提供给WMS，以便WMS反向通知ViewRoot的接口。由于ViewRoot处在application端，而WMS处在system_server进程，它们处在不同的进程间，因此需要添加这个IWindow接口便于GUI绘制状态的同步。
 ![](http://hi.csdn.net/attachment/201111/10/0_13209336991GIN.gif)
 
 ### 参考文档
