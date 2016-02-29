@@ -26,7 +26,7 @@ WindowManagerGlobals: 一个SingleTon对象，对象里维护了三个数组：
 
 IWindowManager:  主要接口是OpenSession(), 用于在WindowManagerService内部创建和初始化Session, 并返回IBinder对象。
 ISession:  是Activity Window与WindowManagerService 进行对话的主要接口.
-<img src="http://img.blog.csdn.net/20140713113402196?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamluemh1b2p1bg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast/" width=900>
+<img src="http://img.blog.csdn.net/20140713113402196?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamluemh1b2p1bg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast/" width="900">
 
 >ActivityThread  首先启动performLaunchActivity
 
