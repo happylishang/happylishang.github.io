@@ -571,7 +571,8 @@ WindowToken是一个句柄，保存了所有具有同一个token的WindowState�
         mService.mWindowManager.addAppToken(addPos, r, r.task.taskId,  
                             r.info.screenOrientation, r.fullscreen);  
                       
-        r是ActivityRecord类                 
+        r是ActivityRecord类         
+                
         class ActivityRecord extends IApplicationToken.Stub {
 
 AppWindowToken继承于WindowToken，专门用于标识一个Activity。AppWindowToken里的token实际上就是指向了一个Activity。ActivityManagerService通知应用启动的时候，在服务端生成一个token用于标识该Activity，其实是ActivityRecord，并且把该token传递到应用客户端，客户端的Activity在申请添加窗口时，以该token作为标识传递到WindowManagerService。同一个Activity中的主窗口、对话框窗口、菜单窗口都关联到同一个AppWindowToken。
