@@ -51,6 +51,16 @@ dispatchPointer方法就是把这个事件封装成Message发送出去，在View
 	
 onUserInteraction() 是一个空方法，开发者可以根据自己的需求覆写这个方法(这个方法在一个Touch事件的周期肯定会调用到的)。如果判断成立返回True，当前事件就不在传播下去了。 superDispatchTouchEvent(ev) 这个方法做了什么呢？ getWindow().superDispatchTouchEvent(ev) 也就是调用了 PhoneWindow.superDispatchTouchEvent 方法，而这个方法返回的是 mDecor.superDispatchTouchEvent(event)，在内部类 DecorView(上文中的mDecor) 的superDispatchTouchEvent 中调用super.dispatchTouchEvent(event)，而DecorView继承自ViewGroup(通过FrameLayout，FrameLayout没有dispatchTouchEvent)，最终调用的是ViewGroup的dispatchTouchEvent方法。
 
+	               --> performLaunchActivity(ActivityRecord, Intent) : Activity - android.app.ActivityThread
+	               
+performLaunchActivity我们很熟识，因为我前面在讲Activity启动过程详解时候讲过，在启动一个新的Activity会执行该方法，在该方法里面会执行attach方法，找到attach方法对应代码可以看到：
+
+	        mWindow = PolicyManager.makeNewWindow(this);
+	        mWindow.setCallback(this);
+
+mWindow就是一个PhoneWindow，它是Activity的一个内部成员，通过调用mWindow的setCallback(this)，把新建立的Activity设置为PhoneWindow一个mCallback成员，这样我们就清楚了，前面的cb就是拥有这个PhoneWindow的Activity,cb.dispatchTouchEvent(ev)也就是执行：Activity.dispatchTouchEvent
+
+
 Event事件是首先到了 PhoneWindow 的 DecorView 的 dispatchTouchEvent 方法，此方法通过 CallBack 调用了 Activity 的 dispatchTouchEvent 方法，在 Activity 这里，我们可以重写 Activity 的dispatchTouchEvent 方法阻断 touch事件的传播。接着在Activity里的dispatchTouchEvent 方法里，事件又再次传递到DecorView，DecorView通过调用父类(ViewGroup)的dispatchTouchEvent 将事件传给父类处理，也就是我们下面要分析的方法，这才进入网上大部分文章讲解的touch事件传递流程。
 
 为什么要从 PhoneWindow.DecorView 中 传到 Activity，然后在传回 PhoneWindow.DecorView 中呢？ 主要是为了方便在Activity中通过控制dispatchTouchEvent 来控制当前Activity 事件的分发， 下一篇关于数据埋点文章就应用了这个机制，我们要重点分析的就是ViewGroup中的dispatchTouchEvent方法。 
