@@ -63,6 +63,27 @@ category: Java
 	}
 
 ```
+##### 避免在Android内部使用软引用
+
+> A reference that is cleared when its referent is not strongly reachable and there is memory pressure.
+
+> **Avoid Soft References for Caching**
+
+ In practice, soft references are inefficient for caching. The runtime doesn't have enough information on which references to clear and which to keep. Most fatally, it doesn't know what to do when given the choice between clearing a soft reference and growing the heap.
+The lack of information on the value to your application of each reference limits the usefulness of soft references. References that are cleared too early cause unnecessary work; those that are cleared too late waste memory.
+
+ Most applications should use an android.util.LruCache instead of soft references. LruCache has an effective eviction policy and lets the user tune how much memory is allotted.
+
+> **Garbage Collection of Soft References**
+
+When the garbage collector encounters an object obj that is softly-reachable, the following happens:
+A set refs of references is determined. refs contains the following elements:
+All soft references pointing to obj.
+All soft references pointing to objects from which obj is strongly reachable.
+All references in refs are atomically cleared.
+At the same time or some time in the future, all references in refs will be enqueued with their corresponding reference queues, if any.
+The system may delay clearing and enqueueing soft references, yet all SoftReferences pointing to softly reachable objects will be cleared before the runtime throws an OutOfMemoryError.
+Unlike a WeakReference, a SoftReference will not be cleared and enqueued until the runtime must reclaim memory to satisfy an allocation.
 
 ### 2 .弱引用（WeakReference）
 
