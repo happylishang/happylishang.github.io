@@ -1,12 +1,60 @@
 ---
 layout: post
-title: "ToolBar的使用"
+title: "ToolBar与Actionbar的使用"
 description: "Java"
 category: android
 
 ---
 
+#### 两种实现方式配合使用也许更好
+
+给你不用的自定义布局。但是全局的话还是用ActionBar 不过要配合Theme来用。
+
+
+
+#### 去除toolbar中左边距问题 
+
+[去除toolbar中左边距问题 ](http://blog.csdn.net/Android_caishengyan/article/details/50715805)
+
   
+#### 统一的返回Toolbar  多了一层布局
+
+[薄荷Toolbar(ActionBar)的适配方案](http://stormzhang.com/android/2015/08/16/boohee-toolbar/)
+  
+#### ActionBar的处理方式  全局 
+
+*  去除边距的方式
+
+	    <style name="AppTheme1" parent="Theme.AppCompat">
+	        <!-- Customize your theme here. -->
+	        <!-- All customizations that are NOT specific to a particular API-level can go here. -->
+	        <!-- Support library compatibility -->
+	        <item name="actionBarStyle"> @style/MyActionBarStyle</item>
+	    </style>
+	
+	    <style name="MyActionBarStyle" parent="@style/Widget.AppCompat.Light.ActionBar.Solid">
+	    <!-- Support library compatibility -->
+	    <!--解决左边一直有一块边距的问题 contentInsetStart = 0 -->
+	    <item name="contentInsetStart">0dp</item>
+	    <item name="contentInsetEnd">0dp</item>
+	    </style>
+    
+#### BaseActivity
+
+	   protected void onCreate(Bundle savedInstanceState) {
+	       super.onCreate(savedInstanceState);
+	
+	       android.support.v7.app.ActionBar _actionBar =getSupportActionBar();
+	       if(_actionBar !=null){
+	          View bar= LayoutInflater.from(this).inflate(R.layout.lv_tool_bar,null);
+	
+	
+	           _actionBar.setDisplayShowCustomEnabled(true);
+	           _actionBar.setCustomView(bar,new ActionBar.LayoutParams(ActionBar.LayoutParams.MATCH_PARENT, ActionBar.LayoutParams.MATCH_PARENT));
+ 
+
+        }
+                      
 ####  参考文档
 
 [Setting Up the App Bar](http://developer.android.com/intl/zh-cn/training/appbar/setting-up.html#add-toolbar)
