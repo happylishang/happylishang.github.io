@@ -54,6 +54,30 @@ category: android
  
 
         }
+
+
+#### Hide ActionBar title just for one activity
+ 
+You probably want to create a sub-theme which hides the action bar:
+
+	<style name="AppTheme.NoActionBar">
+	    <item name="android:windowActionBar">false</item>
+	</style>
+	
+and then apply it to your activity in the manifest like so:
+
+	<activity android:name="NonActionBarActivity"
+	          android:theme="@style/AppTheme.NoActionBar" />
+	          
+Using the dot notation (AppTheme.NoActionBar) makes this NoActionBar theme inherit everything from AppTheme and override the setting on android:windowActionBar. If you prefer you can explicitly note the parent:
+
+	<style name="AppThemeWithoutActionBar" parent="AppTheme">
+	    <item name="android:windowActionBar">false</item>
+	</style>
+	
+Also, if you're using the AppCompat libraries, you probably want to add a namespace-less version to the sub-theme.
+
+
                       
 ####  参考文档
 
