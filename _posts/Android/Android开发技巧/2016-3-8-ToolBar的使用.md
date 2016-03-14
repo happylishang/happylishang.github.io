@@ -16,7 +16,21 @@ category: android
 
 [去除toolbar中左边距问题 ](http://blog.csdn.net/Android_caishengyan/article/details/50715805)
 
-  
+* 局部方案 当然我们要使用自定义布局才行
+	
+	    <android.support.v7.widget.Toolbar
+	        android:id="@+id/toolbar"
+	        android:layout_width="match_parent"
+	        android:layout_height="?attr/actionBarSize"
+	        android:background="?attr/colorPrimary"
+	        app:contentInsetEnd="0dp"
+	        app:contentInsetStart="0dp" />
+ 
+ Java代码中
+	 
+	 //使用ToolBar的情况  
+	        toolbar.setContentInsetsAbsolute(0, 0);  
+          
 #### 统一的返回Toolbar  多了一层布局
 
 [薄荷Toolbar(ActionBar)的适配方案](http://stormzhang.com/android/2015/08/16/boohee-toolbar/)
@@ -25,16 +39,14 @@ category: android
 
 *  去除边距的方式
 
-	    <style name="AppTheme1" parent="Theme.AppCompat">
-	        <!-- Customize your theme here. -->
-	        <!-- All customizations that are NOT specific to a particular API-level can go here. -->
-	        <!-- Support library compatibility -->
+
+	
+    <style name="AppTheme" parent="Theme.AppCompat">
 	        <item name="actionBarStyle"> @style/MyActionBarStyle</item>
 	    </style>
 	
-	    <style name="MyActionBarStyle" parent="@style/Widget.AppCompat.Light.ActionBar.Solid">
-	    <!-- Support library compatibility -->
-	    <!--解决左边一直有一块边距的问题 contentInsetStart = 0 -->
+	    <style name="MyActionBarStyle" parent="@style/Widget.AppCompat.Light.ActionBar.Solid">	    
+ 	    <!--解决左边一直有一块边距的问题 contentInsetStart = 0 -->
 	    <item name="contentInsetStart">0dp</item>
 	    <item name="contentInsetEnd">0dp</item>
 	    </style>
