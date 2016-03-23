@@ -7,29 +7,103 @@ category: android开发
 ---
 
 > [判断一个Activity的Application是否在运行](#anchor_activity_is_runing)    
-> [Android 6.0 Apache HTTP Client Removal](#COMPILE_SDK_VERSION_23)     
-> [Android 使用android-support-multidex解决Dex超出方法数的限制问题,让你的应用不再爆棚](#android-support-multidex_65535)
+
+
+> [Android 6.0 Apache HTTP Client Removal](#COMPILE_SDK_VERSION_23)  
+   
+
+> [Android 使用android-support-multidex解决Dex超出方法数的限制问题,让你的应用不再爆棚](#android-support-multidex_65535)    
+
+
+> [加速Android Studio的Gradle构建速度](#gradle_speeding)
  
+
+ <a name="gradle_speeding"></>
+####加速Android Studio的Gradle构建速度
+ 
+	org.gradle.daemon=true
+	org.gradle.jvmargs=-Xmx2048m -XX:MaxPermSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+	org.gradle.parallel=true
+	org.gradle.configureondemand=true
+ 
+ <img src="http://139.129.6.122/wp-content/uploads/2015/09/speedup_gradle_2.png" width="800">
+ 
+
+	# Project-wide Gradle settings.
+	
+	# IDE (e.g. Android Studio) users:
+	# Settings specified in this file will override any Gradle settings
+	# configured through the IDE.
+	
+	# For more details on how to configure your build environment visit
+	# http://www.gradle.org/docs/current/userguide/build_environment.html
+	
+	# The Gradle daemon aims to improve the startup and execution time of Gradle.
+	# When set to true the Gradle daemon is to run the build.
+	# TODO: disable daemon on CI, since builds should be clean and reliable on servers
+	org.gradle.daemon=true
+	
+	# Specifies the JVM arguments used for the daemon process.
+	# The setting is particularly useful for tweaking memory settings.
+	# Default value: -Xmx10248m -XX:MaxPermSize=256m
+	org.gradle.jvmargs=-Xmx2048m -XX:MaxPermSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+	
+	# When configured, Gradle will run in incubating parallel mode.
+	# This option should only be used with decoupled projects. More details, visit
+	# http://www.gradle.org/docs/current/userguide/multi_project_builds.html#sec:decoupled_projects
+	org.gradle.parallel=true
+	
+	# Enables new incubating mode that makes Gradle selective when configuring projects. 
+	# Only relevant projects are configured which results in faster builds for large multi-projects.
+	# http://www.gradle.org/docs/current/userguide/multi_project_builds.html#sec:configuration_on_demand
+	org.gradle.configureondemand=true
+
+#### Looper.loop()会创建一个常驻线程除非自己主动结束
+
+ Looper.loop(); 让Looper开始工作，从消息队列里取消息，处理消息。 注意：写在Looper.loop()之后的代码不会被执行，这个函数内部应该是一个循环，当调用mHandler.getLooper().quit()后，loop才会中止，其后的代码才能得以运行。
+
 
  <a name="android-support-multidex_65535"></a>
 #### Android 使用android-support-multidex解决Dex超出方法数的限制问题,让你的应用不再爆棚
 
-	android {  
-	    defaultConfig {  
-	        // Enabling multidex support.  
-	        multiDexEnabled true  
-	    }  
-	}  
-	dependencies {  compile 'com.google.android:multidex:0.1'}  
+[参考文档](http://blog.csdn.net/t12x3456/article/details/40837287) 
 
-	public class MyApplication extends FooApplication {  
-	    @Override  
-	    protected void attachBaseContext(Context base) {  
-	        super.attachBaseContext(base);  
-	        MultiDex.install(this);  
-	    }  
-	}  
- 
+[使用方法](http://www.infoq.com/cn/news/2014/11/android-multidex)
+
+ 1.修改Gradle配置文件，启用MultiDex并包含MultiDex支持：
+
+android { compileSdkVersion 21 buildToolsVersion "21.1.0"
+
+defaultConfig {
+    ...
+    minSdkVersion 14
+    targetSdkVersion 21
+    ...
+
+    // Enabling multidex support.
+    multiDexEnabled true
+}
+...
+}
+
+dependencies { compile 'com.android.support:multidex:1.0.0' } 
+ 让应用支持多DEX文件。在MultiDexApplication JavaDoc中描述了三种可选方法：
+
+* 在AndroidManifest.xml的application中声明android.support.multidex.MultiDexApplication；
+
+* 如果你已经有自己的Application类，让其继承MultiDexApplication；
+
+* 如果你的Application类已经继承自其它类，你不想/能修改它，那么可以重写attachBaseContext()方法：
+
+		@Override 
+		protected void attachBaseContext(Context base) {
+		    super.attachBaseContext(base); MultiDex.install(this);
+		}
+
+
+
+
+
  
  <a name="COMPILE_SDK_VERSION_23"></a>
  
