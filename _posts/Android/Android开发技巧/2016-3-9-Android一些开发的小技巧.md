@@ -6,18 +6,10 @@ category: android开发
 
 ---
 
-> [判断一个Activity的Application是否在运行](#anchor_activity_is_runing)    
-
-
+> [判断一个Activity的Application是否在运行](#anchor_activity_is_runing)   
 > [Android 6.0 Apache HTTP Client Removal](#COMPILE_SDK_VERSION_23)  
-   
-
 > [Android 使用android-support-multidex解决Dex超出方法数的限制问题,让你的应用不再爆棚](#android-support-multidex_65535)    
-
-
 > [加速Android Studio的Gradle构建速度](#gradle_speeding)
- 
-
  <a name="gradle_speeding"></>
 ####加速Android Studio的Gradle构建速度
  
