@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Activity及Fragment后台杀死处理机制"
+title: "Android一些开发的小技巧"
 description: "Java"
 category: android开发
 
