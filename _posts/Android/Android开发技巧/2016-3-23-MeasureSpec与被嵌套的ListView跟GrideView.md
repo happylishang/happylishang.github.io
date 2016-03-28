@@ -8,9 +8,9 @@ category: android开发
  	
 ####  	MeasureSpec的作用
  	
-*  	根据父控件传入的参数，设计自身
+*  	根据父控件传入的参数，设计自身，其实父空间传入的是供你参考的。如果要改变，那就改变
 
-*  	告诉Child控件，应该有什么规范	
+*  	另外，自己可以通过MeasureSpec告诉Child控件，应该有什么规范
 
 *  	MeasureSpec只是个参考，具体将来要多大，还是View自己说了算。如果View自己不定义，wrapcontent就跟matchparent一个效果
  

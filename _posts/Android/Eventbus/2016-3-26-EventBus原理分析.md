@@ -22,6 +22,7 @@ tags: [Binder]
         }
         return defaultInstance;
     }
+    
 多线程共享一个Eventbus单利，所以任何线程都可以直接操作Subscriber列表，对与不同的需求实现不同的任务，配合Hander可以完成各个界面刷新及后台更新等任务。
 
 
@@ -65,26 +66,26 @@ tags: [Binder]
     
     
     
-    
-                case PostThread:
-                invokeSubscriber(subscription, event);
-                break;
-            case MainThread:
-                if (isMainThread) {
-                    invokeSubscriber(subscription, event);
-                } else {
-                    mainThreadPoster.enqueue(subscription, event);
-                }
-                break;
-            case BackgroundThread:
-                if (isMainThread) {
-                    backgroundPoster.enqueue(subscription, event);
-                } else {
-                    invokeSubscriber(subscription, event);
-                }
-                break;
-            case Async:
-                asyncPoster.enqueue(subscription, event);
+
+        case PostThread:
+        invokeSubscriber(subscription, event);
+        break;
+    case MainThread:
+        if (isMainThread) {
+            invokeSubscriber(subscription, event);
+        } else {
+            mainThreadPoster.enqueue(subscription, event);
+        }
+        break;
+    case BackgroundThread:
+        if (isMainThread) {
+            backgroundPoster.enqueue(subscription, event);
+        } else {
+            invokeSubscriber(subscription, event);
+        }
+        break;
+    case Async:
+        asyncPoster.enqueue(subscription, event);
                 
 上面四种只有BackgroundThread跟Async需要进入队列，其他的都不需要，要么直接在当前线程运行，要么发送到UI线程。
 ####   不允许重复注册
