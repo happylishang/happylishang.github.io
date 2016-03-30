@@ -9,7 +9,11 @@ category: android开发
 > [判断一个Activity的Application是否在运行](#anchor_activity_is_runing)   
 > [Android 6.0 Apache HTTP Client Removal](#COMPILE_SDK_VERSION_23)  
 > [Android 使用android-support-multidex解决Dex超出方法数的限制问题,让你的应用不再爆棚](#android-support-multidex_65535)    
-> [加速Android Studio的Gradle构建速度](#gradle_speeding)
+> [加速Android Studio的Gradle构建速度](#gradle_speeding)    
+> [Window Leaked窗体泄漏了Activity has leaked window](#leaked_window)
+ 
+
+
  <a name="gradle_speeding"></>
 ####加速Android Studio的Gradle构建速度
  
@@ -141,6 +145,7 @@ At IO 2014, we release API 20 and build-tools 20.0.0 to go with it.You can use a
  
 * tools是指的安卓开发相关的工具，例如android.bat、ddms.bat(Dalvik debug Monitor Service)、draw9patch.bat等等
 
+
 #### MAC下显示隐藏代码
 
 	defaults write ~/Library/Preferences/com.apple.finder AppleShowAllFiles -bool true  显示代码
@@ -182,4 +187,10 @@ At IO 2014, we release API 20 and build-tools 20.0.0 to go with it.You can use a
 	    return false;
 	}
 	
- 		
+
+<a name="leaked_window"></a>
+#### Window Leaked大概就是说一个窗体泄漏了 Activity com.photos.MainActivity has leaked window  
+ 		 
+Android的每一个Activity都有个WindowManager窗体管理器，同样，构建在某个Activity之上的对话框、PopupWindow也有相应的WindowManager窗体管理器。因为对话框、PopupWindown不能脱离Activity而单独存在着，所以当某个Dialog或者某个PopupWindow正在显示的时候我们去finish()了承载该Dialog(或PopupWindow)的Activity时，就会抛Window Leaked异常了，因为这个Dialog(或PopupWindow)的WindowManager已经没有谁可以附属了，所以它的窗体管理器已经泄漏了。
+
+**WMS会管理所有的Window，而Activity内部创建的Window属于Activity的子Window，如果不自己释放，就会导致窗口泄露。会一直被WMS保持着**
