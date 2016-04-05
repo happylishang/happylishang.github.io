@@ -10,9 +10,9 @@ category: android开发
 > [Android 6.0 Apache HTTP Client Removal](#COMPILE_SDK_VERSION_23)  
 > [Android 使用android-support-multidex解决Dex超出方法数的限制问题,让你的应用不再爆棚](#android-support-multidex_65535)    
 > [加速Android Studio的Gradle构建速度](#gradle_speeding)    
-> [Window Leaked窗体泄漏了Activity has leaked window](#leaked_window)
- 
-
+> [Window Leaked窗体泄漏了Activity has leaked window](#leaked_window)     
+> [MAC下显示隐藏代码](#mac_file_show_orhide)     
+> [Android Webview回调单引号跟双引号的问题](#webview_js_callback)
 
  <a name="gradle_speeding"></>
  
@@ -99,8 +99,6 @@ dependencies { compile 'com.android.support:multidex:1.0.0' }
 
 
 
-
-
  
  <a name="COMPILE_SDK_VERSION_23"></a>
  
@@ -146,6 +144,7 @@ At IO 2014, we release API 20 and build-tools 20.0.0 to go with it.You can use a
  
 * tools是指的安卓开发相关的工具，例如android.bat、ddms.bat(Dalvik debug Monitor Service)、draw9patch.bat等等
 
+<a name="mac_file_show_orhide"></a>
 
 #### MAC下显示隐藏代码
 
@@ -196,3 +195,57 @@ At IO 2014, we release API 20 and build-tools 20.0.0 to go with it.You can use a
 Android的每一个Activity都有个WindowManager窗体管理器，同样，构建在某个Activity之上的对话框、PopupWindow也有相应的WindowManager窗体管理器。因为对话框、PopupWindown不能脱离Activity而单独存在着，所以当某个Dialog或者某个PopupWindow正在显示的时候我们去finish()了承载该Dialog(或PopupWindow)的Activity时，就会抛Window Leaked异常了，因为这个Dialog(或PopupWindow)的WindowManager已经没有谁可以附属了，所以它的窗体管理器已经泄漏了。
 
 **WMS会管理所有的Window，而Activity内部创建的Window属于Activity的子Window，如果不自己释放，就会导致窗口泄露。会一直被WMS保持着**
+
+< a name="webview_js_callback"></a>
+
+#### Android Webview回调单引号跟双引号的问题
+
+**
+对于字符串形式的参数，一定要记住使用单引号 ' 将其包裹，否则 JavaScript （可能）会无法解析这个字符串，提示未定义。 因为js会把未加单引号的字符串当做变量，而不是String常量'号，但是对于字符串要加，当然也比较灵活，只要字符串是'adfadfa',或者“adfa”的格式传递过去就可以！
+**
+
+#### ViewPager 设置自动循环的View的时候，初始postion不能太大，不然会滑动混乱
+
+#### SparseArray代替HashMap<int object>
+
+	private static final SparseArray<String> FROM_INFOS = new SparseArray<String>() 	{
+	        {
+	            put(R.id.xxx, "_stat_from=web_in_wxfriend");
+	            put(R.id.xxx, "_stat_from=web_in_wxmoments");
+	            put(R.id.xxx, "_stat_from=web_in_weibo");
+	     
+	        }
+	    };
+	    
+#### onNewIntent的使用场景 
+
+launchMode为singleTask的时候，通过Intent启到一个Activity,如果系统已经存在一个实例，系统就会将请求发送到这个实例上，但这个时候，系统就不会再调用通常情况下我们处理请求数据的onCreate方法，而是调用onNewIntent方法，这个只是作为一个增补，有的话没坏处，或者说只有好处如下所示:
+
+
+	public void onCreate(Bundle savedInstanceState) {
+	
+	   super.onCreate(savedInstanceState);
+	
+	   setContentView(R.layout.main);
+	
+	   processExtraData();
+	
+	 }
+	
+	 protected void onNewIntent(Intent intent) {
+	
+	   super.onNewIntent(intent);
+	
+	   setIntent(intent);//must store the new intent unless getIntent() will return the old one
+	
+	   processExtraData()
+	
+	 }
+	
+	 private void processExtraData(){
+	
+	   Intent intent = getIntent();
+	
+	   //use the data received here
+	
+	 }	    
