@@ -18,4 +18,5 @@ tags: [android]
 ### 原理
 
 该方案基于android dex分包方案，原理是将编译好的class文件拆分打包成两个dex，绕过dex方法数量的限制以及安装时的检查，在运行时再动态加载第二个dex文件中。
-
+#### AndFix 原理
+参考文档：http://blog.csdn.net/qxs965266509/article/details/49816007http://blog.csdn.net/qxs965266509/article/details/49821413
