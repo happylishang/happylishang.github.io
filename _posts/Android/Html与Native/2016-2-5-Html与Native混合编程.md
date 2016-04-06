@@ -103,6 +103,7 @@ categories: [android,html5]
 	        String newUA = oldUA + " somtString/" + SystemUtil.getAppVersion();
 	        webView.getSettings().setUserAgentString(newUA);
 
+ 
 
 
 ###  Android Webview Cookie
@@ -141,6 +142,65 @@ CookieManager会将这个Cookie存入该应用程序/data/data/databases/目录�
 #### 参考文档 
 
 [ Android JsBridge的原理与实现](http://blog.csdn.net/sbsujjbcy/article/details/50752595)
+ 
+#### 手机端特有的web属性
+
+**参考文档：http://blog.csdn.net/w2865673691/article/details/44941495**
+
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">     
+	<meta content="yes" name="apple-mobile-web-app-capable">     
+	<meta content="black" name="apple-mobile-web-app-status-bar-style">     
+	<meta content="telephone=no" name="format-detection">
+
+第一个meta标签表示：强制让文档的宽度与设备的宽度保持1:1，并且文档最大的宽度比例是1.0，且不允许用户点击屏幕放大浏览；
+
+	width - viewport的宽度 height - viewport的高度   
+	initial-scale - 初始的缩放比例  
+	minimum-scale - 允许用户缩放到的最小比例   
+	maximum-scale - 允许用户缩放到的最大比例  
+	user-scalable - 用户是否可以手动缩放
+	
+第二个meta标签是iphone设备中的safari私有meta标签，它表示：允许全屏模式浏览；
+第三个meta标签也是iphone的私有标签，它指定的iphone中safari顶端的状态条的样式；
+
+#### webview缩放问题
+
+最重要的是让web端控制缩放，而不是自己段处理。
+缩放后，要使内容适配屏幕，不超出屏幕外显示，实现换行。这方面效果应该由html控制，而不是webview控制
+
+         webView.setWebViewClient(yxWebViewClient);
+
+        // 设置可以支持缩放
+        webView.getSettings().setSupportZoom(true);
+        // 设置出现缩放工具
+        webView.getSettings().setBuiltInZoomControls(true);
+        //设置可在大视野范围内上下左右拖动，并且可以任意比例缩放
+        webView.getSettings().setUseWideViewPort(true);
+        //设置默认加载的可视范围是大视野范围
+        webView.getSettings().setLoadWithOverviewMode(true);
+        //自适应屏幕
+        webView.getSettings().setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);
+        
+必须
+
+        // 设置可以支持缩放
+        webView.getSettings().setSupportZoom(true);
+        // 设置出现缩放工具
+        webView.getSettings().setBuiltInZoomControls(true);
+
+如果不想显示控制的缩放按钮
+
+        webView.getSettings().setDisplayZoomControls(false);
+                
+        
+#### 参考文档 
+
+ 
+
+[ Android JSBridge的原理与实现](http://blog.csdn.net/sbsujjbcy/article/details/50752595)
+ 
+[ Android JsBridge的原理与实现](http://blog.csdn.net/sbsujjbcy/article/details/50752595)
+ 
 
 [JS与WebView交互存在的一些问题](http://www.jianshu.com/p/93cea79a2443)
 

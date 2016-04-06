@@ -7,12 +7,16 @@ category: android开发
 ---
 
 > [判断一个Activity的Application是否在运行](#anchor_activity_is_runing)   
+> [获取当前运行的顶层Activity](#anchor_top_activity_runing)   
 > [Android 6.0 Apache HTTP Client Removal](#COMPILE_SDK_VERSION_23)  
 > [Android 使用android-support-multidex解决Dex超出方法数的限制问题,让你的应用不再爆棚](#android-support-multidex_65535)    
 > [加速Android Studio的Gradle构建速度](#gradle_speeding)    
 > [Window Leaked窗体泄漏了Activity has leaked window](#leaked_window)     
 > [MAC下显示隐藏代码](#mac_file_show_orhide)     
-> [Android Webview回调单引号跟双引号的问题](#webview_js_callback)
+> [Android Webview回调单引号跟双引号的问题](#webview_js_callback)    
+
+
+
 
  <a name="gradle_speeding"></>
  
@@ -186,6 +190,100 @@ At IO 2014, we release API 20 and build-tools 20.0.0 to go with it.You can use a
 	    // If not then our app is not on the foreground.
 	    return false;
 	}
+
+
+<a name="anchor_top_activity_runing"></a>
+ 
+#### Android获取当前Activity对象
+
+背景：（当你不能使用this获取Activity对象）如何方便地当前Activity对象
+
+思路：
+
+* 维护一个Activity的対象栈，在每个Activity的生命手气方法执行的时候，控制add和remove，栈顶元素就是当前的Activity对象。为了代码的复用，这个操作可以
+写在BaseActivity中.
+
+
+
+* 使用反射来获取当前Activity对象。（个人认为是相对优雅和解耦的方式）
+
+查看源码发现 Activity Thread 这个类管理着所有的Activity对象，也就持有所有的Activity对象，使用反射获得当前ActivityThread对象
+
+，然后就能拿到当前的Activity对象
+
+示例：
+		
+		public static Activity getCurrentActivity () {
+		
+		Class activityThreadClass = Class.forName("android.app.ActivityThread");
+		
+		Object activityThread = activityThreadClass.getMethod("currentActivityThread").invoke(null);
+		
+		Field activitiesField = activityThreadClass.getDeclaredField("mActivities");
+		
+		activitiesField.setAccessible(true);
+		
+		Map activities = (Map) activitiesField.get(activityThread);
+		
+		for (Object activityRecord : activities.values()) {
+		
+			Class activityRecordClass = activityRecord.getClass();
+		
+			Field pausedField = activityRecordClass.getDeclaredField("paused");
+		
+			pausedField.setAccessible(true);
+		
+		if (!pausedField.getBoolean(activityRecord)) {
+		
+			Field activityField = activityRecordClass.getDeclaredField("activity");
+		
+			activityField.setAccessible(true);
+		
+			Activity activity = (Activity) activityField.get(activityRecord);
+		
+			return activity;
+		
+			 }
+		 
+		  }
+		
+		return null;
+		
+		}
+
+ 
+Having access to the current Activity is very handy. Wouldn’t it be nice to have a static getActivity method returning the current Activity with no unnecessary questions?
+
+The Activity class is very useful. It gives access to the application’s UI thread, views, resources, and many more. Numerous methods require a Context, but how to get the pointer? Here are some ways:
+
+Tracking the application’s state using overridden lifecycle methods. You have to store the current Activity in a static variable and you need access to the code of all Activities.
+Tracking the application’s state using Instrumentation. Declare Instrumentation in the manifest, implement it and use its methods to track Activity changes. Passing an Activity pointer to methods and classes used in your Activities. Injecting the pointer using one of the code injection libraries. All of these approaches are rather inconvenient; fortunately, there is a much easier way to get the current Activity.
+Seems like the system needs access to all Activities without the issues mentioned above. So, most likely there is a way to get Activities using only static calls. I spent a lot of time digging through the Android sources on grepcode.com, and I found what I was looking for. There is a class called ActivityThread. This class has access to all Activities and, what’s even better, has a static method for getting the current ActivityThread. There is only one little problem – the Activity list has package access.
+Easy to solve using reflection:
+
+	public static Activity getActivity() {
+	    Class activityThreadClass = Class.forName("android.app.ActivityThread");
+	    Object activityThread = activityThreadClass.getMethod("currentActivityThread").invoke(null);
+	    Field activitiesField = activityThreadClass.getDeclaredField("mActivities");
+	    activitiesField.setAccessible(true);
+	    HashMap activities = (HashMap) activitiesField.get(activityThread);
+	    for (Object activityRecord : activities.values()) {
+	        Class activityRecordClass = activityRecord.getClass();
+	        Field pausedField = activityRecordClass.getDeclaredField("paused");
+	        pausedField.setAccessible(true);
+	        if (!pausedField.getBoolean(activityRecord)) {
+	            Field activityField = activityRecordClass.getDeclaredField("activity");
+	            activityField.setAccessible(true);
+	            Activity activity = (Activity) activityField.get(activityRecord);
+	            return activity;
+	        }
+	    }
+	}
+Such a method can be used anywhere in the app and it’s much more convenient than all of the mentioned approaches. Moreover, it seems like it’s not as unsafe as it looks. It doesn’t introduce any new potential leaks or null pointers.
+
+The above code snippet lacks exception handling and naively assumes that the first running Activity is the one we’re looking for. You might want to add some additional checks.
+
+ 
 	
 
 <a name="leaked_window"></a>
@@ -196,7 +294,7 @@ Android的每一个Activity都有个WindowManager窗体管理器，同样，构�
 
 **WMS会管理所有的Window，而Activity内部创建的Window属于Activity的子Window，如果不自己释放，就会导致窗口泄露。会一直被WMS保持着**
 
-< a name="webview_js_callback"></a>
+<a name="webview_js_callback"></a>
 
 #### Android Webview回调单引号跟双引号的问题
 
