@@ -103,6 +103,41 @@ categories: [android,html5]
 	        String newUA = oldUA + " somtString/" + SystemUtil.getAppVersion();
 	        webView.getSettings().setUserAgentString(newUA);
 
+
+
+###  Android Webview Cookie
+
+在Android应用程序中经常会加载一个WebView页，如果需要客户端向WebView传递信息，比如Cookie，也是可以的。需要应用程序先将Cookie注入进去，打开该网页时，WebView会将加载的url通过http请求传输到服务器。同时，在这次请求中，会将Cookie信息通过http header传递过去。
+
+客户端通过以下代码设置cookie
+
+	public static void synCookies(Context context, String url) {  
+	        CookieSyncManager.createInstance(context);  
+	        CookieManager cookieManager = CookieManager.getInstance();  
+	        cookieManager.setCookie(url, "uid=1243432");              
+	        CookieSyncManager.getInstance().sync();  
+	    }
+	    
+CookieManager会将这个Cookie存入该应用程序/data/data/databases/目录下的webviewCookiesChromium.db数据库的cookies表中
+
+打开网页，WebView从数据库中读取该cookie值，放到http请求的头部，传递到服务器
+
+客户端可以在注销登录时清除该应用程序用到的所有cookies
+   
+	private void removeCookie(Context context) {
+	        CookieSyncManager.createInstance(context);  
+	        CookieManager cookieManager = CookieManager.getInstance(); 
+	        cookieManager.removeAllCookie();
+	        CookieSyncManager.getInstance().sync();  
+	    }
+
+注:这里一定要注意一点，在调用设置Cookie之后不能再设置
+
+		webView.getSettings().setBuiltInZoomControls(true);  
+		webView.getSettings().setJavaScriptEnabled(true);  
+
+这类属性，否则设置Cookie无效。
+
 #### 参考文档 
 
 [ Android JsBridge的原理与实现](http://blog.csdn.net/sbsujjbcy/article/details/50752595)
