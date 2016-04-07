@@ -13,7 +13,8 @@ category: android开发
 > [加速Android Studio的Gradle构建速度](#gradle_speeding)    
 > [Window Leaked窗体泄漏了Activity has leaked window](#leaked_window)     
 > [MAC下显示隐藏代码](#mac_file_show_orhide)     
-> [Android Webview回调单引号跟双引号的问题](#webview_js_callback)    
+> [Android Webview回调单引号跟双引号的问题](#webview_js_callback)     
+> [Android使用UncaughtExceptionHandler捕获全局异常](#)
 
 
 
@@ -347,3 +348,133 @@ launchMode为singleTask的时候，通过Intent启到一个Activity,如果系统
 	   //use the data received here
 	
 	 }	    
+	 
+<a name="android_UncaughtExceptionHandler"></a>
+	 
+#### Android使用UncaughtExceptionHandler捕获全局异常
+
+	Implemented by objects that want to handle cases where a thread is being terminated by an uncaught exception. Upon such termination, the handler is notified of the terminating thread and causal exception. If there is no explicit handler set then the thread's group is the default handler.
+
+在JDK5.0中， 通过Thread的实例方法setUncaughtExceptionHandler，可以为任何一个Thread设置一个UncaughtExceptionHandler。当然你也可以为所有Thread设置一个默认的UncaughtExceptionHandler，通过调用Thread.setDefaultUncaughtExceptionHandler(Thread.UncaughtExceptionHandler eh)方法,这是Thread的一个static方法。
+
+定义一个Handler类必须实现Thread.UncaughtExceptionHandler接口的void uncaughtException(Thread t, Throwable e)方法。如果不设置一个Handler，那么单个Thread的Handler是null。但是，如果这个单个线程是ThreadGroup中的一个Thread，那么这个线程将使用ThreadGroup的UncaughtExceptionHandler。ThreadGroup自身已经实现了Thread.UncaughtExceptionHandler接口。 
+
+這樣就夠了 。uncaughtException(Thread a, Throwable e)可以拿到Thread，所以在uncaughtException释放相关资源是最好的办法。
+
+   UncaughtExceptionHandler可以用来捕获程序异常，比如NullPointerException空指针异常抛出时，如果用户没有try catch捕获，那么，Android系统会弹出对话框的“XXX程序异常退出”，给应用的用户体验造成不良影响。为了捕获应用运行时异常并给出友好提示，便可继承UncaughtExceptionHandler类来处理。
+   
+   其实，UncaughtExceptionHandler是同线程绑定的，只负责本线程的异常，一般好像应用只会捕获主线程的异常。
+	   
+	   public class CrashHandler implements UncaughtExceptionHandler {  
+	    private static final String TAG = CrashHandler.class.getSimpleName();  
+	  
+	    private static CrashHandler instance; // 单例模式  
+	  
+	    private OnBeforeHandleExceptionListener mListener;  
+	  
+	    private Context context; // 程序Context对象  
+	    private Thread.UncaughtExceptionHandler defalutHandler; // 系统默认的UncaughtException处理类  
+	    private DateFormat formatter = new SimpleDateFormat(  
+	            "yyyy-MM-dd_HH-mm-ss.SSS", Locale.CHINA);  
+	  
+	    private CrashHandler() {  
+	  
+	    }  
+	  
+	    /** 
+	     * 获取CrashHandler实例 
+	     *  
+	     * @return CrashHandler 
+	     */  
+	    public static CrashHandler getInstance() {  
+	        if (instance == null) {  
+	            synchronized (CrashHandler.class) {  
+	                if (instance == null) {  
+	                    instance = new CrashHandler();  
+	                }  
+	            }  
+	        }  
+	  
+	        return instance;  
+	    }  
+	  
+	    /** 
+	     * 异常处理初始化 
+	     *  
+	     * @param context 
+	     */  
+	    public void init(Context context) {  
+	        this.context = context;  
+	        // 获取系统默认的UncaughtException处理器  
+	        defalutHandler = Thread.getDefaultUncaughtExceptionHandler();  
+	        // 设置该CrashHandler为程序的默认处理器  
+	        Thread.setDefaultUncaughtExceptionHandler(this);  
+	    }  
+	  
+	    /** 
+	     * 当UncaughtException发生时会转入该函数来处理 
+	     */  
+	    @Override  
+	    public void uncaughtException(Thread thread, Throwable ex) {  
+	        //异常发生时，先给蓝牙服务端发送OK命令  
+	        if (mListener != null) {  
+	            mListener.onBeforeHandleException();  
+	        }  
+	  
+	        // 自定义错误处理  
+	        boolean res = handleException(ex);  
+	        if (!res && defalutHandler != null) {  
+	            // 如果用户没有处理则让系统默认的异常处理器来处理  
+	            defalutHandler.uncaughtException(thread, ex);  
+	  
+	        } else {  
+	            try {  
+	                Thread.sleep(3000);  
+	            } catch (InterruptedException e) {  
+	                Log.e(TAG, "error : ", e);  
+	            }  
+	            // 退出程序  
+	            android.os.Process.killProcess(android.os.Process.myPid());  
+	            System.exit(1);  
+	        }  
+	    }  
+	  
+	    /** 
+	     * 自定义错误处理,收集错误信息 发送错误报告等操作均在此完成. 
+	     *  
+	     * @param ex 
+	     * @return true:如果处理了该异常信息;否则返回false. 
+	     */  
+	    private boolean handleException(final Throwable ex) {  
+	        if (ex == null) {  
+	            return false;  
+	        }  
+	  
+	        new Thread() {  
+	  
+	            @Override  
+	            public void run() {  
+	                Looper.prepare();  
+	  
+	                ex.printStackTrace();  
+	                String err = "[" + ex.getMessage() + "]";  
+	                Toast.makeText(context, "程序出现异常." + err, Toast.LENGTH_LONG)  
+	                        .show();  
+	  
+	                Looper.loop();  
+	            }  
+	  
+	        }.start();  
+	  
+	        // 收集设备参数信息 \日志信息  
+	        String errInfo = collectDeviceInfo(context, ex);  
+	        // 保存日志文件  
+	        saveCrashInfo2File(errInfo);  
+	        return true;                                                                                                                }  
+	}  	    
+
+应用绑定异常处理方法：	
+
+
+	CrashHandler crashHandler = CrashHandler.getInstance();  
+	crashHandler.init(getApplicationContext());

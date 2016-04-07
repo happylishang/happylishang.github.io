@@ -9,6 +9,14 @@ categories: [TodoLis]
 #### JS
 #### MeasureSpec
 #### Dagger
-#### HotFix
+#### HotFix MutiDex
 #### DynamicLoader
 #### Chromium
+#### 进程模型 Application oncreate多次
+#### UncaughtExceptionHandler
+#### 打包
+#### SPDY Protocol 
+#### 数据结构
+#### 解耦
+#### 外部存储与缓存
+#### PackageClassLoader

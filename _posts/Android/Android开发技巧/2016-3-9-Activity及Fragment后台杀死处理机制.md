@@ -47,6 +47,21 @@ PhoneWindowManager
 
 #### 后台杀死的后果
 
+
+### Activity内部的Fragment后台杀死后重建，不是ViewPager的，由DialogFragment 得到的处理
+
+每次重新创建DialogFragment，不要让系统恢复
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+
+        if (outState != null) {
+            outState.putParcelable("android:support:fragments", null);
+        }
+        super.onSaveInstanceState(outState);
+    }
+   
+   那里具体原因是什么？多个？ 
 #### 如何应对
 
 ###  参考文档
