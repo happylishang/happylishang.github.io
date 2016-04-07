@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Android View定制"
+title: "View的测量原理与自定义View尺寸处理"
 category: View
  
 

@@ -214,43 +214,48 @@ At IO 2014, we release API 20 and build-tools 20.0.0 to go with it.You can use a
 
 示例：
 		
-		public static Activity getCurrentActivity () {
-		
-		Class activityThreadClass = Class.forName("android.app.ActivityThread");
-		
-		Object activityThread = activityThreadClass.getMethod("currentActivityThread").invoke(null);
-		
-		Field activitiesField = activityThreadClass.getDeclaredField("mActivities");
-		
-		activitiesField.setAccessible(true);
-		
-		Map activities = (Map) activitiesField.get(activityThread);
-		
-		for (Object activityRecord : activities.values()) {
-		
-			Class activityRecordClass = activityRecord.getClass();
-		
-			Field pausedField = activityRecordClass.getDeclaredField("paused");
-		
-			pausedField.setAccessible(true);
-		
-		if (!pausedField.getBoolean(activityRecord)) {
-		
-			Field activityField = activityRecordClass.getDeclaredField("activity");
-		
-			activityField.setAccessible(true);
-		
-			Activity activity = (Activity) activityField.get(activityRecord);
-		
-			return activity;
-		
-			 }
-		 
-		  }
-		
-		return null;
-		
-		}
+    public static Activity getCurrentActivity() {
+
+        Class activityThreadClass = null;
+        try {
+            activityThreadClass = Class.forName("android.app.ActivityThread");
+
+
+            Object activityThread = activityThreadClass.getMethod("currentActivityThread").invoke(null);
+
+            Field activitiesField = activityThreadClass.getDeclaredField("mActivities");
+
+            activitiesField.setAccessible(true);
+
+            Map activities = (Map) activitiesField.get(activityThread);
+
+            for (Object activityRecord : activities.values()) {
+
+                Class activityRecordClass = activityRecord.getClass();
+
+                Field pausedField = activityRecordClass.getDeclaredField("paused");
+
+                pausedField.setAccessible(true);
+
+                if (!pausedField.getBoolean(activityRecord)) {
+
+                    Field activityField = activityRecordClass.getDeclaredField("activity");
+
+                    activityField.setAccessible(true);
+
+                    Activity activity = (Activity) activityField.get(activityRecord);
+
+                    return activity;
+
+                }
+
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+
+    }
 
  
 Having access to the current Activity is very handy. Wouldn’t it be nice to have a static getActivity method returning the current Activity with no unnecessary questions?

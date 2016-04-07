@@ -132,12 +132,19 @@ CookieManager会将这个Cookie存入该应用程序/data/data/databases/目录�
 	        CookieSyncManager.getInstance().sync();  
 	    }
 
-注:这里一定要注意一点，在调用设置Cookie之后不能再设置
+**注:这里一定要注意一点，在调用设置Cookie之后不能再设置**
 
 		webView.getSettings().setBuiltInZoomControls(true);  
 		webView.getSettings().setJavaScriptEnabled(true);  
 
 这类属性，否则设置Cookie无效。
+
+**注: cookieManager.setCookie每次设置一项，设置多个可能无效**
+
+**注: cookieManager.setCookie每次设置一项，设置多个可能无效**
+
+**注: cookieManager.setCookie不能采用预先拼接，一次性设置进去**
+
 
 #### 参考文档 
 
