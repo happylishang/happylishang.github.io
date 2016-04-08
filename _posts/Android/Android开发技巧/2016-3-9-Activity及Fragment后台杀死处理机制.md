@@ -55,13 +55,31 @@ PhoneWindowManager
     @Override
     protected void onSaveInstanceState(Bundle outState) {
 
-        if (outState != null) {
+    <!--    if (outState != null) {
+            outState.putParcelable("android:support:fragments", null);
+        }-->
+        super.onSaveInstanceState(outState);
+       <!--放在后面才有效--> 
+            if (outState != null) {
             outState.putParcelable("android:support:fragments", null);
         }
-        super.onSaveInstanceState(outState);
+        
     }
    
    那里具体原因是什么？多个？ 
+   
+   另一种做法
+   
+注：如果是FragmentActivity则在 onCreate之前添加如下
+
+	if (savedInstanceState != null) {
+	                        savedInstanceState.putParcelable(“android:support:fragments”, null);
+	                }
+	super.onCreate(savedInstanceState);
+
+
+如果是actvity改成是“android:fragments"
+
 #### 如何应对
 
 ###  参考文档

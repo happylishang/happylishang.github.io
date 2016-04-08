@@ -20,3 +20,4 @@ categories: [TodoLis]
 #### 解耦
 #### 外部存储与缓存
 #### PackageClassLoader
+#### Fragment的后台杀死重建
