@@ -22,3 +22,4 @@ categories: [TodoLis]
 #### PackageClassLoader
 #### Fragment的后台杀死重建 DialogFragment 为何会显示两个，
 #### Fragment Activity getActivty =null  原理
+#### 序列化 parcel 原理 ，数据与map的不同时存在 

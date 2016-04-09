@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Activity及Fragment后台杀死处理机制"
+title: "FragmentActivity及Fragment原来及后台杀死处理机制"
 description: "Java"
 category: android开发
 
@@ -246,7 +246,103 @@ To correctly interact with fragments in their proper state, you should instead o
 
 
 
-	               
+	
+#### Fragment必须提供默认构造方法的原理 反射机制重建Fragment实例 默认无参构造函数
+
+   void restoreAllState(Parcelable state, ArrayList<Fragment> nonConfig) {	  ...
+           mActive = new ArrayList<Fragment>(fms.mActive.length);
+        if (mAvailIndices != null) {
+            mAvailIndices.clear();
+        }
+        for (int i=0; i<fms.mActive.length; i++) {
+            FragmentState fs = fms.mActive[i];
+            if (fs != null) {
+                Fragment f = fs.instantiate(mActivity, mParent);
+                if (DEBUG) Log.v(TAG, "
+	
+	    /**
+     * Create a new instance of a Fragment with the given class name.  This is
+     * the same as calling its empty constructor.
+     *
+     * @param context The calling context being used to instantiate the fragment.
+     * This is currently just used to get its ClassLoader.
+     * @param fname The class name of the fragment to instantiate.
+     * @param args Bundle of arguments to supply to the fragment, which it
+     * can retrieve with {@link #getArguments()}.  May be null.
+     * @return Returns a new fragment instance.
+     * @throws InstantiationException If there is a failure in instantiating
+     * the given fragment class.  This is a runtime exception; it is not
+     * normally expected to happen.
+     */
+    public static Fragment instantiate(Context context, String fname, @Nullable Bundle args) {
+        try {
+            Class<?> clazz = sClassMap.get(fname);
+            if (clazz == null) {
+                // Class not found in the cache, see if it's real, and try to add it
+                clazz = context.getClassLoader().loadClass(fname);
+                sClassMap.put(fname, clazz);
+            }
+            Fragment f = (Fragment)clazz.newInstance();
+            if (args != null) {
+                args.setClassLoader(f.getClass().getClassLoader());
+                f.mArguments = args;
+            }
+            return f;
+        } catch (ClassNotFoundException e) {
+            throw new InstantiationException("Unable to instantiate fragment " + fname
+                    + ": make sure class name exists, is public, and has an"
+                    + " empty constructor that is public", e);
+        } catch (java.lang.InstantiationException e) {
+            throw new InstantiationException("Unable to instantiate fragment " + fname
+                    + ": make sure class name exists, is public, and has an"
+                    + " empty constructor that is public", e);
+        } catch (IllegalAccessException e) {
+            throw new InstantiationException("Unable to instantiate fragment " + fname
+                    + ": make sure class name exists, is public, and has an"
+                    + " empty constructor that is public", e);
+        }
+    }
+    
+####  Fragment重建流程
+
+*   如果非空，重建Fragment并将它们设置为Initialing，毕竟还没有resume
+
+       if (savedInstanceState != null) {
+            Parcelable p = savedInstanceState.getParcelable(FRAGMENTS_TAG);
+            mFragments.restoreAllState(p, nc != null ? nc.fragments : null);
+        }
+* 第二步，就是专为onCreate
+ 
+        mFragments.dispatchCreate();  
+
+* 第三部 等到Actviity Onresume，就让Fragment resume，至于后面 onPostResume 等待深度剖析
+
+* 第四步 
+
+	    @Override
+	    protected void onResume() {
+	        super.onResume();
+	        mHandler.sendEmptyMessage(MSG_RESUME_PENDING);
+	        mResumed = true;
+	        mFragments.execPendingActions();
+	    } 
+
+* 第五步
+
+	    @Override
+	    protected void onResume() {
+	        super.onResume();
+	        mHandler.sendEmptyMessage(MSG_RESUME_PENDING);
+	        mResumed = true;
+	        mFragments.execPendingActions();
+	    } 
+         
+#### 何时何地调用什么，newState是Actvity的state ，  FragmentManager可以看做是FragmentActvity的管理器  Fragmentmanager会根据mCurState的值，修改当前别添加的fragment的状态，如果是Actvity处于resume状态，那么被添加的fragment就会被处理成激活状态 当然首先要初始化新建的fragment ,然后匹配新状态，是否有必要将状态等级提升。 
+
+ 
+	 final class FragmentManagerImpl extends FragmentManager implements LayoutInflaterFactory {  
+	 
+	     int mCurState = Fragment.INITIALIZING;           
 ###  参考文档
 [Lowmemorykiller笔记](http://blog.csdn.net/guoqifa29/article/details/45370561) **精** 
 
