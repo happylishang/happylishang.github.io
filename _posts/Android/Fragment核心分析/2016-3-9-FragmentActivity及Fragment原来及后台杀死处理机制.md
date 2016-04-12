@@ -337,8 +337,16 @@ To correctly interact with fragments in their proper state, you should instead o
 	        mFragments.execPendingActions();
 	    } 
          
-#### 何时何地调用什么，newState是Actvity的state ，  FragmentManager可以看做是FragmentActvity的管理器  Fragmentmanager会根据mCurState的值，修改当前别添加的fragment的状态，如果是Actvity处于resume状态，那么被添加的fragment就会被处理成激活状态 当然首先要初始化新建的fragment ,然后匹配新状态，是否有必要将状态等级提升。 
+#### 何时何地调用什么，
 
+MVC模式的体现，newState代表是当前Actvity传递给的FragmentManager的state，位于FragmentManager中，FragmentManager可以看做是FragmentActvity的管理器C，Fragmentmanager会根据mCurState的值，修改当前别添加的fragment的状态，如果是Actvity处于resume状态，那么被添加的fragment就会被处理成激活状态 当然首先要初始化新建的fragment ,然后匹配新状态，是否有必要将状态等级提升。 很明显，没有被added或者或者说已经detach的Fragment是不用走到resume的
+
+
+        // Fragments that are not currently added will sit in the onCreate() state.
+        if ((!f.mAdded || f.mDetached) && newState > Fragment.CREATED) {
+            newState = Fragment.CREATED;
+        }
+ 
  
 	 final class FragmentManagerImpl extends FragmentManager implements LayoutInflaterFactory {  
 	 
