@@ -23,3 +23,5 @@ categories: [TodoLis]
 #### Fragment的后台杀死重建 DialogFragment 为何会显示两个，
 #### Fragment Activity getActivty =null  原理
 #### 序列化 parcel 原理 ，数据与map的不同时存在 
+#### 几种不同的存储位置 ，缓存清理，context.getApplicationContext()
+

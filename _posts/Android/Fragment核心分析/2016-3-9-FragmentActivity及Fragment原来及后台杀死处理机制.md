@@ -6,11 +6,84 @@ category: android开发
 
 ---
 
-#### 场景与问题
+>  [背景](#background)    
+>  [FragmentActivity被后台杀死后恢复逻辑](#fragment_activity_restore)    
+>  普通的Fragment流程及所谓Fragment生命周期 依托FragmentActivity进行，       
+>  [FragmentTabHost的后天杀死重建]    
+>  [FragmentPagerAdapter的后台杀死重建]    
+>  [后台杀死处理方式](#how_to_resolve)    
+>  Fragment使用很多坑，尤其是被后台杀死后恢复    
+>  结束语    
+   
+#### 分析问题的方法与步骤
 
-* 什么时候会有这个问题
-* 为什么会有，已经会有什么后果
-* 怎么处理
+* **什么时候会出现这个问题**
+* **为什么会出现**
+* **怎么处理，能解决问题**
+
+<a name="background"></a>
+
+#### 背景
+
+做界面开发的时候，虽然一直遵守谷歌的Android开发文档，创建Fragment尽量采用推荐的参数传递方式，并且保留默认的Fragment无参构造方法，这样避免绝大部分APP被后台杀死，恢复崩溃的问题，但是对于原理的了解紧限于恢复时的重建机制，采用反射机制，并使用了默认的构造参数，直到使用FragmentDialog，示例代码如下：
+
+	public class DialogFragmentActivity extends AppCompatActivity {
+	
+	    @Override
+	    protected void onCreate(Bundle savedInstanceState) {
+	        super.onCreate(savedInstanceState);
+	        setContentView(R.layout.activity_dialog_fragment_test);
+	        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+	        setSupportActionBar(toolbar);
+	        DialogFragment dialogFragment = new FragmentDlg();
+	        dialogFragment.show(getSupportFragmentManager(), "");
+	    }
+
+上面的DialogFragmentActivity内部创建了一个FragmentDialog，并显示，如果，此时被后台杀死，或旋转屏幕，被恢复的DialogFragmentActivity时会出现两个FragmentDialog，一个被系统恢复的，一个新建的。
+
+
+<a name="fragment_activity_restore"></a>
+
+#### FragmentActivity被后台杀死后恢复逻辑
+
+当App被后台异常杀死后，再次点击icon，或者从最近任务列表进入的时候，系统会帮助恢复当时的场景，重新创建Activity，对于FragmentActivity，由于其中有Framgent，逻辑会相对再复杂一些，系统会首先重建被销毁的Fragment。看FragmentActivity的onCreat代码：
+
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
+        this.mFragments.attachHost((Fragment)null);
+        super.onCreate(savedInstanceState);
+        FragmentActivity.NonConfigurationInstances nc = (FragmentActivity.NonConfigurationInstances)this.getLastNonConfigurationInstance();
+        if(nc != null) {
+            this.mFragments.restoreLoaderNonConfig(nc.loaders);
+        }
+
+        if(savedInstanceState != null) {
+            Parcelable p = savedInstanceState.getParcelable("android:support:fragments");
+            this.mFragments.restoreAllState(p, nc != null?nc.fragments:null);
+        }
+
+        this.mFragments.dispatchCreate();
+    }
+    
+可以看出，如果savedInstanceState不为空，并且，缓存了“android:support:fragments”所对应的Fragments，系统会重新恢复Fragment，恢复过程中，最终会调用
+
+    public static Fragment instantiate(Context context, String fname, @Nullable Bundle args) {
+        try {
+            Class<?> clazz = sClassMap.get(fname);
+            if (clazz == null) {
+                // Class not found in the cache, see if it's real, and try to add it
+                clazz = context.getClassLoader().loadClass(fname);
+                sClassMap.put(fname, clazz);
+            }
+            Fragment f = (Fragment)clazz.newInstance();
+            if (args != null) {
+                args.setClassLoader(f.getClass().getClassLoader());
+                f.mArguments = args;
+            }
+
+从Fragment f = (Fragment)clazz.newInstance();也可以看出为需要保留Framgent的默认构造方法。重新创建Framgent之后会返回FragmentActivity，并通过this.mFragments.dispatchCreate();将Framgent设置为onCreated状态。此时正是新建，还未显示。如何显示呢？其实可以有两个Fragment处于onResume状态的。
+
+
+ 
 
 #### 应用何时会被后台杀死
 
@@ -21,11 +94,12 @@ PhoneWindowManager
 	 List<ActivityManager.RecentTaskInfo> recentTasks = am  
 	                .getRecentTasks(MAX_RECENT_TASKS,  
 	                        ActivityManager.RECENT_IGNORE_UNAVAILABLE);  
-	                        
-	                        。。。
-	  /** 
+	                                                。。。
+	/*
+	 * 
      * 切换应用 
      */  
+     
     private void switchTo(RecentTag tag) {  
         if (tag.info.id >= 0) {  
             // 这是一个活跃的任务，所以把它移动到最近任务的前面  
@@ -50,41 +124,37 @@ PhoneWindowManager
 
 ### Activity内部的Fragment后台杀死后重建，不是ViewPager的，由DialogFragment 得到的处理
 
-每次重新创建DialogFragment，不要让系统恢复
+
+#### 如何处理FragmentActivity的后台杀死重建
+
+<a name="how_to_resolve"></a>
+
+* 最简单的方式，但是效率可能一般，取消系统恢复，每次恢复的时候，避免系统重建做法如下
+
+如果是supportv4中的FragmentActivity
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
-
-    <!--    if (outState != null) {
-            outState.putParcelable("android:support:fragments", null);
-        }-->
-        super.onSaveInstanceState(outState);
-       <!--放在后面才有效--> 
-            if (outState != null) {
-            outState.putParcelable("android:support:fragments", null);
-        }
-        
+          super.onSaveInstanceState(outState);   
+           outState.putParcelable("android:support:fragments", null); 
     }
    
-   那里具体原因是什么？多个？ 
-   
- 
-   另一种做法
-   
-注：如果是FragmentActivity则在 onCreate之前添加如下
+或者
 
-	if (savedInstanceState != null) {
-	                        savedInstanceState.putParcelable(“android:support:fragments”, null);
-	                }
-	super.onCreate(savedInstanceState);
+    protected void onCreate(Bundle savedInstanceState) {
+	     if (savedInstanceState != null) {
+	     savedInstanceState.putParcelable(“android:support:fragments”, null);}
+	     super.onCreate(savedInstanceState);
+	}  
 
+如果是系统的Actvity改成是“android:fragments"
+ 
+* 手动选择处理方式，
 
-如果是actvity改成是“android:fragments"
  
- 
+
 ###  原理，
 
-其实，对于很多东西，Fragment 也只是暂存，暂存，并不会处理多余的逻辑，如果想要复用的话，还是需要自己取回原理的东西，数据或者其他的东西。至于恢复Fragment，如果Activity不是主动再次添加，也只是重建而已，不会显示，至于通常的显示，那只是再次添加到界面而已，为何DialogFragment如此明显，因为，他没有添加，会自己显示啊
 
     /**
      * Called by the system, as part of destroying an
@@ -151,8 +221,7 @@ PhoneWindowManager
  
 #### 如何应对
 
-
-#### Activity退回后台，不退出应用 false根Activity
+#### Activity退回后台，不退出应用 False跟Activity
 
     /**
      * Move the task containing this activity to the back of the activity
@@ -174,6 +243,7 @@ PhoneWindowManager
         }
         return false;
     }
+    
 但是back返回键，可能会触发onSaveInstanceState
 
    Android calls onSaveInstanceState() before the activity becomes vulnerable to being destroyed by the system, but does not bother calling it when the instance is actually being destroyed by a user action 
@@ -183,13 +253,8 @@ PhoneWindowManager
 	        
 #### 	Fragment Transactions & Activity State Loss  解决IllegalStateException: Can not perform this action after onSaveInstanceState        
 
-大致意思是说 commit方法是在Activity的onSaveInstanceState()之后调用的，这样会出错，因为onSaveInstanceState
-
-方法是在该Activity即将被销毁前调用，来保存Activity数据的，如果在保存玩状态后再给它添加Fragment就会出错。解决办法就
-
-是把commit（）方法替换成 commitAllowingStateLoss()就行了，其效果是一样的。
-	        
-	        
+大致意思是说 commit方法是在Activity的onSaveInstanceState()之后调用的，这样会出错，因为onSaveInstanceState，方法是在该Activity即将被销毁前调用，来保存Activity数据的，如果在保存玩状态后再给它添加Fragment就会出错。解决办法就是把commit（）方法替换成 commitAllowingStateLoss()就行了，其效果是一样的。
+	        	        
 **How to avoid the exception?**
 
 Avoiding Activity state loss becomes a whole lot easier once you understand what is actually going on. If you’ve made it this far in the post, hopefully you understand a little better how the support library works and why it is so important to avoid state loss in your applications. In case you’ve referred to this post in search of a quick fix, however, here are some suggestions to keep in the back of your mind as you work with FragmentTransactions in your applications:
@@ -260,7 +325,7 @@ To correctly interact with fragments in their proper state, you should instead o
                 Fragment f = fs.instantiate(mActivity, mParent);
                 if (DEBUG) Log.v(TAG, "
 	
-	    /**
+	 /**
      * Create a new instance of a Fragment with the given class name.  This is
      * the same as calling its empty constructor.
      *
@@ -339,6 +404,7 @@ To correctly interact with fragments in their proper state, you should instead o
          
 #### 何时何地调用什么，
 
+ 
 MVC模式的体现，newState代表是当前Actvity传递给的FragmentManager的state，位于FragmentManager中，FragmentManager可以看做是FragmentActvity的管理器C，Fragmentmanager会根据mCurState的值，修改当前别添加的fragment的状态，如果是Actvity处于resume状态，那么被添加的fragment就会被处理成激活状态 当然首先要初始化新建的fragment ,然后匹配新状态，是否有必要将状态等级提升。 很明显，没有被added或者或者说已经detach的Fragment是不用走到resume的
 
 
@@ -348,9 +414,76 @@ MVC模式的体现，newState代表是当前Actvity传递给的FragmentManager�
         }
  
  
+ 
+>  对于FragmentTabhost
+
+ 
 	 final class FragmentManagerImpl extends FragmentManager implements LayoutInflaterFactory {  
 	 
-	     int mCurState = Fragment.INITIALIZING;           
+	     int mCurState = Fragment.INITIALIZING;        
+	     
+
+
+    public void addTab(TabHost.TabSpec tabSpec, Class<?> clss, Bundle args) {
+        tabSpec.setContent(new DummyTabFactory(mContext));
+        String tag = tabSpec.getTag();
+
+        TabInfo info = new TabInfo(tag, clss, args);
+
+        if (mAttached) {
+            // If we are already attached to the window, then check to make
+            // sure this tab's fragment is inactive if it exists.  This shouldn't
+            // normally happen.
+            info.fragment = mFragmentManager.findFragmentByTag(tag);
+            if (info.fragment != null && !info.fragment.isDetached()) {
+                FragmentTransaction ft = mFragmentManager.beginTransaction();
+                ft.detach(info.fragment);
+                ft.commit();
+            }
+        }
+
+        mTabs.add(info);
+        addTab(tabSpec);
+    }
+    
+重建之后，不会再次重建，会根据Tag查找到 ，但是如果，你主动重建，就会重复 。
+
+> 对于FragmentPagerAdapter
+
+    @Override
+    public Object instantiateItem(ViewGroup container, int position) {
+        if (mCurTransaction == null) {
+            mCurTransaction = mFragmentManager.beginTransaction();
+        }
+
+        final long itemId = getItemId(position);
+
+        // Do we already have this fragment?
+        String name = makeFragmentName(container.getId(), itemId);
+        Fragment fragment = mFragmentManager.findFragmentByTag(name);
+        if (fragment != null) {
+            if (DEBUG) Log.v(TAG, "Attaching item #" + itemId + ": f=" + fragment);
+            mCurTransaction.attach(fragment);
+        } else {
+            fragment = getItem(position);
+            if (DEBUG) Log.v(TAG, "Adding item #" + itemId + ": f=" + fragment);
+            mCurTransaction.add(container.getId(), fragment,
+                    makeFragmentName(container.getId(), itemId));
+        }
+        if (fragment != mCurrentPrimaryItem) {
+            fragment.setMenuVisibility(false);
+            fragment.setUserVisibleHint(false);
+        }
+
+        return fragment;
+    }
+         
+ Viewpager跟Fragmenttabhost他们会自己处理，
+
+
+#### Fragment 如果是普通的add方式，那么回复后，如果不处理，就会多出来一个备份
+
+#### 如果是ViewPager或者FragmentAdapter的方式，也许不会    	        
 ###  参考文档
 [Lowmemorykiller笔记](http://blog.csdn.net/guoqifa29/article/details/45370561) **精** 
 
@@ -364,3 +497,5 @@ MVC模式的体现，newState代表是当前Actvity传递给的FragmentManager�
 
  
 [Android开发之InstanceState详解]( http://www.cnblogs.com/hanyonglu/archive/2012/03/28/2420515.html )
+
+[Square：从今天开始抛弃Fragment吧！](http://www.jcodecraeer.com/a/anzhuokaifa/androidkaifa/2015/0605/2996.html)
