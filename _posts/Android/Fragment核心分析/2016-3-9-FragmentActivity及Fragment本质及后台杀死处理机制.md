@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "FragmentActivity及Fragment原来及后台杀死处理机制"
+title: "FragmentActivity及Fragment本质及后台杀死处理机制"
 description: "Java"
 category: android开发
 
@@ -124,10 +124,9 @@ PhoneWindowManager
 
 ### Activity内部的Fragment后台杀死后重建，不是ViewPager的，由DialogFragment 得到的处理
 
+<a name="how_to_resolve"></a>
 
 #### 如何处理FragmentActivity的后台杀死重建
-
-<a name="how_to_resolve"></a>
 
 * 最简单的方式，但是效率可能一般，取消系统恢复，每次恢复的时候，避免系统重建做法如下
 
