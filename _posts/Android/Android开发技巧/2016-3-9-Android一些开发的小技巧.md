@@ -483,3 +483,19 @@ launchMode为singleTask的时候，通过Intent启到一个Activity,如果系统
 
 	CrashHandler crashHandler = CrashHandler.getInstance();  
 	crashHandler.init(getApplicationContext());
+	
+	
+####  TextView单行 或者多行   尾部截断
+	
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:singleLine="true"
+                    android:textColor="@color/selector_text_color_enable_or_disable"
+                    android:textSize="@dimen/text_size_m" />	
+                    多行
+                    
+                    android:ellipsize="end"
+						android:singleLine="false"
+						android:maxLines="3"

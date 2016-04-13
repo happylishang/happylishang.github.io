@@ -8,12 +8,13 @@ category: android开发
 
 >  [背景](#background)    
 >  [FragmentActivity被后台杀死后恢复逻辑](#fragment_activity_restore)    
->  普通的Fragment流程及所谓Fragment生命周期 依托FragmentActivity进行，       
->  [FragmentTabHost的后天杀死重建]    
->  [FragmentPagerAdapter的后台杀死重建]    
+>  [普通的Fragment流程及所谓Fragment生命周期 依托FragmentActivity进行](#life_circle)       
+>  [FragmentTabHost的后天杀死重建](#lFragmentTabHost_restore_life)     
+>  [FragmentPagerAdapter的后台杀死重建](#FragmentPagerAdapter_restore)         
 >  [后台杀死处理方式](#how_to_resolve)    
->  Fragment使用很多坑，尤其是被后台杀死后恢复    
->  结束语    
+>  [Fragment使用很多坑，尤其是被后台杀死后恢复](#Fragment_bugs)         
+>  [结束语](#end)     
+>  [参考文档](#ref_doc)    
    
 #### 分析问题的方法与步骤
 
@@ -39,7 +40,7 @@ category: android开发
 	        dialogFragment.show(getSupportFragmentManager(), "");
 	    }
 
-上面的DialogFragmentActivity内部创建了一个FragmentDialog，并显示，如果，此时被后台杀死，或旋转屏幕，被恢复的DialogFragmentActivity时会出现两个FragmentDialog，一个被系统恢复的，一个新建的。
+上面的DialogFragmentActivity内部创建了一个FragmentDialog，并显示，如果，此时被后台杀死，或旋转屏幕，被恢复的DialogFragmentActivity时会出现两个FragmentDialog，一个被系统恢复的，一个新建的。这种场景对于普通的Fragment也适用。如果单个Activity采用普通的add方式添加，被后台杀死后恢复，就会有两个Fragment出现。
 
 
 <a name="fragment_activity_restore"></a>
@@ -83,7 +84,58 @@ category: android开发
 从Fragment f = (Fragment)clazz.newInstance();也可以看出为需要保留Framgent的默认构造方法。重新创建Framgent之后会返回FragmentActivity，并通过this.mFragments.dispatchCreate();将Framgent设置为onCreated状态。此时正是新建，还未显示。如何显示呢？其实可以有两个Fragment处于onResume状态的。
 
 
+
+
+<a name="life_circle"></a>  
+
+####  所谓Fragment生命周期是依托FragmentActivity的
+
+<a name="lFragmentTabHost_restore_life"></a>
+
+####  FragmentTabHost的后天杀死重建 
+
+<a name="FragmentPagerAdapter_restore"> </a>
+
+####  FragmentPagerAdapter的后台杀死重建    
+
+<a name="how_to_resolve"> </a>   
  
+####  后台杀死处理方式--如何处理FragmentActivity的后台杀死重建
+
+* 最简单的方式，但是效率可能一般，取消系统恢复，每次恢复的时候，避免系统重建做法如下
+
+如果是supportv4中的FragmentActivity
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+          super.onSaveInstanceState(outState);   
+           outState.putParcelable("android:support:fragments", null); 
+    }
+   
+或者
+
+    protected void onCreate(Bundle savedInstanceState) {
+	     if (savedInstanceState != null) {
+	     savedInstanceState.putParcelable(“android:support:fragments”, null);}
+	     super.onCreate(savedInstanceState);
+	}  
+
+如果是系统的Actvity改成是“android:fragments"
+ 
+* 手动选择处理方式，
+
+
+
+<a name="Fragment_bugs"> </a>   
+
+####  Fragment使用很多坑，尤其是被后台杀死后恢复     
+
+<a name="end"> </a>   
+    
+####  结束语  
+
+ 
+
 
 #### 应用何时会被后台杀死
 
@@ -118,38 +170,7 @@ PhoneWindowManager
     }                       
                         
 后台杀死如何处理RecentTaskInfo
-
-#### 后台杀死的后果
-
-
-### Activity内部的Fragment后台杀死后重建，不是ViewPager的，由DialogFragment 得到的处理
-
-<a name="how_to_resolve"></a>
-
-#### 如何处理FragmentActivity的后台杀死重建
-
-* 最简单的方式，但是效率可能一般，取消系统恢复，每次恢复的时候，避免系统重建做法如下
-
-如果是supportv4中的FragmentActivity
-
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-          super.onSaveInstanceState(outState);   
-           outState.putParcelable("android:support:fragments", null); 
-    }
-   
-或者
-
-    protected void onCreate(Bundle savedInstanceState) {
-	     if (savedInstanceState != null) {
-	     savedInstanceState.putParcelable(“android:support:fragments”, null);}
-	     super.onCreate(savedInstanceState);
-	}  
-
-如果是系统的Actvity改成是“android:fragments"
  
-* 手动选择处理方式，
-
  
 
 ###  原理，
@@ -169,9 +190,7 @@ PhoneWindowManager
      This function is called purely as an optimization, and you must
      * not rely on it being called.  When it is called, a number of guarantees
      * will be made to help optimize configuration switching:
-     
-     
-     
+        
     /**
      * Retain all appropriate fragment and loader state.  You can NOT
      * override this yourself!  Use {@link #onRetainCustomNonConfigurationInstance()}
@@ -479,10 +498,10 @@ MVC模式的体现，newState代表是当前Actvity传递给的FragmentManager�
          
  Viewpager跟Fragmenttabhost他们会自己处理，
 
+   
 
-#### Fragment 如果是普通的add方式，那么回复后，如果不处理，就会多出来一个备份
-
-#### 如果是ViewPager或者FragmentAdapter的方式，也许不会    	        
+<a name="ref_doc"/>
+	        
 ###  参考文档
 [Lowmemorykiller笔记](http://blog.csdn.net/guoqifa29/article/details/45370561) **精** 
 
