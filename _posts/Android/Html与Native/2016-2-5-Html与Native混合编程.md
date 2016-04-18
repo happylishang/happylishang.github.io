@@ -154,7 +154,11 @@ CookieManager会将这个Cookie存入该应用程序/data/data/databases/目录�
 
 **参考文档：http://blog.csdn.net/w2865673691/article/details/44941495**
 
+    不能缩放
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">     
+	
+	可以缩放
+	<meta content="width=device-width, initial-scale=1.0, user-scalable=yes" name="viewport">  
 	<meta content="yes" name="apple-mobile-web-app-capable">     
 	<meta content="black" name="apple-mobile-web-app-status-bar-style">     
 	<meta content="telephone=no" name="format-detection">

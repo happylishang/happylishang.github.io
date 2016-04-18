@@ -14,7 +14,11 @@ category: android开发
 > [Window Leaked窗体泄漏了Activity has leaked window](#leaked_window)     
 > [MAC下显示隐藏代码](#mac_file_show_orhide)     
 > [Android Webview回调单引号跟双引号的问题](#webview_js_callback)     
-> [Android使用UncaughtExceptionHandler捕获全局异常](#)
+> [Android使用UncaughtExceptionHandler捕获全局异常](#android_UncaughtExceptionHandler)     
+> [TextView单行及多行处理断行的问题](#textview_mutil_lines)
+> [Webview多级网页回退](#webview_muti_level)      
+> [Android类似的沉浸式改变StatueBar颜色](#statue_bar_color)    
+>   
 
 
 
@@ -484,6 +488,7 @@ launchMode为singleTask的时候，通过Intent启到一个Activity,如果系统
 	CrashHandler crashHandler = CrashHandler.getInstance();  
 	crashHandler.init(getApplicationContext());
 	
+<a name="textview_mutil_lines"/>
 	
 ####  TextView单行 或者多行   尾部截断
 	
@@ -499,3 +504,45 @@ launchMode为singleTask的时候，通过Intent启到一个Activity,如果系统
                     android:ellipsize="end"
 						android:singleLine="false"
 						android:maxLines="3"
+
+但是如果在代码里面不用	 android:singleLine="false"，如果用了反而无效
+
+<a name="statue_bar_color"/>
+
+#### 控制状态栏的颜色--采用第三方兼容库 
+						
+[参考文档  SystemBarTint ](https://github.com/jgilfelt/SystemBarTint)
+						
+    public void setStatueBarColor(@ColorRes int colorResId) {
+        int color = ResourcesUtil.getColor(colorResId);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            getWindow().setStatusBarColor(color);
+        } else {
+            SystemBarTintManager manager = new SystemBarTintManager(this);
+            manager.setStatusBarTintEnabled(true);
+            manager.setTintColor(color);
+        }
+    }	
+    
+    
+< a name="webview_muti_level"/>
+    					
+#### webview 多级网页
+    
+When your WebView overrides URL loading, it automatically accumulates a history of visited web pages. You can navigate backward and forward through the history with goBack() and goForward().
+
+For example, here's how your Activity can use the device Back button to navigate backward:
+    
+	@Override
+	public boolean onKeyDown(int keyCode, KeyEvent event) {
+	    // Check if the key event was the Back button and if there's history
+	    if ((keyCode == KeyEvent.KEYCODE_BACK) && myWebView.canGoBack()) {
+	        myWebView.goBack();
+	        return true;
+	    }
+	    // If it wasn't the Back key or there's no web page history, bubble up to the default
+	    // system behavior (probably exit the activity)
+	    return super.onKeyDown(keyCode, event);
+	}
+	
+The canGoBack() method returns true if there is actually web page history for the user to visit. Likewise, you can use canGoForward() to check whether there is a forward history. If you don't perform this check, then once the user reaches the end of the history, goBack() or goForward() does nothing.
