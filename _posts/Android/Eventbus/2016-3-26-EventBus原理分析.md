@@ -6,10 +6,9 @@ category: EventBus
 tags: [Binder]
 
 ---
-
-### EventBus原理解析
-
+ 
 ####单利模式
+
 
     /** Convenience singleton for apps using a process-wide EventBus instance. */
     public static EventBus getDefault() {
@@ -88,6 +87,7 @@ tags: [Binder]
         asyncPoster.enqueue(subscription, event);
                 
 上面四种只有BackgroundThread跟Async需要进入队列，其他的都不需要，要么直接在当前线程运行，要么发送到UI线程。
+
 ####   不允许重复注册
   
         // Must be called in synchronized block
@@ -119,6 +119,43 @@ tags: [Binder]
         }
     }
     
+    
+#### EventBus  注册/注销代码理解
+
+        <!--添加到相应的EventBus订阅列表-->
+        int size = subscriptions.size();
+        for (int i = 0; i <= size; i++) {
+            if (i == size || newSubscription.priority > subscriptions.get(i).priority) {
+                subscriptions.add(i, newSubscription);
+                break;
+            }
+        }
+       
+       <!--为了方便Unregister 缓存一下，，不用再次遍历类的方法数列表-->
+
+        List<Class<?>> subscribedEvents = typesBySubscriber.get(subscriber);
+        if (subscribedEvents == null) {
+            subscribedEvents = new ArrayList<Class<?>>();
+            typesBySubscriber.put(subscriber, subscribedEvents);
+        }
+        subscribedEvents.add(eventType);
+
+
+注销
+
+    /** Unregisters the given subscriber from all event classes. */
+    public synchronized void unregister(Object subscriber) {
+        List<Class<?>> subscribedTypes = typesBySubscriber.get(subscriber);
+        if (subscribedTypes != null) {
+            for (Class<?> eventType : subscribedTypes) {
+                unubscribeByEventType(subscriber, eventType);
+            }
+            typesBySubscriber.remove(subscriber);
+        } else {
+            Log.w(TAG, "Subscriber to unregister was not registered before: " + subscriber.getClass());
+        }
+    }
+
 #### 参考文档
 
 [Android解耦库EventBus的使用和源码分析](http://blog.csdn.net/yuanzeyao/article/details/38174537)

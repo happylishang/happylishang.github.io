@@ -546,3 +546,19 @@ For example, here's how your Activity can use the device Back button to navigate
 	}
 	
 The canGoBack() method returns true if there is actually web page history for the user to visit. Likewise, you can use canGoForward() to check whether there is a forward history. If you don't perform this check, then once the user reaches the end of the history, goBack() or goForward() does nothing.
+
+
+#### trying to use a recycled bitmap android.graphics.Bitmap@xxx 原理
+
+* Manage Memory on Android 2.3.3 and Lower
+
+*  [参考文档](http://developer.android.com/intl/zh-cn/training/displaying-bitmaps/manage-memory.html)
+
+
+On Android 2.3.3 (API level 10) and lower, using recycle() is recommended. If you're displaying large amounts of bitmap data in your app, you're likely to run into OutOfMemoryError errors. The recycle() method allows an app to reclaim memory as soon as possible.
+
+	Caution: You should use recycle() only when you are sure that the bitmap is no longer being used. If you call recycle() and later attempt to draw the bitmap, you will get the error: "Canvas: trying to use a recycled bitmap".
+
+
+当你根据id从drawable（drawable资源文件夹）中获取一个drawable时，系统会将这个drawable加入缓存之中。这样，你第二次继续获取这个drawable时，如果缓存之中的drawable没有被回收，则会被返回。
+如果你通过getDrawable(id)方法获取到一个bitmap1，继续通过getDrawable(id)方法获取到一个bitmap2。那么bitmap1=bitmap2。所以，当你对bitmap1进行recycle之后，又将bitmap2设置给Imageview显示，极大可能会出现java.lang.RuntimeException: Canvas: trying to use a recycled bitmap android.graphics.Bitmap@xxx的错误。
