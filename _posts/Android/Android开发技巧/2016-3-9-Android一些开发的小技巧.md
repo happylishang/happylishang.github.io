@@ -18,7 +18,9 @@ category: android开发
 > [TextView单行及多行处理断行的问题](#textview_mutil_lines)
 > [Webview多级网页回退](#webview_muti_level)      
 > [Android类似的沉浸式改变StatueBar颜色](#statue_bar_color)    
->   
+> [trying to use a recycled bitmap android.graphics.](#recycled_bitmap)     
+> [Shape巧妙使用避免无谓切图](#shape_img)       
+> [缓存路径与缓存清理](#cache_and_clean)
 
 
 
@@ -174,7 +176,7 @@ At IO 2014, we release API 20 and build-tools 20.0.0 to go with it.You can use a
 	 * Checking Whether any Activity of Application is running or not
 	 * @param context
 	 * @return
-	 */
+	 */	 	 
 	 
 	public static boolean isForeground(Context context) {
 	
@@ -548,6 +550,8 @@ For example, here's how your Activity can use the device Back button to navigate
 The canGoBack() method returns true if there is actually web page history for the user to visit. Likewise, you can use canGoForward() to check whether there is a forward history. If you don't perform this check, then once the user reaches the end of the history, goBack() or goForward() does nothing.
 
 
+<a name="recycled_bitmap"/>
+
 #### trying to use a recycled bitmap android.graphics.Bitmap@xxx 原理
 
 * Manage Memory on Android 2.3.3 and Lower
@@ -562,3 +566,69 @@ On Android 2.3.3 (API level 10) and lower, using recycle() is recommended. If yo
 
 当你根据id从drawable（drawable资源文件夹）中获取一个drawable时，系统会将这个drawable加入缓存之中。这样，你第二次继续获取这个drawable时，如果缓存之中的drawable没有被回收，则会被返回。
 如果你通过getDrawable(id)方法获取到一个bitmap1，继续通过getDrawable(id)方法获取到一个bitmap2。那么bitmap1=bitmap2。所以，当你对bitmap1进行recycle之后，又将bitmap2设置给Imageview显示，极大可能会出现java.lang.RuntimeException: Canvas: trying to use a recycled bitmap android.graphics.Bitmap@xxx的错误。
+
+ 
+ 
+<a name="shape_img"/>
+
+#### 巧妙的使用Shape减少切图
+
+	<shape xmlns:android="http://schemas.android.com/apk/res/android">
+	    <gradient
+	        android:angle="270"
+	        android:endColor="@color/transparent"
+	        android:startColor="@color/black" />
+	</shape>
+
+
+<a name="cache_and_clean"/>
+
+#### 缓存路径与缓存清理 
+
+
+	getCacheDir()方法用于获取/data/data/<application package>/cache目录
+	getFilesDir()方法用于获取/data/data/<application package>/files目录
+ 
+ 
+应用程序在运行的过程中如果需要向手机上保存数据，一般是把数据保存在SDcard中的。
+大部分应用是直接在SDCard的根目录下创建一个文件夹，然后把数据保存在该文件夹中。
+这样当该应用被卸载后，这些数据还保留在SDCard中，留下了垃圾数据。
+如果你想让你的应用被卸载后，与该应用相关的数据也清除掉，该怎么办呢？
+
+
+	通过Context.getExternalFilesDir()方法可以获取到 SDCard/Android/data/你的应用的包名/files/ 目录，一般放一些长时间保存的数据
+	
+	通过Context.getExternalCacheDir()方法可以获取到 SDCard/Android/data/你的应用包名/cache/目录，一般存放临时缓存数据
+
+如果使用上面的方法，当你的应用在被用户卸载后，SDCard/Android/data/你的应用的包名/ 这个目录下的所有文件都会被删除，不会留下垃圾信息。
+
+而且上面二个目录分别对应 设置->应用->应用详情里面的”清除数据“与”清除缓存“选项
+
+
+	public File getDiskCacheDir(Context context, String uniqueName) {  
+	    String cachePath;  
+	    if (Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState())  
+	            || !Environment.isExternalStorageRemovable()) {  
+	        cachePath = context.getExternalCacheDir().getPath();  
+	    } else {  
+	        cachePath = context.getCacheDir().getPath();  
+	    }  
+	    return new File(cachePath + File.separator + uniqueName);  
+	} 
+	
+参考文档http://blog.csdn.net/u011494050/article/details/39671159
+
+	Environment.getDataDirectory() = /data
+	Environment.getDownloadCacheDirectory() = /cache
+	Environment.getExternalStorageDirectory() = /mnt/sdcard
+	Environment.getExternalStoragePublicDirectory(“test”) = /mnt/sdcard/test
+	Environment.getRootDirectory() = /system
+	getPackageCodePath() = /data/app/com.my.app-1.apk
+	getPackageResourcePath() = /data/app/com.my.app-1.apk
+	getCacheDir() = /data/data/com.my.app/cache
+	getDatabasePath(“test”) = /data/data/com.my.app/databases/test
+	getDir(“test”, Context.MODE_PRIVATE) = /data/data/com.my.app/app_test
+	getExternalCacheDir() = /mnt/sdcard/Android/data/com.my.app/cache
+	getExternalFilesDir(“test”) = /mnt/sdcard/Android/data/com.my.app/files/test
+	getExternalFilesDir(null) = /mnt/sdcard/Android/data/com.my.app/files
+	getFilesDir() = /data/data/com.my.app/files
