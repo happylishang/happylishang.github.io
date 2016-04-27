@@ -6,13 +6,15 @@ category: android开发
 
 ---
 
->  [背景](#background)    
+>  [背景](#background)   
+>  [add一个Fragment并显示的原理](#add_fragment)        
 >  [FragmentActivity被后台杀死后恢复逻辑](#fragment_activity_restore)    
 >  [普通的Fragment流程及所谓Fragment生命周期 依托FragmentActivity进行](#life_circle)       
 >  [FragmentTabHost的后天杀死重建](#lFragmentTabHost_restore_life)     
 >  [FragmentPagerAdapter的后台杀死重建](#FragmentPagerAdapter_restore)         
 >  [后台杀死处理方式](#how_to_resolve)    
->  [Fragment使用很多坑，尤其是被后台杀死后恢复](#Fragment_bugs)         
+>  [Fragment使用很多坑，尤其是被后台杀死后恢复](#Fragment_bugs)    
+>  [Can not perform this action after onSaveInstanceState](#Can_not_onSaveInstanceState)          
 >  [结束语](#end)     
 >  [参考文档](#ref_doc)    
    
@@ -42,7 +44,213 @@ category: android开发
 
 上面的DialogFragmentActivity内部创建了一个FragmentDialog，并显示，如果，此时被后台杀死，或旋转屏幕，被恢复的DialogFragmentActivity时会出现两个FragmentDialog，一个被系统恢复的，一个新建的。这种场景对于普通的Fragment也适用。如果单个Activity采用普通的add方式添加，被后台杀死后恢复，就会有两个Fragment出现。
 
+<a name="add_fragment"/>
 
+#### Add一个Fragment并显示的原理
+
+通常我们FragmentActivity使用Fragment的方法如下：
+
+	Fragment fr = Fragment.instance("")
+	getSupportFragmentManager().beginTransaction()
+	.add(R.id.container,fr).commit();
+
+其中	getSupportFragmentManager返回的是 FragmentManagerImpl，踏实FragmentActivity的一个内部变量，其实Android无处不采用了设计模式，这里就是FragmentActivity把逻辑的管理交给FragmentManagerImpl，
+
+    final FragmentManagerImpl mFragments = new FragmentManagerImpl();
+    final FragmentContainer mContainer = new FragmentContainer() {
+        @Override
+        @Nullable
+        public View findViewById(int id) {
+            return FragmentActivity.this.findViewById(id);
+        }
+
+        @Override
+        public boolean hasView() {
+            Window window = FragmentActivity.this.getWindow();
+            return (window != null && window.peekDecorView() != null);
+        }
+    };
+
+FragmentManagerImpl的beginTransaction()函数返回的是一个BackStackRecord()
+
+    @Override
+    public FragmentTransaction beginTransaction() {
+        return new (this);
+    }
+    
+其实从名字就可以看出，只是FragmentActivity里面回退栈的一条记录，add函数实现如下，
+
+    public FragmentTransaction add(Fragment fragment, String tag) {
+        doAddOp(0, fragment, tag, OP_ADD);
+        return this;
+    }
+    
+为什么说FragmentManager是FragmentActivity的C，看下面：
+
+	final class FragmentManagerImpl extends FragmentManager implements LayoutInflaterFactory {
+	    static boolean DEBUG = false;
+	    static final String TAG = "FragmentManager";
+	    
+	    static final boolean HONEYCOMB = android.os.Build.VERSION.SDK_INT >= 11;
+	
+	    static final String TARGET_REQUEST_CODE_STATE_TAG = "android:target_req_state";
+	    static final String TARGET_STATE_TAG = "android:target_state";
+	    static final String VIEW_STATE_TAG = "android:view_state";
+	    static final String USER_VISIBLE_HINT_TAG = "android:user_visible_hint";
+	
+	    ArrayList<Runnable> mPendingActions;
+	    Runnable[] mTmpActions;
+	    boolean mExecutingActions;
+	    
+	    ArrayList<Fragment> mActive;
+	    ArrayList<Fragment> mAdded;
+	    ArrayList<Integer> mAvailIndices;
+	    ArrayList<BackStackRecord> mBackStack;
+	    ArrayList<Fragment> mCreatedMenus;
+可以看出FragmentManagerImpl维护一个Activity所有的Fragment，Fragments可以看做是M，V是Activity自身。FragmentManagerImpl的State是和Activity的State一致的，这是管理Fragment的关键。其实Fragment自身是没有什么生命周期的，完全依靠FragmentManagerImpl模拟。
+
+fragment.mFragmentManager都会指向Activity中唯一的FragmentManager，其实对于每个add，Android都将他们封装成一个度里的Action，在每个Action内部自己处理自己的逻辑，这个做法值得学习，
+
+
+    private void doAddOp(int containerViewId, Fragment fragment, String tag, int opcmd) {
+        fragment.mFragmentManager = mManager;
+
+        if (tag != null) {
+            if (fragment.mTag != null && !tag.equals(fragment.mTag)) {
+                throw new IllegalStateException("Can't change tag of fragment "
+                        + fragment + ": was " + fragment.mTag
+                        + " now " + tag);
+            }
+            fragment.mTag = tag;
+        }
+
+        if (containerViewId != 0) {
+            if (fragment.mFragmentId != 0 && fragment.mFragmentId != containerViewId) {
+                throw new IllegalStateException("Can't change container ID of fragment "
+                        + fragment + ": was " + fragment.mFragmentId
+                        + " now " + containerViewId);
+            }
+            fragment.mContainerId = fragment.mFragmentId = containerViewId;
+        }
+
+        Op op = new Op();
+        op.cmd = opcmd;
+        op.fragment = fragment;
+        addOp(op);
+    }
+        
+之后commit这个Transaction
+
+    public int commit() {
+        return commitInternal(false);
+    }
+    
+在真正处理这个 Transaction之前，或者说更新UI之前，Android做了一项检查，就是当前的
+
+    int commitInternal(boolean allowStateLoss) {
+        if (mCommitted) throw new IllegalStateException("commit already called");
+        if (FragmentManagerImpl.DEBUG) {
+            Log.v(TAG, "Commit: " + this);
+            LogWriter logw = new LogWriter(TAG);
+            PrintWriter pw = new PrintWriter(logw);
+            dump("  ", null, pw, null);
+        }
+        mCommitted = true;
+        if (mAddToBackStack) {
+            mIndex = mManager.allocBackStackIndex(this);
+        } else {
+            mIndex = -1;
+        }
+        mManager.enqueueAction(this, allowStateLoss);
+        return mIndex;
+    }
+
+    public void enqueueAction(Runnable action, boolean allowStateLoss) {
+        if (!allowStateLoss) {
+            checkStateLoss();
+        }
+        synchronized (this) {
+            if (mDestroyed || mActivity == null) {
+                throw new IllegalStateException("Activity has been destroyed");
+            }
+            if (mPendingActions == null) {
+                mPendingActions = new ArrayList<Runnable>();
+            }
+            mPendingActions.add(action);
+            if (mPendingActions.size() == 1) {
+                mActivity.mHandler.removeCallbacks(mExecCommit);
+                mActivity.mHandler.post(mExecCommit);
+            }
+        }
+    }
+
+为什么会有Can not perform this action after onSaveInstanceState
+
+    private void checkStateLoss() {
+        if (mStateSaved) {
+            throw new IllegalStateException(
+                    "Can not perform this action after onSaveInstanceState");
+        }
+        if (mNoTransactionsBecause != null) {
+            throw new IllegalStateException(
+                    "Can not perform this action inside of " + mNoTransactionsBecause);
+        }
+    }
+    
+最终会回调 FragmentManager的方法
+
+    public void addFragment(Fragment fragment, boolean moveToStateNow) {
+        if (mAdded == null) {
+            mAdded = new ArrayList<Fragment>();
+        }
+        if (DEBUG) Log.v(TAG, "add: " + fragment);
+        makeActive(fragment);
+        if (!fragment.mDetached) {
+            if (mAdded.contains(fragment)) {
+                throw new IllegalStateException("Fragment already added: " + fragment);
+            }
+            mAdded.add(fragment);
+            fragment.mAdded = true;
+            fragment.mRemoving = false;
+            if (fragment.mHasMenu && fragment.mMenuVisible) {
+                mNeedMenuInvalidate = true;
+            }
+            if (moveToStateNow) {
+                moveToState(fragment);
+            }
+        }
+    }    
+    
+这里看一下添加VIew的代码，其实Fragment只是View的一个比较复杂的封装
+
+
+     void moveToState(Fragment f, int newState, int transit, int transitionStyle,
+            boolean keepActive) {
+        // Fragments that are not currently added will sit in the onCreate() state.
+        if ((!f.mAdded || f.mDetached) && newState > Fragment.CREATED) {
+            newState = Fragment.CREATED;
+        }
+        
+                            f.mContainer = container;
+                            f.mView = f.performCreateView(f.getLayoutInflater(
+                                    f.mSavedFragmentState), container, f.mSavedFragmentState);
+                            if (f.mView != null) {
+                                f.mInnerView = f.mView;
+                                if (Build.VERSION.SDK_INT >= 11) {
+                                    ViewCompat.setSaveFromParentEnabled(f.mView, false);
+                                } else {
+                                    f.mView = NoSaveStateFrameLayout.wrap(f.mView);
+                                }
+                                if (container != null) {
+                                    Animation anim = loadAnimation(f, transit, true,
+                                            transitionStyle);
+                                    if (anim != null) {
+                                        f.mView.startAnimation(anim);
+                                    }
+                                    container.addView(f.mView);
+                                }
+                                
+    
 <a name="fragment_activity_restore"></a>
 
 #### FragmentActivity被后台杀死后恢复逻辑
@@ -267,11 +475,20 @@ PhoneWindowManager
    Android calls onSaveInstanceState() before the activity becomes vulnerable to being destroyed by the system, but does not bother calling it when the instance is actually being destroyed by a user action 
 (such as pressing the BACK key) 
 
-
+<a name="Can_not_onSaveInstanceState"/>
 	        
-#### 	Fragment Transactions & Activity State Loss  解决IllegalStateException: Can not perform this action after onSaveInstanceState        
+#### 	Fragment Transactions & Activity State Loss  解决IllegalStateException: Can not perform this action after onSaveInstanceState     
+
+   
 
 大致意思是说 commit方法是在Activity的onSaveInstanceState()之后调用的，这样会出错，因为onSaveInstanceState，方法是在该Activity即将被销毁前调用，来保存Activity数据的，如果在保存玩状态后再给它添加Fragment就会出错。解决办法就是把commit（）方法替换成 commitAllowingStateLoss()就行了，其效果是一样的。
+	        	       
+Dispatch onResume() to fragments. Note that for better inter-operation with older versions of the platform, at the point of this call the fragments attached to the activity are not resumed. This means that in some cases the previous state may still be saved, not allowing fragment transactions that modify the state. To correctly interact with fragments in their proper state, you should instead override onResumeFragments()
+	        	       
+官方文档 对FragmentActivity.onResume的解释：将onResume() 分发给fragment。注意，为了更好的和旧版本兼容，这个方法调用的时候，依附于这个activity的fragment并没有到resumed状态。着意味着在某些情况下，前面的状态可能被保存了，此时不允许fragment transaction再修改状态。从根本上说，你不能确保activity中的fragment在调用Activity的OnResume函数后是否是onresumed状态，因此你应该避免在执行fragment transactions直到调用了onResumeFragments函数。
+总的来说就是，你无法确定activity当前的fragment在activity onResume的时候也跟着resumed了，因此要避免在onResumeFragments之前进行fragment transaction，因为到onResumeFragments的时候，状态已经恢复并且它们的确是resumed了的。
+
+
 	        	        
 **How to avoid the exception?**
 
@@ -503,6 +720,9 @@ MVC模式的体现，newState代表是当前Actvity传递给的FragmentManager�
 <a name="ref_doc"/>
 	        
 ###  参考文档
+
+[Fragment Transactions & Activity State Loss](http://www.androiddesignpatterns.com/2013/08/fragment-transaction-commit-state-loss.html)精      
+
 [Lowmemorykiller笔记](http://blog.csdn.net/guoqifa29/article/details/45370561) **精** 
 
 [Fragment实例化，Fragment生命周期源码分析](http://johnnyyin.com/2015/05/19/android-fragment-life-cycle.html)
