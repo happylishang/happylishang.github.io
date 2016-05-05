@@ -554,8 +554,6 @@ To correctly interact with fragments in their proper state, you should instead o
 	                return this;
 	        }
 
-
-
 	
 #### Fragment必须提供默认构造方法的原理 反射机制重建Fragment实例 默认无参构造函数
 

@@ -8,11 +8,8 @@ category: android开发
 
 
 ####  基于Android源码4.3
-#### Activity后台杀死原理--总结一句话，进程死了，但是现场还在，AMS端根据保留的现场恢复进程 --ActivityStack
 
-#### 场景
-#### 原理
-#### 注意事项
+#### Activity后台杀死原理--总结一句话，进程死了，但是现场还在，AMS端根据保留的现场恢复进程 --ActivityStack
 
 #### 场景
 
@@ -382,6 +379,84 @@ ActivityManagerService
 	    critical
 	    socket lmkd seqpacket 0660 system system
  
+#### 注意事项 
+
+一般需要注意的是Fragment的处理
+
+#### 正常退出的处理机制
+
+按返回键调用onBackPressed，finish自己。
+
+    public void finishActivity(int requestCode) {
+        if (mParent == null) {
+            try {
+                ActivityManagerNative.getDefault()
+                    .finishSubActivity(mToken, mEmbeddedID, requestCode);
+            } catch (RemoteException e) {
+                // Empty
+            }
+        } else {
+            mParent.finishActivityFromChild(this, requestCode);
+        }
+    }
+    
+AMS端
+
+
+	   public final void finishSubActivity(IBinder token, String resultWho,
+	            int requestCode) {
+	        synchronized(this) {
+	            final long origId = Binder.clearCallingIdentity();
+	            mMainStack.finishSubActivityLocked(token, resultWho, requestCode);
+	            Binder.restoreCallingIdentity(origId);
+	        }
+	    }
+   
+        
+       void makeFinishing() {
+        if (!finishing) {
+            finishing = true;
+            if (task != null && inHistory) {
+            <!-- -- 可以跟上对应-->
+                task.numActivities--;
+            }
+            if (stopped) {
+                clearOptionsLocked();
+            }
+        }
+    }
+        
+AMS PAUSE之后调用stop，APP端都是被动相应，其实APP端，都是被动响应，看着像主动，但是全是委派。
+ 
+  
+                    mStoppingActivities.add(prev);
+                    if (mStoppingActivities.size() > 3) {
+                        // If we already have a few activities waiting to stop,
+                        // then give up on things going idle and start clearing
+                        // them out.
+            
+                        scheduleIdleLocked();
+                         
+ 
+之后调用的时候，r.activity.mFinished就是true，不会再次保存现场
+
+       if (finished) {
+            r.activity.mFinished = true;
+        }
+
+                if (!r.activity.mFinished && saveState) {
+                state = new Bundle();
+                state.setAllowFds(false);
+                mInstrumentation.callActivityOnSaveInstanceState(r.activity, state);
+                r.state = state;
+            }
+            
+#### 强制杀死问题
+
+	? I/ActivityManager: Process com.ls.tools (pid 12284) has died
+	05-05 15:26:13.124 762-10606/? W/ActivityManager: Force removing ActivityRecord{1a378c0 u0 com.ls.tools/.activity.KillBackGroundActivity t759}: app died, no saved state
+	05-05 15:26:13.135 12803-12803/? I/art: Late-enabling -Xcheck:jni
+
 
 #### 参考文档
 
