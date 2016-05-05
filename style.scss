@@ -89,13 +89,20 @@ pre code {
 }
  
 code {
-    font-family: Consolas, Monaco, Andale Mono, monospace;
-    border: 1px solid #CCCCCC;
-    border-radius: 1px;
-    font-size: 14px;
-    padding: 0 0.2em;
-    line-height: 1;
+    // font-family: Consolas, Monaco, Andale Mono, monospace;
+    // border: 1px solid #CCCCCC;
+    // border-radius: 1px;
+    // font-size: 13px;
+    // padding: 0 0.2em;
+    // line-height: 1;
+      background: #EFFFF4;
+  border: solid 0px #939393;
+  font-size: 14px;
+  clear: both;
+  padding: 10px 20px;
 }
+
+
  
 pre > code {
     border: 0;
