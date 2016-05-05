@@ -6,6 +6,8 @@ category: android开发
 
 ---
 
+###### **前言：Fragment只是View管理的一种方式**
+
 >  [背景](#background)   
 >  [add一个Fragment并显示的原理](#add_fragment)        
 >  [FragmentActivity被后台杀死后恢复逻辑](#fragment_activity_restore)    
@@ -14,7 +16,10 @@ category: android开发
 >  [FragmentPagerAdapter的后台杀死重建](#FragmentPagerAdapter_restore)         
 >  [后台杀死处理方式](#how_to_resolve)    
 >  [Fragment使用很多坑，尤其是被后台杀死后恢复](#Fragment_bugs)    
->  [Can not perform this action after onSaveInstanceState](#Can_not_onSaveInstanceState)          
+>  [Can not perform this action after onSaveInstanceState](#Can_not_onSaveInstanceState)  
+          
+>  为什么返回主菜单，但是再回来不重建呢？？  
+
 >  [结束语](#end)     
 >  [参考文档](#ref_doc)    
    
@@ -28,7 +33,7 @@ category: android开发
 
 #### 背景
 
-做界面开发的时候，虽然一直遵守谷歌的Android开发文档，创建Fragment尽量采用推荐的参数传递方式，并且保留默认的Fragment无参构造方法，这样避免绝大部分APP被后台杀死，恢复崩溃的问题，但是对于原理的了解紧限于恢复时的重建机制，采用反射机制，并使用了默认的构造参数，直到使用FragmentDialog，示例代码如下：
+开发的时候，虽然一直遵守谷歌的Android开发文档，创建Fragment尽量采用推荐的参数传递方式，并且保留默认的Fragment无参构造方法，这样避免绝大部分APP被后台杀死，恢复崩溃的问题，但是对于原理的了解紧限于恢复时的重建机制，采用反射机制，并使用了默认的构造参数，直到使用FragmentDialog，示例代码如下：
 
 	public class DialogFragmentActivity extends AppCompatActivity {
 	
@@ -221,7 +226,7 @@ fragment.mFragmentManager都会指向Activity中唯一的FragmentManager，其�
         }
     }    
     
-这里看一下添加VIew的代码，其实Fragment只是View的一个比较复杂的封装
+这里看一下添加View的代码，其实Fragment只是View的一个比较复杂的封装，FragmentManager最后将Fragment在Activity中显示出来。
 
 
      void moveToState(Fragment f, int newState, int transit, int transitionStyle,
@@ -250,6 +255,8 @@ fragment.mFragmentManager都会指向Activity中唯一的FragmentManager，其�
                                     container.addView(f.mView);
                                 }
                                 
+
+之后根据当前Activity的状态，决定是否显示Fragment，这里是正常的流程，至于后台杀死，就要看第二个异常处理的流程。
     
 <a name="fragment_activity_restore"></a>
 
@@ -298,6 +305,8 @@ fragment.mFragmentManager都会指向Activity中唯一的FragmentManager，其�
 
 ####  所谓Fragment生命周期是依托FragmentActivity的
 
+
+
 <a name="lFragmentTabHost_restore_life"></a>
 
 ####  FragmentTabHost的后天杀死重建 
@@ -305,11 +314,12 @@ fragment.mFragmentManager都会指向Activity中唯一的FragmentManager，其�
 <a name="FragmentPagerAdapter_restore"> </a>
 
 ####  FragmentPagerAdapter的后台杀死重建    
-
+       
 <a name="how_to_resolve"> </a>   
  
 ####  后台杀死处理方式--如何处理FragmentActivity的后台杀死重建
 
+                
 * 最简单的方式，但是效率可能一般，取消系统恢复，每次恢复的时候，避免系统重建做法如下
 
 如果是supportv4中的FragmentActivity
@@ -737,3 +747,9 @@ MVC模式的体现，newState代表是当前Actvity传递给的FragmentManager�
 [Android开发之InstanceState详解]( http://www.cnblogs.com/hanyonglu/archive/2012/03/28/2420515.html )
 
 [Square：从今天开始抛弃Fragment吧！](http://www.jcodecraeer.com/a/anzhuokaifa/androidkaifa/2015/0605/2996.html)
+
+[对Android近期任务列表（Recent Applications）的简单分析](http://www.cnblogs.com/coding-way/archive/2013/06/05/3118732.html)
+
+[ Android——内存管理-lowmemorykiller 机制](http://blog.csdn.net/jscese/article/details/47317765)    
+
+[ ActivityStackSupervisor分析](http://blog.csdn.net/guoqifa29/article/details/40015127)

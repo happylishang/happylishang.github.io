@@ -632,3 +632,6 @@ On Android 2.3.3 (API level 10) and lower, using recycle() is recommended. If yo
 	getExternalFilesDir(“test”) = /mnt/sdcard/Android/data/com.my.app/files/test
 	getExternalFilesDir(null) = /mnt/sdcard/Android/data/com.my.app/files
 	getFilesDir() = /data/data/com.my.app/files
+	
+	尽量不要写死绝对路径，比如/sdcard/
+	尽量获取
