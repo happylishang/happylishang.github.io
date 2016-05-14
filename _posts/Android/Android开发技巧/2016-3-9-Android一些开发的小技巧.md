@@ -20,7 +20,13 @@ category: android开发
 > [Android类似的沉浸式改变StatueBar颜色](#statue_bar_color)    
 > [trying to use a recycled bitmap android.graphics.](#recycled_bitmap)     
 > [Shape巧妙使用避免无谓切图](#shape_img)       
-> [缓存路径与缓存清理](#cache_and_clean)
+> [缓存路径与缓存清理](#cache_and_clean)       
+> [Uri方法集合](#uri_method)      
+> [定制View判断是否可以上滚](#view_can_scroll)
+> 调试后台杀死，
+
+
+其实如果不做MVP，很简单，但是如果做了，就要考虑怎么配合，怎么获取整体刷新，如果不要获取当前Fragment，那无所谓，基本自足就可以了，甚至连位置都不用记录
 
 
 
@@ -635,3 +641,35 @@ On Android 2.3.3 (API level 10) and lower, using recycle() is recommended. If yo
 	
 	尽量不要写死绝对路径，比如/sdcard/
 	尽量获取
+
+<a name="uri_method"/>
+
+#### Uri方法集合   
+
+	   Uri uri = Uri.parse(url);
+       Uri.getScheme() 
+       Uri.getHost();
+                    //添加点击专题中商品的埋点
+                    if (TextUtils.equals(host, ConstantsRT.GOOD_DETAIL_ROUTER_PATH)) {
+                        int goodsId = Integer.parseInt(uri.getQueryParameter(ConstantsRT.GOOD_DETAIL_ROUTER_PARAM));
+                        if (canTrackTopicId() && goodsId > 0) {
+                          String string=  uri.getQueryParameter(ConstantsRT.SUBJECT_ROUTER_PATH);
+
+<a name="view_can_scroll"/>
+
+### 定制View判断是否可以上滚
+
+    public boolean canChildScrollUp() {
+        if (android.os.Build.VERSION.SDK_INT < 14) {
+            if (mTarget instanceof AbsListView) {
+                final AbsListView absListView = (AbsListView) mTarget;
+                return absListView.getChildCount() > 0
+                        && (absListView.getFirstVisiblePosition() > 0 || absListView.getChildAt(0)
+                                .getTop() < absListView.getPaddingTop());
+            } else {
+                return ViewCompat.canScrollVertically(mTarget, -1) || mTarget.getScrollY() > 0;
+            }
+        } else {
+            return ViewCompat.canScrollVertically(mTarget, -1);
+        }
+    }

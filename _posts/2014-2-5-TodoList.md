@@ -24,5 +24,7 @@ categories: [TodoLis]
 #### Fragment Activity getActivty =null  原理
 #### 序列化 parcel 原理 ，数据与map的不同时存在 
 #### 几种不同的存储位置 ，缓存清理，context.getApplicationContext()
-#### 返回键 Activity退出源码分析
+#### 返回键 Activity退出源码分析 （isfinishing 后台会配置）
+#### Service后台进程，前台进程区别，进程的几种状态
+#### recycleView动画
 

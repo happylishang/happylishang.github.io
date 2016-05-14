@@ -16,10 +16,9 @@ category: android开发
 >  [FragmentPagerAdapter的后台杀死重建](#FragmentPagerAdapter_restore)         
 >  [后台杀死处理方式](#how_to_resolve)    
 >  [Fragment使用很多坑，尤其是被后台杀死后恢复](#Fragment_bugs)    
->  [Can not perform this action after onSaveInstanceState](#Can_not_onSaveInstanceState)  
-          
->  为什么返回主菜单，但是再回来不重建呢？？  
-
+>  [Can not perform this action after onSaveInstanceState](#Can_not_onSaveInstanceState)           
+>  为什么返回主菜单，但是再回来不重建呢？？  可以看看是否存活，虽然保存了，但是不用oncreate，就不用重建        
+>  onSaveInstanceState与OnRestoreInstance的调用时机       
 >  [结束语](#end)     
 >  [参考文档](#ref_doc)    
    
@@ -189,7 +188,7 @@ fragment.mFragmentManager都会指向Activity中唯一的FragmentManager，其�
         }
     }
 
-为什么会有Can not perform this action after onSaveInstanceState
+为什么会有Can not perform this action after onSaveInstanceState 
 
     private void checkStateLoss() {
         if (mStateSaved) {
@@ -313,12 +312,96 @@ fragment.mFragmentManager都会指向Activity中唯一的FragmentManager，其�
 
 <a name="FragmentPagerAdapter_restore"> </a>
 
-####  FragmentPagerAdapter的后台杀死重建    
+####  FragmentPagerAdapter的后台杀死重建 
+
+ViewPager的情形，ViewPager其实在要看看怎么serCurrent，如果设置了一次，后台杀死后View 重建，注意VIew重建会setCurrent。
+
+其实ViewPager默认支持重建，但是如果MVP开发Presenter就要注意是否合理的被创建。菜单是佛可以刷新
+
+    @Override
+    public HomeFragmentItem getItem(int position) {
+        HomeFragmentItem fragment = null;
+        if (mFragmentHashMap.get(position) == null) {
+            Class frgClass = mFragments[position];
+            try {
+                frgClass.newInstance();
+                fragment = (HomeFragmentItem) frgClass.newInstance();
+                mFragmentHashMap.put(position, fragment);
+            } catch (InstantiationException e) {
+                e.printStackTrace();
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            }
+        } else {
+            fragment = mFragmentHashMap.get(position);
+        }
+        return fragment;
+    }
+
+    @Override
+    public Object instantiateItem(ViewGroup container, int position) {
+        HomeFragmentItem fragmentItem = (HomeFragmentItem) super.instantiateItem(container, position);
+        mFragmentHashMap.put(position, fragmentItem);
+        return fragmentItem;
+    }
+    
+
+mFirstLayout =true 可能是还没有创建Fragment，那么我们就不能获取Fragment，也不能使用里面的东西，但是可以调用dispatchOnPageSelected，至于里面如何操作就不知道了
+
+        if (mFirstLayout) {
+            // We don't have any idea how big we are yet and shouldn't have any pages either.
+            // Just set things up and let the pending layout handle things.
+            
+            <!--这里是说 ，可能没有页面，但是页面的回调可以做。其实这里如果牵扯到了Menu等回调，也许还有问题-->
+            
+            mCurItem = item;
+            if (dispatchSelected) {
+                dispatchOnPageSelected(item);
+            }
+            requestLayout();
+        } else {
+            populate(item);
+            scrollToItem(item, smoothScroll, velocity, dispatchSelected);
+        }
+  
+  其实注意创建过程，如果开始FragmentActivity中存在备份，就不用再次getItem。
+  
+      @Override
+    public Object instantiateItem(ViewGroup container, int position) {
+        if (mCurTransaction == null) {
+            mCurTransaction = mFragmentManager.beginTransaction();
+        }
+
+        final long itemId = getItemId(position);
+
+        // Do we already have this fragment?
+        String name = makeFragmentName(container.getId(), itemId);
+        Fragment fragment = mFragmentManager.findFragmentByTag(name);
+        if (fragment != null) {
+            if (DEBUG) Log.v(TAG, "Attaching item #" + itemId + ": f=" + fragment);
+            mCurTransaction.attach(fragment);
+        } else {
+            fragment = getItem(position);
+            if (DEBUG) Log.v(TAG, "Adding item #" + itemId + ": f=" + fragment);
+            mCurTransaction.add(container.getId(), fragment,
+                    makeFragmentName(container.getId(), itemId));
+        }
+        if (fragment != mCurrentPrimaryItem) {
+            fragment.setMenuVisibility(false);
+            fragment.setUserVisibleHint(false);
+        }
+
+        return fragment;
+    }
+  
+      private static String makeFragmentName(int viewId, long id) {
+        return "android:switcher:" + viewId + ":" + id;
+    }        
+
        
 <a name="how_to_resolve"> </a>   
  
 ####  后台杀死处理方式--如何处理FragmentActivity的后台杀死重建
-
                 
 * 最简单的方式，但是效率可能一般，取消系统恢复，每次恢复的时候，避免系统重建做法如下
 
@@ -352,8 +435,40 @@ fragment.mFragmentManager都会指向Activity中唯一的FragmentManager，其�
     
 ####  结束语  
 
- 
 
+
+####  OnRestoreInstanceState的调用时机是在什么时候？
+
+
+                mInstrumentation.callActivityOnCreate(activity, r.state);
+                if (!activity.mCalled) {
+                    throw new SuperNotCalledException(
+                        "Activity " + r.intent.getComponent().toShortString() +
+                        " did not call through to super.onCreate()");
+                }
+                r.activity = activity;
+                r.stopped = true;
+                if (!r.activity.mFinished) {
+                    activity.performStart();
+                    r.stopped = false;
+                }
+                if (!r.activity.mFinished) {
+                    if (r.state != null) {
+                        mInstrumentation.callActivityOnRestoreInstanceState(activity, r.state);
+                    }
+                }
+                if (!r.activity.mFinished) {
+                    activity.mCalled = false;
+                    mInstrumentation.callActivityOnPostCreate(activity, r.state);
+                    if (!activity.mCalled) {
+                        throw new SuperNotCalledException(
+                            "Activity " + r.intent.getComponent().toShortString() +
+                            " did not call through to super.onPostCreate()");
+                    }
+                }
+            }
+            
+            
 
 #### 应用何时会被后台杀死
 
@@ -497,6 +612,8 @@ Dispatch onResume() to fragments. Note that for better inter-operation with olde
 	        	       
 官方文档 对FragmentActivity.onResume的解释：将onResume() 分发给fragment。注意，为了更好的和旧版本兼容，这个方法调用的时候，依附于这个activity的fragment并没有到resumed状态。着意味着在某些情况下，前面的状态可能被保存了，此时不允许fragment transaction再修改状态。从根本上说，你不能确保activity中的fragment在调用Activity的OnResume函数后是否是onresumed状态，因此你应该避免在执行fragment transactions直到调用了onResumeFragments函数。
 总的来说就是，你无法确定activity当前的fragment在activity onResume的时候也跟着resumed了，因此要避免在onResumeFragments之前进行fragment transaction，因为到onResumeFragments的时候，状态已经恢复并且它们的确是resumed了的。
+
+不当的commit场景：
 
 
 	        	        
@@ -723,7 +840,20 @@ MVC模式的体现，newState代表是当前Actvity传递给的FragmentManager�
          
  Viewpager跟Fragmenttabhost他们会自己处理，
 
-   
+  
+  
+ 
+####  奇葩的毕现 
+
+Here is the solution,
+
+This problem occurs if tab selection action performs after onSaveInstanceState get called. One example like, if user selects and holds any tab and at the same time also selects the Home Button.
+
+To solve this issue just
+
+	call mTabHost.getTabWidget().setEnabled(false); under onPause of the Fragment/Activity
+	and call mTabHost.getTabWidget().setEnabled(true); under onResume. 
+
 
 <a name="ref_doc"/>
 	        

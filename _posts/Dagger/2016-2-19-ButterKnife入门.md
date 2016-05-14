@@ -51,19 +51,26 @@ categories: [android,ButterKnife]
 
 Butter Knife使用动态生成的代码，这可能使ProGuard认为这些代码是无用的。为了避免这些代码被混淆，你可以添加如下代码到你的ProGuard中：
 
--keep class butterknife.** { *; }
--dontwarn butterknife.internal.**
--keep class **$$ViewBinder { *; }
+	-keep class butterknife.** { *; }
+	-dontwarn butterknife.internal.**
+	-keep class **$$ViewBinder { *; }
+	
+	-keepclasseswithmembernames class * {
+	    @butterknife.* <fields>;
+	}
+	
+	-keepclasseswithmembernames class * {
+	    @butterknife.* <methods>;
+	}
 
--keepclasseswithmembernames class * {
-    @butterknife.* <fields>;
-}
-
--keepclasseswithmembernames class * {
-    @butterknife.* <methods>;
-}
-
- 
+####  如果上面不行，试试下面
+	
+	-keep class butterknife.** { *; }
+	-dontwarn butterknife.internal.**
+	-keep class **$$ViewBinder { *; }
+	-dontwarn butterknife.internal.**
+	-keep class **$$ViewInjector { *; }
+	-keepnames class * { @butterknife.InjectView *;}
 
 
 #### 参考文档

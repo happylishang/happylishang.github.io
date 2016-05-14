@@ -156,6 +156,15 @@ tags: [Binder]
         }
     }
 
+#### 使用注意事项 混淆注意 版本2.4.1
+
+	#EventBus
+	-keep class de.greenrobot.**{*;}
+	-keepclassmembers class ** {
+	    public void onEvent*(**);
+	    void onEvent*(**);
+	}
+
 #### 参考文档
 
 [Android解耦库EventBus的使用和源码分析](http://blog.csdn.net/yuanzeyao/article/details/38174537)

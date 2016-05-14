@@ -6,6 +6,7 @@ category: android开发
 
 ---
 
+#### 对于APP，所有的处理都是被动响应，Android是基于操作系统的被动式开发。
 
 ####  基于Android源码4.3
 
