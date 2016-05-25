@@ -23,7 +23,8 @@ category: android开发
 > [缓存路径与缓存清理](#cache_and_clean)       
 > [Uri方法集合](#uri_method)      
 > [定制View判断是否可以上滚](#view_can_scroll)
-> 调试后台杀死，
+> 调试后台杀死，    
+> [代码中如何用一些小红点 小方框 颜色做icon](#icon_shape)      
 
 
 其实如果不做MVP，很简单，但是如果做了，就要考虑怎么配合，怎么获取整体刷新，如果不要获取当前Fragment，那无所谓，基本自足就可以了，甚至连位置都不用记录
@@ -673,3 +674,13 @@ On Android 2.3.3 (API level 10) and lower, using recycle() is recommended. If yo
             return ViewCompat.canScrollVertically(mTarget, -1);
         }
     }
+    
+<a name="icon_shape"/>
+
+####  如何创建代码的小icon
+   
+                colorDrawable = new ShapeDrawable(new OvalShape());
+            colorDrawable.setIntrinsicWidth(mDotSize);
+            colorDrawable.setIntrinsicHeight(mDotSize);
+            colorDrawable.getPaint().setStyle(Paint.Style.FILL);
+            textView.setCompoundDrawablesWithIntrinsicBounds(null, null, colorDrawable, null);

@@ -593,6 +593,8 @@ WindowState 创建后，会以 IWindow 为 key (对应应用进程中的 ViewRoo
         AppWindowToken mTargetAppToken;
         
 上面的部分足够各部分通信使用
+  
+  <img src="http://img.blog.csdn.net/20140701194427750?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveWFuZ3dlbjEyMw==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" />
        
 ### 参考文档
 

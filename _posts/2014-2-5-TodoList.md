@@ -27,4 +27,10 @@ categories: [TodoLis]
 #### 返回键 Activity退出源码分析 （isfinishing 后台会配置）
 #### Service后台进程，前台进程区别，进程的几种状态
 #### recycleView动画
+#### 4.3回收机制跟5.1回收机制区别
 
+### RecycleView 
+
+decoration
+自适应 scroolview
+流畅 ，动效

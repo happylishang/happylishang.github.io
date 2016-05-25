@@ -1,6 +1,6 @@
 ---
 layout: default
-title: InputManager输入子系统 
+title: 一次点击事件的旅程 - InputManager输入子系统 
 category: [android]
 
 ---

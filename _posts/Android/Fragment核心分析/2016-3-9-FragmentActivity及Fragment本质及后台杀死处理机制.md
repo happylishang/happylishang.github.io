@@ -398,7 +398,7 @@ mFirstLayout =true 可能是还没有创建Fragment，那么我们就不能获�
         return "android:switcher:" + viewId + ":" + id;
     }        
 
-       
+        
 <a name="how_to_resolve"> </a>   
  
 ####  后台杀死处理方式--如何处理FragmentActivity的后台杀死重建
