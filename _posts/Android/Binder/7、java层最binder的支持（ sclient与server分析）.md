@@ -17,6 +17,13 @@ tags: [Binder]
 
 #### 7.1 Java层的使用方式，看下层实现的支持。为什么aidl，就够了？
 
+####     ActivityThread::scheduleBindService()
+
+binderService 之后会将onBinder返回的Binder注册到binder驱动，但是这里并不一定要注册到ServiceManager，因为你不通过getService获取service，其实只要获取binder，就可以，AMS也可以返回，还独立，不然会乱。这里也说明。一个Binder Thread 可以对英国各Binder实体。
+
+
+    
+
 ###### 首先为什么需要aidl？
 
 下面是不需要aidl 的binder的IPC通讯过程，
@@ -385,3 +392,95 @@ Java层客户端的Binder代理都是BinderProxy，而且他们都是在native�
 	
 	    return object;
 	}
+
+####     ActivityThread::scheduleBindService()函數其实是注册的服务的地方 其实是注册到AMS中，binderService是跟AMS交互而非ServiceManager
+
+
+    private void handleBindService(BindServiceData data) {
+        Service s = mServices.get(data.token);
+        if (DEBUG_SERVICE)
+            Slog.v(TAG, "handleBindService s=" + s + " rebind=" + data.rebind);
+        if (s != null) {
+            try {
+                data.intent.setExtrasClassLoader(s.getClassLoader());
+                try {
+                    if (!data.rebind) {
+                        IBinder binder = s.onBind(data.intent);
+                        ActivityManagerNative.getDefault().publishService(
+                                data.token, data.intent, binder);
+                    } else {
+                        s.onRebind(data.intent);
+                        ActivityManagerNative.getDefault().serviceDoneExecuting(
+                                data.token, 0, 0, 0);
+                    }
+                    ensureJitEnabled();
+                } catch (RemoteException ex) {
+                }
+            } catch (Exception e) {
+                if (!mInstrumentation.onException(s, e)) {
+                    throw new RuntimeException(
+                            "Unable to bind to service " + s
+                            + " with " + data.intent + ": " + e.toString(), e);
+                }
+            }
+        }
+    }
+    
+	   public void publishService(IBinder token,
+	            Intent intent, IBinder service) throws RemoteException {
+	        Parcel data = Parcel.obtain();
+	        Parcel reply = Parcel.obtain();
+	        data.writeInterfaceToken(IActivityManager.descriptor);
+	        data.writeStrongBinder(token);
+	        intent.writeToParcel(data, 0);
+	        data.writeStrongBinder(service);
+	        mRemote.transact(PUBLISH_SERVICE_TRANSACTION, data, reply, 0);
+	        reply.readException();
+	        data.recycle();
+	        reply.recycle();
+	    }
+	    
+#### binder代理与代理之间的转发，代理跟存根之间的转发
+
+		case BINDER_TYPE_HANDLE:
+		case BINDER_TYPE_WEAK_HANDLE: {
+			struct binder_ref *ref = binder_get_ref(proc, fp->handle);
+			if (ref == NULL) {
+				binder_user_error("binder: %d:%d got "
+					"transaction with invalid "
+					"handle, %ld\n", proc->pid,
+					thread->pid, fp->handle);
+				return_error = BR_FAILED_REPLY;
+				goto err_binder_get_ref_failed;
+			}
+			if (ref->node->proc == target_proc) {
+				if (fp->type == BINDER_TYPE_HANDLE)
+					fp->type = BINDER_TYPE_BINDER;
+				else
+					fp->type = BINDER_TYPE_WEAK_BINDER;
+				fp->binder = ref->node->ptr;
+				fp->cookie = ref->node->cookie;
+				binder_inc_node(ref->node, fp->type == BINDER_TYPE_BINDER, 0, NULL);
+				if (binder_debug_mask & BINDER_DEBUG_TRANSACTION)
+					printk(KERN_INFO "        ref %d desc %d -> node %d u%p\n",
+					       ref->debug_id, ref->desc, ref->node->debug_id, ref->node->ptr);
+			} else {
+				struct binder_ref *new_ref;
+				new_ref = binder_get_ref_for_node(target_proc, ref->node);
+				if (new_ref == NULL) {
+					return_error = BR_FAILED_REPLY;
+					goto err_binder_get_ref_for_node_failed;
+				}
+				fp->handle = new_ref->desc;
+				binder_inc_ref(new_ref, fp->type == BINDER_TYPE_HANDLE, NULL);
+				if (binder_debug_mask & BINDER_DEBUG_TRANSACTION)
+					printk(KERN_INFO "        ref %d desc %d -> ref %d desc %d (node %d)\n",
+					       ref->debug_id, ref->desc, new_ref->debug_id, new_ref->desc, ref->node->debug_id);
+			}
+		} break;
+		
+Java层的通信是经过封装。in to 就是个例子 		
+			    
+####     参考文档
+
+[android4.4组件分析--service组件-bindService源码分析](http://blog.csdn.net/xiashaohua/article/details/40424767)

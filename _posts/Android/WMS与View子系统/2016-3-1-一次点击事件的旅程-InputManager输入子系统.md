@@ -91,6 +91,51 @@ Event事件是首先到了 PhoneWindow 的 DecorView 的 dispatchTouchEvent 方�
 > -> 事件被消费结束。(这个过程是由上往下传导)
 > -> 如果事件没有被子View消费，也就是说子View的dispatchTouchEvent返回false，此时事件由其父类处理(由下往上传导)，最后到达系统边界也没处理，就将此事件抛弃了。**
 
+
+#### 管道是半双工的，数据只能向一个方向流动；需要双方通信时，需要建立起两个管道；
+
+在Looper类内部，会创建一个管道，然后Looper会睡眠在这个管道的读端，等待另外一个线程来往这个管道的写端写入新的内容，从而唤醒等待在这个管道读端的线程，除此之外，Looper还可以同时睡眠等待在其它的文件描述符上，因为它是通过Linux系统的epoll机制来批量等待指定的文件有新的内容可读的。这些其它的文件描述符就是通过Looper类的addFd成函数添加进去的了，在添加的时候，还可以指定回调函数，即当这个文件描述符所指向的文件有新的内容可读时，Looper就会调用这个handleReceiveCallback函数，有兴趣的读者可以自己研究一下Looper类的addFd函数的实现，它位于frameworks/base/libs/utils/Looper.cpp文件中。
+
+
+Client 
+
+	InputQueue* InputQueue::createQueue(jobject inputQueueObj, const sp<Looper>& looper) {
+	
+	    int pipeFds[2];
+	    if (pipe(pipeFds)) {
+	        ALOGW("Could not create native input dispatching pipe: %s", strerror(errno));
+	        return NULL;
+	    }
+	    fcntl(pipeFds[0], F_SETFL, O_NONBLOCK);
+	    fcntl(pipeFds[1], F_SETFL, O_NONBLOCK);
+	    return new InputQueue(inputQueueObj, looper, pipeFds[0], pipeFds[1]);
+	}
+
+#### 2.3采用了管道但是4.4采用了Socket
+
+
+       inputChannels[1].transferTo(outInputChannel);这实际上是将生成的outClientChannel赋值给outInputChannel，但这里并没有赋值给client端的InputChannel啊？这里到底是怎么影响到client端的InputChannel呢？
+
+	这里实际上是利用binder调用中out关键字，我们来看一下IWindowSession.aidl中的addToDisplay方法声明：
+	
+	 int addToDisplay(IWindow window, int seq, in WindowManager.LayoutParams attrs,
+	            in int viewVisibility, in int layerStackId, out Rect outContentInsets,
+	            out Rect outStableInsets, out InputChannel outInputChannel);
+	  很明显这里使用了out关键字，对binder调用熟悉的同学就知道实际上这个关键字的作用就是我们传递给server端的参数在server进程中被改变的话会被反馈回给client端。这样就相当于我们在client端可以拿到之前打开的那个socket，最终回到第二部分，就可以被Looper监听这个socket了。         
+	            
+	 
+ EventHub是输入设备的控制中心，它直接与input driver打交道。负责处理输入设备的增减，查询，输入事件的处理并向上层提供getEvents()接口接收事件。在它的构造函数中，主要做三件事：
+1. 创建epoll对象，之后就可以把各输入设备的fd挂在上面多路等待输入事件。
+2. 建立用于唤醒的pipe，把读端挂到epoll上，以后如果有设备参数的变化需要处理，而getEvents()又阻塞在设备上，就可以调用wake()在pipe的写端写入，就可以让线程从等待中返回。
+3. 利用inotify机制监听/dev/input目录下的变更，如有则意味着设备的变化，需要处理。
+ 
+ 参考 
+ 
+ <img src="http://doc.ithao123.cn/d/b6/90/86/b69086c86d7822f6ef3fa099b006c77a.jpg"/width=800>          
+ 
+ InputReader 仅负责读取、并唤醒InputDispatch
+ InputDispatch负责派发 ，
+
 ###  参考文档
 
 Android 事件分发机制详解 <http://stackvoid.com/details-dispatch-onTouch-Event-in-Android/>
