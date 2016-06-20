@@ -34,3 +34,19 @@ categories: [TodoLis]
 decoration
 自适应 scroolview
 流畅 ，动效
+
+
+	  adapter = new EmailInputAdapter(context, "");
+	        dataSetObserver = new DataSetObserver() {
+	            @Override
+	            public void onChanged() {
+	                super.onChanged();
+	                if (adapter.getCount() > 4) {
+	                    accountEdit.setDropDownHeight(ResourcesUtil.getDimenPxSize(R.dimen.login_account_dropdown_height));
+	                } else {
+	                    accountEdit.setDropDownHeight(ResourcesUtil.getDimenPxSize(R.dimen.login_account_dropdown_single_height) * adapter.getCount());
+	                }
+	            }
+	        };
+	        adapter.registerDataSetObserver(dataSetObserver);
+	        

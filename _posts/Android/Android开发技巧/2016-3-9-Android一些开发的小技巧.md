@@ -24,8 +24,15 @@ category: android开发
 > [Uri方法集合](#uri_method)      
 > [定制View判断是否可以上滚](#view_can_scroll)
 > 调试后台杀死，    
-> [代码中如何用一些小红点 小方框 颜色做icon](#icon_shape)      
+> [代码中如何用一些小红点 小方框 颜色做icon](#icon_shape)    
+>  [ 如何取消默认的material design效果以及输入框只显示下边界](#cancle_material)         
+>  [如何Autocommplete的控制，宽度，位置，边界线](#Autocommplete)           
+>  List 的滚动监听 mRvRecord.getRecyclerView().getViewTreeObserver().addOnScrollChangedListener(presenter);
+>  隐藏状态栏
 
+ 
+            
+####    如何取消默认的material design效果以及输入框只显示下边界
 
 其实如果不做MVP，很简单，但是如果做了，就要考虑怎么配合，怎么获取整体刷新，如果不要获取当前Fragment，那无所谓，基本自足就可以了，甚至连位置都不用记录
 
@@ -677,10 +684,72 @@ On Android 2.3.3 (API level 10) and lower, using recycle() is recommended. If yo
     
 <a name="icon_shape"/>
 
-####  如何创建代码的小icon
+####  如何创建代码的小icon 比如红点
    
-                colorDrawable = new ShapeDrawable(new OvalShape());
+            colorDrawable = new ShapeDrawable(new OvalShape());
             colorDrawable.setIntrinsicWidth(mDotSize);
             colorDrawable.setIntrinsicHeight(mDotSize);
             colorDrawable.getPaint().setStyle(Paint.Style.FILL);
             textView.setCompoundDrawablesWithIntrinsicBounds(null, null, colorDrawable, null);
+            
+<a name="cancle_material"/>
+            
+####    如何取消默认的material design效果以及输入框只显示下边界
+
+
+	<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+	    <!--负数值随意-->
+	    <item
+	        android:bottom="@dimen/border_width_2px"
+	        android:left="-5dp"
+	        android:right="-5dp"
+	        android:top="-5dp">
+	        <shape xmlns:android="http://schemas.android.com/apk/res/android"
+	            android:shape="rectangle">
+	            <solid android:color="@color/white" />
+	            <stroke
+	                android:width="@dimen/border_width_1px"
+	                android:color="@color/black_alpha15" />
+	        </shape>
+	    </item>
+	</layer-list>         
+  
+  <a name="Autocommplete"/>
+  
+####   如何Autocommplete的控制，宽度，位置，边界线
+  
+      <activity
+            android:name=".module.login.activity.LoginActivity"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustNothing"/>    否则这里会把位置给顶上去
+            
+            
+            
+           accountEdit.setDropDownVerticalOffset(-3);
+
+        accountEdit.setDropDownBackgroundDrawable(ResourcesUtil.getDrawable(R.drawable.shape_account_dropdown_bg));
+        accountEdit.setDropDownWidth(SystemUtil.getScreenWidth(getContext()));
+        adapter = new EmailInputAdapter(context, "");
+        dataSetObserver = new DataSetObserver() {
+            @Override
+            public void onChanged() {
+                super.onChanged();
+                if (adapter.getCount() > 4) {
+                    accountEdit.setDropDownHeight(ResourcesUtil.getDimenPxSize(R.dimen.login_account_dropdown_height));
+                } else {
+                    accountEdit.setDropDownHeight(ResourcesUtil.getDimenPxSize(R.dimen.login_account_dropdown_single_height) * adapter.getCount());
+                }
+            }
+        };             
+
+
+####             管理系统UI之二：隐藏Status Bar （Hiding the Status Bar）
+
+
+<http://www.jcodecraeer.com/a/anzhuokaifa/developer/2014/1117/1995.html>            
+            
+                <style name="SplashTheme" parent="AppTheme.NoActionBar">
+        <item name="android:background">@mipmap/img_splash</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
