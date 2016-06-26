@@ -27,8 +27,9 @@ category: android开发
 > [代码中如何用一些小红点 小方框 颜色做icon](#icon_shape)    
 >  [ 如何取消默认的material design效果以及输入框只显示下边界](#cancle_material)         
 >  [如何Autocommplete的控制，宽度，位置，边界线](#Autocommplete)           
->  List 的滚动监听 mRvRecord.getRecyclerView().getViewTreeObserver().addOnScrollChangedListener(presenter);
->  隐藏状态栏
+>  List 的滚动监听       mRvRecord.getRecyclerView().getViewTreeObserver().addOnScrollChangedListener(presenter);      
+>  隐藏状态栏       
+>  [关于android:lineSpacingExtra属性 在android5.0与先期版本存在的区别](#lineSpacingExtra)
 
  
             
@@ -753,3 +754,15 @@ On Android 2.3.3 (API level 10) and lower, using recycle() is recommended. If yo
         <item name="android:background">@mipmap/img_splash</item>
         <item name="android:windowFullscreen">true</item>
     </style>
+    
+<a name="lineSpacingExtra"/>
+    
+####     关于android:lineSpacingExtra属性 在android5.0与先期版本存在的区别
+	
+
+	在此控件当中我们采用paddingBottom来这是下边距，这里我们不使用固定的数值而是写到dimens文件当中。
+	android:paddingBottom="@dimen/linepaddingbutton"
+	然后我们分版本谁知dimen变量的值：
+	在values当中的dimens设置linepaddingbutton=0dp
+	在values-v21 当中的dimens设置linepaddingbutton=7dp
+	这样就可以解决兼容性的问题实现一致的展现的效果
