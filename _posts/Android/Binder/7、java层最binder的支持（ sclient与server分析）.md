@@ -479,7 +479,7 @@ Java层客户端的Binder代理都是BinderProxy，而且他们都是在native�
 			}
 		} break;
 		
-Java层的通信是经过封装。in to 就是个例子 		
+Java层的通信是经过封装。in与to 就是个例子 		
 			    
 ####     参考文档
 
