@@ -458,6 +458,7 @@ AMS PAUSE之后调用stop，APP端都是被动相应，其实APP端，都是被�
 	05-05 15:26:13.124 762-10606/? W/ActivityManager: Force removing ActivityRecord{1a378c0 u0 com.ls.tools/.activity.KillBackGroundActivity t759}: app died, no saved state
 	05-05 15:26:13.135 12803-12803/? I/art: Late-enabling -Xcheck:jni
 
+#### Activity的恢复顺序，严格按照AMS中ActivityStack的顺序
 
 #### 参考文档
 
