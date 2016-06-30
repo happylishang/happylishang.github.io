@@ -43,7 +43,7 @@ category: android开发
     }
     
 
-Appplication新进程的启动是通过AMS向Zygote发送请求进行
+Appplication新进程的启动是通过AMS向Zygote发送请求进行，发送参数列表，返回pid，
 	
 	/**
 	     * Sends an argument list to the zygote process, which starts a new child
