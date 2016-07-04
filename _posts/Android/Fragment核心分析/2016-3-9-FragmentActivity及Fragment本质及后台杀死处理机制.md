@@ -6,6 +6,12 @@ category: android开发
 
 ---
 
+#### 分析问题的方法与步骤
+
+* **什么时候会出现这个问题**
+* **为什么会出现**
+* **怎么处理，能解决问题**
+
 ###### **前言：Fragment只是View管理的一种方式**
 
 >  [背景](#background)   
@@ -13,20 +19,14 @@ category: android开发
 >  [FragmentActivity被后台杀死后恢复逻辑](#fragment_activity_restore)    
 >  [普通的Fragment流程及所谓Fragment生命周期 依托FragmentActivity进行](#life_circle)       
 >  [FragmentTabHost的后天杀死重建](#lFragmentTabHost_restore_life)     
->  [FragmentPagerAdapter的后台杀死重建](#FragmentPagerAdapter_restore)         
+>  [ViewPager及FragmentPagerAdapter的后台杀死重建](#FragmentPagerAdapter_restore)          
+>  [FragmentPagerAdapter与FragmentStatePagerAdapter的使用时机](#FragmentPagerAdapter_FragmentStatePagerAdapter)
 >  [后台杀死处理方式](#how_to_resolve)    
 >  [Fragment使用很多坑，尤其是被后台杀死后恢复](#Fragment_bugs)    
+>  [onSaveInstanceState与OnRestoreInstance的调用时机 ](#onSaveInstanceState_OnRestoreInstance)   
 >  [Can not perform this action after onSaveInstanceState](#Can_not_onSaveInstanceState)           
->  为什么返回主菜单，但是再回来不重建呢？？  可以看看是否存活，虽然保存了，但是不用oncreate，就不用重建        
->  onSaveInstanceState与OnRestoreInstance的调用时机       
 >  [结束语](#end)     
 >  [参考文档](#ref_doc)    
-   
-#### 分析问题的方法与步骤
-
-* **什么时候会出现这个问题**
-* **为什么会出现**
-* **怎么处理，能解决问题**
 
 <a name="background"></a>
 
@@ -310,11 +310,13 @@ fragment.mFragmentManager都会指向Activity中唯一的FragmentManager，其�
 
 ####  FragmentTabHost的后天杀死重建 
 
+
+
 <a name="FragmentPagerAdapter_restore"> </a>
 
-####  FragmentPagerAdapter的后台杀死重建 
+####  ViewPager及FragmentPagerAdapter的后台杀死重建 
 
-ViewPager的情形，ViewPager其实在要看看怎么serCurrent，如果设置了一次，后台杀死后View 重建，注意VIew重建会setCurrent。
+ViewPager的情形，ViewPager其实在要看看怎么serCurrent，如果设置了一次，后台杀死后View 重建，注意View重建会setCurrent。处理FragmentManger重建Fragment，View也会恢复现场的，尤其对于ViewPager这种，如果手动将android.support.fragments置空，很容易引发崩溃。
 
 其实ViewPager默认支持重建，但是如果MVP开发Presenter就要注意是否合理的被创建。菜单是佛可以刷新
 
@@ -398,6 +400,7 @@ mFirstLayout =true 可能是还没有创建Fragment，那么我们就不能获�
         return "android:switcher:" + viewId + ":" + id;
     }        
 
+##### 如果Activity已经Destoy，但是Adapter还在notifiDataChange
         
 <a name="how_to_resolve"> </a>   
  
@@ -432,12 +435,18 @@ mFirstLayout =true 可能是还没有创建Fragment，那么我们就不能获�
 ####  Fragment使用很多坑，尤其是被后台杀死后恢复     
 
 <a name="end"> </a>   
-    
-####  结束语  
+     
+
+<a name="FragmentPagerAdapter_FragmentStatePagerAdapter"/>
+
+#### FragmentPagerAdapter与FragmentStatePagerAdapter的使用场景
+ 
+* FragmentPagerAdapter适用于存在刷新的界面 ，比如列表Fragment，如果采用FragmentStatePagerAdapter就需要保存现场，并且数据的加载会把逻辑弄乱
+* FragmentStatePagerAdapter更加适合图片类的处理，笔记图片预览等，一屏幕显示完全的，否则用FragmentStatePagerAdapter只会比FragmentPagerAdapter更复杂，还要自己缓存Fragment列表。
 
 
 
-####  OnRestoreInstanceState的调用时机是在什么时候？
+####  OnRestoreInstanceState的调用时机是在什么时候？ 保存后，看看是否被杀死，被杀死机会回调，注意，不仅仅是Fragment，还有View，尤其是ViewPager
 
 
                 mInstrumentation.callActivityOnCreate(activity, r.state);
@@ -570,9 +579,7 @@ PhoneWindowManager
         return nci;
     }
  
-#### 如何应对
-
-#### Activity退回后台，不退出应用 False跟Activity
+#### 如何应对 Activity退回后台，不退出应用 False跟Activity
 
     /**
      * Move the task containing this activity to the back of the activity
@@ -594,11 +601,8 @@ PhoneWindowManager
         }
         return false;
     }
-    
-但是back返回键，可能会触发onSaveInstanceState
 
-   Android calls onSaveInstanceState() before the activity becomes vulnerable to being destroyed by the system, but does not bother calling it when the instance is actually being destroyed by a user action 
-(such as pressing the BACK key) 
+
 
 <a name="Can_not_onSaveInstanceState"/>
 	        
@@ -774,7 +778,6 @@ MVC模式的体现，newState代表是当前Actvity传递给的FragmentManager�
         }
  
  
- 
 >  对于FragmentTabhost
 
  
@@ -838,21 +841,26 @@ MVC模式的体现，newState代表是当前Actvity传递给的FragmentManager�
         return fragment;
     }
          
- Viewpager跟Fragmenttabhost他们会自己处理，
-
-  
-  
+ Viewpager跟Fragmenttabhost有自己的回复逻辑，当然这些都是在FramgentManaget恢复完FragmentActivity之后，在Fragment出现前，也就是3.0之前，系统只会恢复Activity内部的View
  
-####  奇葩的毕现 
+ 
+<a name="onSaveInstanceState_OnRestoreInstance"/>
 
-Here is the solution,
+#### onSaveInstanceState与OnRestoreInstance的调用时机 
 
-This problem occurs if tab selection action performs after onSaveInstanceState get called. One example like, if user selects and holds any tab and at the same time also selects the Home Button.
+##### 点击home键为什么返回主菜单会调用onSaveInstanceState，再回来会不会重建，调用OnRestoreInstance呢
+一般情况下，是不会的，因为系统不会回收的那么快。其实点击Home键跟Activity跳转的原理是一样的，从Activity A 跳转到Activity B也会调用 A的onSaveInstanceState，但是只要A没有被系统回收掉，就不会调用A的OnRestoreInstance，因为在ActivityManagerService中，A所登记的状态是没有被后台Kill过的。其实Activity所有状态变化的最终依赖都是ActivityManagerService。  
 
-To solve this issue just
+  
+####  FragmentTabHost奇葩的毕现 ，点击主屏幕与FragmentTabHost点击事件比较接近的时候崩溃
+
+This problem occurs if tab selection action performs after onSaveInstanceState get called. One example like, if user selects and holds any tab and at the same time also selects the Home Button.To solve this issue just
 
 	call mTabHost.getTabWidget().setEnabled(false); under onPause of the Fragment/Activity
 	and call mTabHost.getTabWidget().setEnabled(true); under onResume. 
+
+
+####  结束语 
 
 
 <a name="ref_doc"/>
@@ -881,3 +889,7 @@ To solve this issue just
 [ Android——内存管理-lowmemorykiller 机制](http://blog.csdn.net/jscese/article/details/47317765)    
 
 [ ActivityStackSupervisor分析](http://blog.csdn.net/guoqifa29/article/details/40015127)
+
+[A Deeper Look of ViewPager and FragmentStatePagerAdaper](http://billynyh.github.io/blog/2014/03/02/fragment-state-pager-adapter/)
+
+[View的onSaveInstanceState和onRestoreInstanceState过程分析](http://www.cnblogs.com/xiaoweiz/p/3813914.html)
