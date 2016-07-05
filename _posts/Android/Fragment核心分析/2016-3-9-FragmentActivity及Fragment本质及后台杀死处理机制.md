@@ -15,9 +15,8 @@ category: android开发
 ###### **前言：Fragment只是View管理的一种方式**
 
 >  [背景](#background)   
->  [add一个Fragment并显示的原理](#add_fragment)        
+>  [add一个Fragment并显示的原理--及所谓Fragment生命周期](#add_fragment)        
 >  [FragmentActivity被后台杀死后恢复逻辑](#fragment_activity_restore)    
->  [普通的Fragment流程及所谓Fragment生命周期 依托FragmentActivity进行](#life_circle)       
 >  [FragmentTabHost的后天杀死重建](#lFragmentTabHost_restore_life)     
 >  [ViewPager及FragmentPagerAdapter的后台杀死重建](#FragmentPagerAdapter_restore)          
 >  [FragmentPagerAdapter与FragmentStatePagerAdapter的使用时机](#FragmentPagerAdapter_FragmentStatePagerAdapter)
@@ -111,6 +110,7 @@ FragmentManagerImpl的beginTransaction()函数返回的是一个BackStackRecord(
 	    ArrayList<Integer> mAvailIndices;
 	    ArrayList<BackStackRecord> mBackStack;
 	    ArrayList<Fragment> mCreatedMenus;
+	    
 可以看出FragmentManagerImpl维护一个Activity所有的Fragment，Fragments可以看做是M，V是Activity自身。FragmentManagerImpl的State是和Activity的State一致的，这是管理Fragment的关键。其实Fragment自身是没有什么生命周期的，完全依靠FragmentManagerImpl模拟。
 
 fragment.mFragmentManager都会指向Activity中唯一的FragmentManager，其实对于每个add，Android都将他们封装成一个度里的Action，在每个Action内部自己处理自己的逻辑，这个做法值得学习，
@@ -256,7 +256,22 @@ fragment.mFragmentManager都会指向Activity中唯一的FragmentManager，其�
                                 
 
 之后根据当前Activity的状态，决定是否显示Fragment，这里是正常的流程，至于后台杀死，就要看第二个异常处理的流程。
-    
+
+
+<a name="life_circle"></a>  
+
+####  所谓Fragment生命周期是依托FragmentActivity的
+ 
+MVC模式的体现，newState代表是当前Actvity传递给的FragmentManager的state，位于FragmentManager中，FragmentManager可以看做是FragmentActvity的管理器C，Fragmentmanager会根据mCurState的值，修改当前别添加的fragment的状态，如果是Actvity处于resume状态，那么被添加的fragment就会被处理成激活状态 当然首先要初始化新建的fragment ,然后匹配新状态，是否有必要将状态等级提升。 很明显，没有被added或者或者说已经detach的Fragment是不用走到resume的
+
+
+        // Fragments that are not currently added will sit in the onCreate() state.
+        if ((!f.mAdded || f.mDetached) && newState > Fragment.CREATED) {
+            newState = Fragment.CREATED;
+        }
+        
+        
+            
 <a name="fragment_activity_restore"></a>
 
 #### FragmentActivity被后台杀死后恢复逻辑
@@ -299,10 +314,6 @@ fragment.mFragmentManager都会指向Activity中唯一的FragmentManager，其�
 
 
 
-
-<a name="life_circle"></a>  
-
-####  所谓Fragment生命周期是依托FragmentActivity的
 
 
 
@@ -434,8 +445,6 @@ mFirstLayout =true 可能是还没有创建Fragment，那么我们就不能获�
 
 ####  Fragment使用很多坑，尤其是被后台杀死后恢复     
 
-<a name="end"> </a>   
-     
 
 <a name="FragmentPagerAdapter_FragmentStatePagerAdapter"/>
 
@@ -612,32 +621,22 @@ PhoneWindowManager
 
 大致意思是说 commit方法是在Activity的onSaveInstanceState()之后调用的，这样会出错，因为onSaveInstanceState，方法是在该Activity即将被销毁前调用，来保存Activity数据的，如果在保存玩状态后再给它添加Fragment就会出错。解决办法就是把commit（）方法替换成 commitAllowingStateLoss()就行了，其效果是一样的。
 	        	       
-Dispatch onResume() to fragments. Note that for better inter-operation with older versions of the platform, at the point of this call the fragments attached to the activity are not resumed. This means that in some cases the previous state may still be saved, not allowing fragment transactions that modify the state. To correctly interact with fragments in their proper state, you should instead override onResumeFragments()
+	Dispatch onResume() to fragments. Note that for better inter-operation with older versions of the platform, at the point of this call the fragments attached to the activity are not resumed. This means that in some cases the previous state may still be saved, not allowing fragment transactions that modify the state. To correctly interact with fragments in their proper state, you should instead override onResumeFragments()
 	        	       
-官方文档 对FragmentActivity.onResume的解释：将onResume() 分发给fragment。注意，为了更好的和旧版本兼容，这个方法调用的时候，依附于这个activity的fragment并没有到resumed状态。着意味着在某些情况下，前面的状态可能被保存了，此时不允许fragment transaction再修改状态。从根本上说，你不能确保activity中的fragment在调用Activity的OnResume函数后是否是onresumed状态，因此你应该避免在执行fragment transactions直到调用了onResumeFragments函数。
-总的来说就是，你无法确定activity当前的fragment在activity onResume的时候也跟着resumed了，因此要避免在onResumeFragments之前进行fragment transaction，因为到onResumeFragments的时候，状态已经恢复并且它们的确是resumed了的。
+官方文档 对FragmentActivity.onResume的解释：将onResume() 分发给fragment。注意，为了更好的和旧版本兼容，这个方法调用的时候，依附于这个activity的fragment并没有到resumed状态。着意味着在某些情况下，前面的状态可能被保存了，此时不允许fragment transaction再修改状态。从根本上说，你不能确保activity中的fragment在调用Activity的OnResume函数后是否是onresumed状态，因此你应该避免在执行fragment transactions直到调用了onResumeFragments函数。总的来说就是，你无法确定activity当前的fragment在activity onResume的时候也跟着resumed了，因此要避免在onResumeFragments之前进行fragment transaction，因为到onResumeFragments的时候，状态已经恢复并且它们的确是resumed了的。不当的commit场景：**How to avoid the exception?：**在onCreate、或者点击事件中commit transactions是不会产生任何问题的。但是如果transactions的操作涉及其他Activity生命周期方法的话。比如onActivityResult(), onStart(), and onResume()，这些场景就比较棘手，例如不要在onResume里commit transactions，因为onResume有可能在activity’s state has been restored之前调用，
 
-不当的commit场景：
+	**Be careful when committing transactions inside Activity lifecycle methods. A large majority of applications will only ever commit transactions the very first time onCreate() is called and/or in response to user input, and will never face any problems as a result. However, as your transactions begin to venture out into the other Activity lifecycle methods, such as onActivityResult(), onStart(), and onResume(), things can get a little tricky. For example, you should not commit transactions inside the FragmentActivity#onResume() method, as there are some cases in which the method can be called before the activity’s state has been restored (see the documentation for more information). If your application requires committing a transaction in an Activity lifecycle method other than onCreate(), do it in either FragmentActivity#onResumeFragments() or Activity#onPostResume(). These two methods are guaranteed to be called after the Activity has been restored to its original state, and therefore avoid the possibility of state loss all together. (As an example of how this can be done, check out my answer to this StackOverflow question for some ideas on how to commit FragmentTransactions in response to calls made to the Activity#onActivityResult() method).**
 
+其次不要在在异步异步回调中处理transactions事件，比如AsyncTask，LoaderManager，回调不关心Activity的状态是否被restore，常见的场景：home键返回主页，会调用onSaveInstanceState() ，onStop()，如果AsyncTask在此之后被执行，就会导致异常，并且从用户体验的角度来说也并不好。
 
-	        	        
-**How to avoid the exception?**
+	Avoid performing transactions inside asynchronous callback methods. This includes commonly used methods such as AsyncTask#onPostExecute() and LoaderManager.LoaderCallbacks#onLoadFinished(). The problem with performing transactions in these methods is that they have no knowledge of the current state of the Activity lifecycle when they are called. For example, consider the following sequence of events:
+	An activity executes an AsyncTask.The user presses the “Home” key, causing the activity’s onSaveInstanceState() and onStop() methods to be called.The AsyncTask completes and onPostExecute() is called, unaware that the Activity has since been stopped.A FragmentTransaction is committed inside the onPostExecute() method, causing an exception to be thrown.In general, the best way to avoid the exception in these cases is to simply avoid committing transactions in asynchronous callback methods all together. Google engineers seem to agree with this belief as well. According to this post on the Android Developers group, the Android team considers the major shifts in UI that can result from committing FragmentTransactions from within asynchronous callback methods to be bad for the user experience. If your application requires performing the transaction inside these callback methods and there is no easy way to guarantee that the callback won’t be invoked after onSaveInstanceState(), you may have to resort to using commitAllowingStateLoss() and dealing with the state loss that might occur. (See also these two StackOverflow posts for additional hints, here and here).
 
-Avoiding Activity state loss becomes a whole lot easier once you understand what is actually going on. If you’ve made it this far in the post, hopefully you understand a little better how the support library works and why it is so important to avoid state loss in your applications. In case you’ve referred to this post in search of a quick fix, however, here are some suggestions to keep in the back of your mind as you work with FragmentTransactions in your applications:
+如果万不得已，可以使用commitAllowingStateLoss()，这只是一种妥协，最好还是改进交互
 
-**Be careful when committing transactions inside Activity lifecycle methods. A large majority of applications will only ever commit transactions the very first time onCreate() is called and/or in response to user input, and will never face any problems as a result. However, as your transactions begin to venture out into the other Activity lifecycle methods, such as onActivityResult(), onStart(), and onResume(), things can get a little tricky. For example, you should not commit transactions inside the FragmentActivity#onResume() method, as there are some cases in which the method can be called before the activity’s state has been restored (see the documentation for more information). If your application requires committing a transaction in an Activity lifecycle method other than onCreate(), do it in either FragmentActivity#onResumeFragments() or Activity#onPostResume(). These two methods are guaranteed to be called after the Activity has been restored to its original state, and therefore avoid the possibility of state loss all together. (As an example of how this can be done, check out my answer to this StackOverflow question for some ideas on how to commit FragmentTransactions in response to calls made to the Activity#onActivityResult() method).**
+	Use commitAllowingStateLoss() only as a last resort. The only difference between calling commit() and commitAllowingStateLoss() is that the latter will not throw an exception if state loss occurs. Usually you don’t want to use this method because it implies that there is a possibility that state loss could happen. The better solution, of course, is to write your application so that commit() is guaranteed to be called before the activity’s state has been saved, as this will result in a better user experience. Unless the possibility of state loss can’t be avoided, commitAllowingStateLoss() should not be used.
 
-Avoid performing transactions inside asynchronous callback methods. This includes commonly used methods such as AsyncTask#onPostExecute() and LoaderManager.LoaderCallbacks#onLoadFinished(). The problem with performing transactions in these methods is that they have no knowledge of the current state of the Activity lifecycle when they are called. For example, consider the following sequence of events:
-An activity executes an AsyncTask.
-The user presses the “Home” key, causing the activity’s onSaveInstanceState() and onStop() methods to be called.
-The AsyncTask completes and onPostExecute() is called, unaware that the Activity has since been stopped.
-A FragmentTransaction is committed inside the onPostExecute() method, causing an exception to be thrown.
-In general, the best way to avoid the exception in these cases is to simply avoid committing transactions in asynchronous callback methods all together. Google engineers seem to agree with this belief as well. According to this post on the Android Developers group, the Android team considers the major shifts in UI that can result from committing FragmentTransactions from within asynchronous callback methods to be bad for the user experience. If your application requires performing the transaction inside these callback methods and there is no easy way to guarantee that the callback won’t be invoked after onSaveInstanceState(), you may have to resort to using commitAllowingStateLoss() and dealing with the state loss that might occur. (See also these two StackOverflow posts for additional hints, here and here).
-
-Use commitAllowingStateLoss() only as a last resort. The only difference between calling commit() and commitAllowingStateLoss() is that the latter will not throw an exception if state loss occurs. Usually you don’t want to use this method because it implies that there is a possibility that state loss could happen. The better solution, of course, is to write your application so that commit() is guaranteed to be called before the activity’s state has been saved, as this will result in a better user experience. Unless the possibility of state loss can’t be avoided, commitAllowingStateLoss() should not be used.
-
-[参考文档 ：Fragment Transactions & Activity State Loss](http://www.androiddesignpatterns.com/2013/08/fragment-transaction-commit-state-loss.html)	
-
+比较合理的使用方法：If you are using the support-v4 library and FragmentActivity, try to always use onResumeFragments() instead of onResume() in your FragmentActivity implementations.FragmentActivity#onResume() documentation:To correctly interact with fragments in their proper state, you should instead override onResumeFragments().
 
     @Override
     protected void onResumeFragments() {
@@ -648,46 +647,21 @@ Use commitAllowingStateLoss() only as a last resort. The only difference between
                 fragmentTabHost.setCurrentTab(position);
             }
         }
-    }        
-If you are using the support-v4 library and FragmentActivity, try to always use onResumeFragments() instead of onResume() in your FragmentActivity implementations.
-
-FragmentActivity#onResume() documentation:
-
-To correctly interact with fragments in their proper state, you should instead override onResumeFragments().
-
-
-                f.mActivity = mActivity;
-                    f.mParentFragment = mParent;
-                    f.mFragmentManager = mParent != null
-                            ? mParent.mChildFragmentManager : mActivity.mFragments;
-                    f.mCalled = false;
-                    f.onAttach(mActivity);
-
-
-
-**For instance the application wants to access a Fragment that was inflated during onCreate(). The best place for this is onResumeFragments().**
-   
-####onRetainNonConfigurationInstance和 onSaveInstanceState、getLastNonConfigurationInstance
-
-	
-	 @Override
-	        public Object onRetainNonConfigurationInstance() {
-	                return this;
-	        }
+    }     
 
 	
 #### Fragment必须提供默认构造方法的原理 反射机制重建Fragment实例 默认无参构造函数
 
-   void restoreAllState(Parcelable state, ArrayList<Fragment> nonConfig) {	  ...
-           mActive = new ArrayList<Fragment>(fms.mActive.length);
-        if (mAvailIndices != null) {
-            mAvailIndices.clear();
-        }
-        for (int i=0; i<fms.mActive.length; i++) {
-            FragmentState fs = fms.mActive[i];
-            if (fs != null) {
-                Fragment f = fs.instantiate(mActivity, mParent);
-                if (DEBUG) Log.v(TAG, "
+	   void restoreAllState(Parcelable state, ArrayList<Fragment> nonConfig) {	  ...
+	           mActive = new ArrayList<Fragment>(fms.mActive.length);
+	        if (mAvailIndices != null) {
+	            mAvailIndices.clear();
+	        }
+	        for (int i=0; i<fms.mActive.length; i++) {
+	            FragmentState fs = fms.mActive[i];
+	            if (fs != null) {
+	                Fragment f = fs.instantiate(mActivity, mParent);
+	                if (DEBUG) Log.v(TAG, "
 	
 	 /**
      * Create a new instance of a Fragment with the given class name.  This is
@@ -766,19 +740,11 @@ To correctly interact with fragments in their proper state, you should instead o
 	        mFragments.execPendingActions();
 	    } 
          
-#### 何时何地调用什么，
 
  
-MVC模式的体现，newState代表是当前Actvity传递给的FragmentManager的state，位于FragmentManager中，FragmentManager可以看做是FragmentActvity的管理器C，Fragmentmanager会根据mCurState的值，修改当前别添加的fragment的状态，如果是Actvity处于resume状态，那么被添加的fragment就会被处理成激活状态 当然首先要初始化新建的fragment ,然后匹配新状态，是否有必要将状态等级提升。 很明显，没有被added或者或者说已经detach的Fragment是不用走到resume的
+####   Viewpager跟Fragmenttabhost有自己的回复逻辑，当然这些都是在FramgentManaget恢复完FragmentActivity之后，在Fragment出现前，也就是3.0之前，系统只会恢复Activity内部的View
 
-
-        // Fragments that are not currently added will sit in the onCreate() state.
-        if ((!f.mAdded || f.mDetached) && newState > Fragment.CREATED) {
-            newState = Fragment.CREATED;
-        }
- 
- 
->  对于FragmentTabhost
+#####  对于FragmentTabhost
 
  
 	 final class FragmentManagerImpl extends FragmentManager implements LayoutInflaterFactory {  
@@ -811,7 +777,7 @@ MVC模式的体现，newState代表是当前Actvity传递给的FragmentManager�
     
 重建之后，不会再次重建，会根据Tag查找到 ，但是如果，你主动重建，就会重复 。
 
-> 对于FragmentPagerAdapter
+##### 对于FragmentPagerAdapter
 
     @Override
     public Object instantiateItem(ViewGroup container, int position) {
@@ -841,7 +807,6 @@ MVC模式的体现，newState代表是当前Actvity传递给的FragmentManager�
         return fragment;
     }
          
- Viewpager跟Fragmenttabhost有自己的回复逻辑，当然这些都是在FramgentManaget恢复完FragmentActivity之后，在Fragment出现前，也就是3.0之前，系统只会恢复Activity内部的View
  
  
 <a name="onSaveInstanceState_OnRestoreInstance"/>
