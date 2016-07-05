@@ -12,17 +12,17 @@ category: android开发
 * **为什么会出现**
 * **怎么处理，能解决问题**
 
-###### **前言：Fragment只是View管理的一种方式**
+###### **前言：Fragment只是Activity更加方便管理View的一种方式**
 
 >  [背景](#background)   
 >  [add一个Fragment并显示的原理--及所谓Fragment生命周期](#add_fragment)        
 >  [FragmentActivity被后台杀死后恢复逻辑](#fragment_activity_restore)    
->  [FragmentTabHost的后天杀死重建](#lFragmentTabHost_restore_life)     
+>  [FragmentTabHost的后台杀死重建逻辑](#lFragmentTabHost_restore_life)     
 >  [ViewPager及FragmentPagerAdapter的后台杀死重建](#FragmentPagerAdapter_restore)          
 >  [FragmentPagerAdapter与FragmentStatePagerAdapter的使用时机](#FragmentPagerAdapter_FragmentStatePagerAdapter)
 >  [后台杀死处理方式](#how_to_resolve)    
 >  [Fragment使用很多坑，尤其是被后台杀死后恢复](#Fragment_bugs)    
->  [onSaveInstanceState与OnRestoreInstance的调用时机 ](#onSaveInstanceState_OnRestoreInstance)   
+>  [onSaveInstanceState与OnRestoreInstance的调用时机](#onSaveInstanceState_OnRestoreInstance)   
 >  [Can not perform this action after onSaveInstanceState](#Can_not_onSaveInstanceState)           
 >  [结束语](#end)     
 >  [参考文档](#ref_doc)    
@@ -45,19 +45,58 @@ category: android开发
 	        dialogFragment.show(getSupportFragmentManager(), "");
 	    }
 
-上面的DialogFragmentActivity内部创建了一个FragmentDialog，并显示，如果，此时被后台杀死，或旋转屏幕，被恢复的DialogFragmentActivity时会出现两个FragmentDialog，一个被系统恢复的，一个新建的。这种场景对于普通的Fragment也适用。如果单个Activity采用普通的add方式添加，被后台杀死后恢复，就会有两个Fragment出现。
+上面的DialogFragmentActivity内部创建了一个FragmentDialog，并显示，如果，此时被后台杀死，或旋转屏幕，被恢复的DialogFragmentActivity时会出现两个FragmentDialog，一个被系统恢复的，一个新建的。这种场景对于普通的Fragment也适用，如果单个Activity采用普通的add方式添加，被后台杀死后恢复，就会有两个Fragment出现。为什么出现两个？
+
+    public void show(FragmentManager manager, String tag) {
+        mDismissed = false;
+        mShownByMe = true;
+        FragmentTransaction ft = manager.beginTransaction();
+        ft.add(this, tag);
+        ft.commit();
+    }
+    
+DialgoFragment的show逻辑跟Fragment的add其实是一样的，Fragment被add后，如果没有move，就一直是有效，restore后还是会显示的。DialgoFragment不会 add the transaction to the back stack.dismiss的时候 a new transaction will be executed to remove it from the activity.DialogFragment本质上说就是Fragment，只是其内部还有一个dialog而已。你既可以当它是Dialog使用，也可以把它作为Fragment使用，不过界面显示是按照Dialog显示的
+
+    @Nullable
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        return inflater.inflate(R.layout.dialog_f_v, container, false);
+    }
+    
+Fragment被添加到Activity中管理，但是View没有，View 被添加到Dialog中去了，因为 ViewGroup container这里其实container是null。正因为是null，
+
+    @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+
+        if (!mShowsDialog) {
+            return;
+        }
+
+        View view = getView();
+        if (view != null) {
+            if (view.getParent() != null) {
+                throw new IllegalStateException("DialogFragment can not be attached to a container view");
+            }
+            mDialog.setContentView(view);
+        }
+
+后面的getView获取的View是可以通过mDialog.setContentView添加到Dialog中去的。 
 
 <a name="add_fragment"/>
 
-#### Add一个Fragment并显示的原理
+#### Add一个Fragment并显示的原理--所谓Fragment生命周期
 
-通常我们FragmentActivity使用Fragment的方法如下：
+通常我们FragmentActivity使用Fragment的方法如下：假设是在oncreate函数中：
 
-	Fragment fr = Fragment.instance("")
-	getSupportFragmentManager().beginTransaction()
-	.add(R.id.container,fr).commit();
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        	super.onCreate(savedInstanceState);
+			Fragment fr = Fragment.instance("")
+			getSupportFragmentManager().beginTransaction()
+			.add(R.id.container,fr).commit();
 
-其中	getSupportFragmentManager返回的是 FragmentManagerImpl，踏实FragmentActivity的一个内部变量，其实Android无处不采用了设计模式，这里就是FragmentActivity把逻辑的管理交给FragmentManagerImpl，
+其中	getSupportFragmentManager返回的是 FragmentManagerImpl，FragmentManagerImpl是FragmentActivity的一个内部类，其实Android无处不采用了设计模式，FragmentActivity把管理的逻辑交给FragmentManagerImpl：
 
     final FragmentManagerImpl mFragments = new FragmentManagerImpl();
     final FragmentContainer mContainer = new FragmentContainer() {
@@ -84,7 +123,7 @@ FragmentManagerImpl的beginTransaction()函数返回的是一个BackStackRecord(
 其实从名字就可以看出，只是FragmentActivity里面回退栈的一条记录，add函数实现如下，
 
     public FragmentTransaction add(Fragment fragment, String tag) {
-        doAddOp(0, fragment, tag, OP_ADD);
+        doAddOp(0, fragment, tag, OP_ADD);//异步操作的，跟Hander类似
         return this;
     }
     
@@ -111,9 +150,7 @@ FragmentManagerImpl的beginTransaction()函数返回的是一个BackStackRecord(
 	    ArrayList<BackStackRecord> mBackStack;
 	    ArrayList<Fragment> mCreatedMenus;
 	    
-可以看出FragmentManagerImpl维护一个Activity所有的Fragment，Fragments可以看做是M，V是Activity自身。FragmentManagerImpl的State是和Activity的State一致的，这是管理Fragment的关键。其实Fragment自身是没有什么生命周期的，完全依靠FragmentManagerImpl模拟。
-
-fragment.mFragmentManager都会指向Activity中唯一的FragmentManager，其实对于每个add，Android都将他们封装成一个度里的Action，在每个Action内部自己处理自己的逻辑，这个做法值得学习，
+可以看出FragmentManagerImpl维护一个Activity所有的Fragment，Fragments可以看做是M，V是Activity自身。FragmentManagerImpl的State是和Activity的State一致的，这是管理Fragment的关键。其实Fragment自身是没有什么生命周期的，完全依靠FragmentManagerImpl模拟。fragment.mFragmentManager都会指向Activity中唯一的FragmentManager，其实对于每个add，Android都将他们封装成一个度里的Action，在每个Action内部自己处理自己的逻辑，这个做法值得学习，
 
 
     private void doAddOp(int containerViewId, Fragment fragment, String tag, int opcmd) {
@@ -153,12 +190,7 @@ fragment.mFragmentManager都会指向Activity中唯一的FragmentManager，其�
 
     int commitInternal(boolean allowStateLoss) {
         if (mCommitted) throw new IllegalStateException("commit already called");
-        if (FragmentManagerImpl.DEBUG) {
-            Log.v(TAG, "Commit: " + this);
-            LogWriter logw = new LogWriter(TAG);
-            PrintWriter pw = new PrintWriter(logw);
-            dump("  ", null, pw, null);
-        }
+ 
         mCommitted = true;
         if (mAddToBackStack) {
             mIndex = mManager.allocBackStackIndex(this);
@@ -204,11 +236,13 @@ fragment.mFragmentManager都会指向Activity中唯一的FragmentManager，其�
 最终会回调 FragmentManager的方法
 
     public void addFragment(Fragment fragment, boolean moveToStateNow) {
+    
         if (mAdded == null) {
             mAdded = new ArrayList<Fragment>();
         }
-        if (DEBUG) Log.v(TAG, "add: " + fragment);
+
         makeActive(fragment);
+        
         if (!fragment.mDetached) {
             if (mAdded.contains(fragment)) {
                 throw new IllegalStateException("Fragment already added: " + fragment);
@@ -225,7 +259,7 @@ fragment.mFragmentManager都会指向Activity中唯一的FragmentManager，其�
         }
     }    
     
-这里看一下添加View的代码，其实Fragment只是View的一个比较复杂的封装，FragmentManager最后将Fragment在Activity中显示出来。
+这里看一下添加Fragment转换成View，并添加到Container的代码，其实Fragment只是View的一个比较复杂的封装，FragmentManager最后将Fragment在Activity中显示出来。所谓Fragment生命周期是依托FragmentActivity的
 
 
      void moveToState(Fragment f, int newState, int transit, int transitionStyle,
@@ -235,42 +269,120 @@ fragment.mFragmentManager都会指向Activity中唯一的FragmentManager，其�
             newState = Fragment.CREATED;
         }
         
-                            f.mContainer = container;
-                            f.mView = f.performCreateView(f.getLayoutInflater(
-                                    f.mSavedFragmentState), container, f.mSavedFragmentState);
-                            if (f.mView != null) {
-                                f.mInnerView = f.mView;
-                                if (Build.VERSION.SDK_INT >= 11) {
-                                    ViewCompat.setSaveFromParentEnabled(f.mView, false);
-                                } else {
-                                    f.mView = NoSaveStateFrameLayout.wrap(f.mView);
-                                }
-                                if (container != null) {
-                                    Animation anim = loadAnimation(f, transit, true,
-                                            transitionStyle);
-                                    if (anim != null) {
-                                        f.mView.startAnimation(anim);
-                                    }
-                                    container.addView(f.mView);
-                                }
-                                
+	switch (f.mState) {
+	                case Fragment.INITIALIZING:
+	                    if (DEBUG) Log.v(TAG, "moveto CREATED: " + f);
+	                    if (f.mSavedFragmentState != null) {
+	                        f.mSavedFragmentState.setClassLoader(mActivity.getClassLoader());
+	                        f.mSavedViewState = f.mSavedFragmentState.getSparseParcelableArray(
+	                                FragmentManagerImpl.VIEW_STATE_TAG);
+	                        f.mTarget = getFragment(f.mSavedFragmentState,
+	                                FragmentManagerImpl.TARGET_STATE_TAG);
+	                        if (f.mTarget != null) {
+	                            f.mTargetRequestCode = f.mSavedFragmentState.getInt(
+	                                    FragmentManagerImpl.TARGET_REQUEST_CODE_STATE_TAG, 0);
+	                        }
+	                        f.mUserVisibleHint = f.mSavedFragmentState.getBoolean(
+	                                FragmentManagerImpl.USER_VISIBLE_HINT_TAG, true);
+	                        if (!f.mUserVisibleHint) {
+	                            f.mDeferStart = true;
+	                            if (newState > Fragment.STOPPED) {
+	                                newState = Fragment.STOPPED;
+	                            }
+	                        }
+	                    }
+	                    f.mActivity = mActivity;
+	                    f.mParentFragment = mParent;
+	                    f.mFragmentManager = mParent != null
+	                            ? mParent.mChildFragmentManager : mActivity.mFragments;
+	                    f.mCalled = false;
+	                    f.onAttach(mActivity);
+	                    if (!f.mCalled) {
+	                        throw new SuperNotCalledException("Fragment " + f
+	                                + " did not call through to super.onAttach()");
+	                    }
+	                    if (f.mParentFragment == null) {
+	                        mActivity.onAttachFragment(f);
+	                    }
+	
+	                    if (!f.mRetaining) {
+	                        f.performCreate(f.mSavedFragmentState);
+	                    }
+	                    f.mRetaining = false;
+	                    if (f.mFromLayout) {
+	                        // For fragments that are part of the content view
+	                        // layout, we need to instantiate the view immediately
+	                        // and the inflater will take care of adding it.
+	                        f.mView = f.performCreateView(f.getLayoutInflater(
+	                                f.mSavedFragmentState), null, f.mSavedFragmentState);
+	                        if (f.mView != null) {
+	                            f.mInnerView = f.mView;
+	                            if (Build.VERSION.SDK_INT >= 11) {
+	                                ViewCompat.setSaveFromParentEnabled(f.mView, false);
+	                            } else {
+	                                f.mView = NoSaveStateFrameLayout.wrap(f.mView);
+	                            }
+	                            if (f.mHidden) f.mView.setVisibility(View.GONE);
+	                            f.onViewCreated(f.mView, f.mSavedFragmentState);
+	                        } else {
+	                            f.mInnerView = null;
+	                        }
+	                    }
+	                case Fragment.CREATED:
+	                    if (newState > Fragment.CREATED) {
+	                        if (DEBUG) Log.v(TAG, "moveto ACTIVITY_CREATED: " + f);
+	                        if (!f.mFromLayout) {
+	                            ViewGroup container = null;
+	                            if (f.mContainerId != 0) {
+	                                container = (ViewGroup)mContainer.findViewById(f.mContainerId);
+	                                if (container == null && !f.mRestored) {
+	                                    throwException(new IllegalArgumentException(
+	                                            "No view found for id 0x"
+	                                            + Integer.toHexString(f.mContainerId) + " ("
+	                                            + f.getResources().getResourceName(f.mContainerId)
+	                                            + ") for fragment " + f));
+	                                }
+	                            }
+	                            f.mContainer = container;
+	                            f.mView = f.performCreateView(f.getLayoutInflater(
+	                                    f.mSavedFragmentState), container, f.mSavedFragmentState);
+	                            if (f.mView != null) {
+	                                f.mInnerView = f.mView;
+	                                if (Build.VERSION.SDK_INT >= 11) {
+	                                    ViewCompat.setSaveFromParentEnabled(f.mView, false);
+	                                } else {
+	                                    f.mView = NoSaveStateFrameLayout.wrap(f.mView);
+	                                }
+	                                if (container != null) {
+	                                    Animation anim = loadAnimation(f, transit, true,
+	                                            transitionStyle);
+	                                    if (anim != null) {
+	                                        f.mView.startAnimation(anim);
+	                                    }
+	                                    container.addView(f.mView);
+	                                }
+	                                if (f.mHidden) f.mView.setVisibility(View.GONE);
+	                                f.onViewCreated(f.mView, f.mSavedFragmentState);
+	                            } else {
+	                                f.mInnerView = null;
+	                            }
+	                        }
+	
+	                        f.performActivityCreated(f.mSavedFragmentState);
+	                        if (f.mView != null) {
+	                            f.restoreViewState(f.mSavedFragmentState);
+	                        }
+	                        f.mSavedFragmentState = null;
+	                    }
+	                case Fragment.ACTIVITY_CREATED:                              
 
-之后根据当前Activity的状态，决定是否显示Fragment，这里是正常的流程，至于后台杀死，就要看第二个异常处理的流程。
-
-
-<a name="life_circle"></a>  
-
-####  所谓Fragment生命周期是依托FragmentActivity的
- 
-MVC模式的体现，newState代表是当前Actvity传递给的FragmentManager的state，位于FragmentManager中，FragmentManager可以看做是FragmentActvity的管理器C，Fragmentmanager会根据mCurState的值，修改当前别添加的fragment的状态，如果是Actvity处于resume状态，那么被添加的fragment就会被处理成激活状态 当然首先要初始化新建的fragment ,然后匹配新状态，是否有必要将状态等级提升。 很明显，没有被added或者或者说已经detach的Fragment是不用走到resume的
+注意上面一些State的变化，跟当前Activity的State保持一致，之后根据当前Activity的状态，决定是否显示Fragment，这里是正常的流程，至于后台杀死，就要看第二个异常处理的流程。newState代表是当前Actvity传递给的FragmentManager的state，位于FragmentManager中，FragmentManager可以看做是FragmentActvity的管理器C，Fragmentmanager会根据mCurState的值，修改当前别添加的fragment的状态，如果是Actvity处于resume状态，那么被添加的fragment就会被处理成激活状态 当然首先要初始化新建的fragment ,然后匹配新状态，是否有必要将状态等级提升，很明显，没有被added或者或者说已经detach的Fragment是不用走到resume的
 
 
         // Fragments that are not currently added will sit in the onCreate() state.
         if ((!f.mAdded || f.mDetached) && newState > Fragment.CREATED) {
             newState = Fragment.CREATED;
-        }
-        
-        
+        }        
             
 <a name="fragment_activity_restore"></a>
 
@@ -314,12 +426,9 @@ MVC模式的体现，newState代表是当前Actvity传递给的FragmentManager�
 
 
 
-
-
-
 <a name="lFragmentTabHost_restore_life"></a>
 
-####  FragmentTabHost的后天杀死重建 
+####  FragmentTabHost的后台杀死重建 
 
 
 
@@ -806,8 +915,11 @@ PhoneWindowManager
 
         return fragment;
     }
-         
- 
+    
+
+####FragmentActivity中FragmentManagerImp的mAdded与mActive
+          
+
  
 <a name="onSaveInstanceState_OnRestoreInstance"/>
 
