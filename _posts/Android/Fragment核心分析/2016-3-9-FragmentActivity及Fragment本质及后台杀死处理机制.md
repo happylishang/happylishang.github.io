@@ -31,7 +31,7 @@ category: android开发
 
 #### 背景
 
-开发的时候，虽然一直遵守谷歌的Android开发文档，创建Fragment尽量采用推荐的参数传递方式，并且保留默认的Fragment无参构造方法，这样避免绝大部分APP被后台杀死，恢复崩溃的问题，但是对于原理的了解紧限于恢复时的重建机制，采用反射机制，并使用了默认的构造参数，直到使用FragmentDialog，示例代码如下：
+开发的时候，虽然一直遵守谷歌的Android开发文档，创建Fragment尽量采用推荐的参数传递方式，并且保留默认的Fragment无参构造方法，避免绝大部分后台杀死-恢复崩溃的问题，但是对于原理的了解紧限于恢复时的重建机制，采用反射机制，并使用了默认的构造参数，直到使用FragmentDialog，示例代码如下：
 
 	public class DialogFragmentActivity extends AppCompatActivity {
 	
@@ -81,7 +81,7 @@ Fragment被添加到Activity中管理，但是View没有，View 被添加到Dial
             mDialog.setContentView(view);
         }
 
-后面的getView获取的View是可以通过mDialog.setContentView添加到Dialog中去的。 
+后面的getView获取的View是可以通过mDialog.setContentView添加到Dialog中去的， 其实是个dialog，管理采用的却是Fragment
 
 <a name="add_fragment"/>
 
@@ -428,7 +428,50 @@ FragmentManagerImpl的beginTransaction()函数返回的是一个BackStackRecord(
 
 <a name="lFragmentTabHost_restore_life"></a>
 
-####  FragmentTabHost的后台杀死重建 
+####  FragmentTabHost的后台杀死重建 onRestoreInstanceState、onAttachedToWindow
+
+onRestoreInstanceState之后，会调用onAttachedToWindow，
+
+在onAttachedToWindow时候，会首先调用mFragmentManager.findFragmentByTag，被后台杀死后，这里能获取到相应的Fragment，因此不用重建。其实
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+
+        String currentTab = getCurrentTabTag();
+
+        // Go through all tabs and make sure their fragments match
+        // the correct state.
+        FragmentTransaction ft = null;
+        for (int i=0; i<mTabs.size(); i++) {
+            TabInfo tab = mTabs.get(i);
+            tab.fragment = mFragmentManager.findFragmentByTag(tab.tag);
+            if (tab.fragment != null && !tab.fragment.isDetached()) {
+                if (tab.tag.equals(currentTab)) {
+                    // The fragment for this tab is already there and
+                    // active, and it is what we really want to have
+                    // as the current tab.  Nothing to do.
+                    mLastTab = tab;
+                } else {
+                    // This fragment was restored in the active state,
+                    // but is not the current tab.  Deactivate it.
+                    if (ft == null) {
+                        ft = mFragmentManager.beginTransaction();
+                    }
+                    ft.detach(tab.fragment);
+                }
+            }
+        }
+
+        // We are now ready to go.  Make sure we are switched to the
+        // correct tab.
+        mAttached = true;
+        ft = doTabChanged(currentTab, ft);
+        if (ft != null) {
+            ft.commit();
+            mFragmentManager.executePendingTransactions();
+        }
+    }
 
 
 
@@ -436,9 +479,14 @@ FragmentManagerImpl的beginTransaction()函数返回的是一个BackStackRecord(
 
 ####  ViewPager及FragmentPagerAdapter的后台杀死重建 
 
-ViewPager的情形，ViewPager其实在要看看怎么serCurrent，如果设置了一次，后台杀死后View 重建，注意View重建会setCurrent。处理FragmentManger重建Fragment，View也会恢复现场的，尤其对于ViewPager这种，如果手动将android.support.fragments置空，很容易引发崩溃。
+ViewPager的情形注意serCurrent，如果设置了一次，后台杀死后，重建ViewPager，恢复现场，调用setCurrent。如果手动将android.support.fragments置空，很容易引发崩溃。其实ViewPager默认支持重建，但是如果MVP开发Presenter就要注意是否合理的被创建。有些场景，如果手动清理android.support.fragments，就会引起崩溃，因为ViewPager也会保存现场，如果置空，重建就会遇到问题，当然如果在onCreate中已经添加了Fragment的除外。比如那些先网络请求，再更新PagerAdapter的，数量是动态的那种，就会出现问题。
 
-其实ViewPager默认支持重建，但是如果MVP开发Presenter就要注意是否合理的被创建。菜单是佛可以刷新
+	  at android.support.v4.app.FragmentManagerImpl.getFragment(SourceFile:587)
+	       at android.support.v4.app.FragmentStatePagerAdapter.restoreState(SourceFile:211)
+	       at android.support.v4.view.ViewPager.onRestoreInstanceState(SourceFile:1318)
+	       at android.view.View.dispatchRestoreInstanceState(View.java:14770)
+	       
+ViewPager的PagerAdapter如何复用被杀死的Pager，并且不引起崩溃？菜单栏刷新，如何处理
 
     @Override
     public HomeFragmentItem getItem(int position) {
@@ -460,13 +508,14 @@ ViewPager的情形，ViewPager其实在要看看怎么serCurrent，如果设置�
         return fragment;
     }
 
+
     @Override
     public Object instantiateItem(ViewGroup container, int position) {
         HomeFragmentItem fragmentItem = (HomeFragmentItem) super.instantiateItem(container, position);
         mFragmentHashMap.put(position, fragmentItem);
         return fragmentItem;
     }
-    
+           
 
 mFirstLayout =true 可能是还没有创建Fragment，那么我们就不能获取Fragment，也不能使用里面的东西，但是可以调用dispatchOnPageSelected，至于里面如何操作就不知道了
 
@@ -520,7 +569,28 @@ mFirstLayout =true 可能是还没有创建Fragment，那么我们就不能获�
         return "android:switcher:" + viewId + ":" + id;
     }        
 
-##### 如果Activity已经Destoy，但是Adapter还在notifiDataChange
+ViewPager重建，Adapter的设置尽量靠后，如果靠前，并且设置了位置，后台杀死重启可能崩溃，不如网络请求回来动态的处理，再说开始设置一个空的Adapter有意义吗？尤其对于FragmentStateAdapter，更加容易引起bug，毕竟网络请求后，还会再次处理的，如果onCreate里面设置了Adapter，并且Fragment已经确定，那就一定不会有崩溃的问题。
+
+    @Override
+    public void onRestoreInstanceState(Parcelable state) {
+        if (!(state instanceof SavedState)) {
+            super.onRestoreInstanceState(state);
+            return;
+        }
+
+        SavedState ss = (SavedState)state;
+        super.onRestoreInstanceState(ss.getSuperState());
+
+        if (mAdapter != null) {
+            mAdapter.restoreState(ss.adapterState, ss.loader);
+            setCurrentItemInternal(ss.position, false, true);
+        } else {
+            mRestoredCurItem = ss.position;
+            mRestoredAdapterState = ss.adapterState;
+            mRestoredClassLoader = ss.loader;
+        }
+    }
+    
         
 <a name="how_to_resolve"> </a>   
  
