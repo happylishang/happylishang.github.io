@@ -6,7 +6,7 @@ category: android开发
 
 ---
 
-#### 分析问题的方法与步骤
+# 分析问题的方法与步骤
 
 * **什么时候会出现这个问题**
 * **为什么会出现**
@@ -701,96 +701,6 @@ PhoneWindowManager
                         
 后台杀死如何处理RecentTaskInfo
  
- 
-
-###  原理，
-
-
-    /**
-     * Called by the system, as part of destroying an
-     * activity due to a configuration change, when it is known that a new
-     * instance will immediately be created for the new configuration.  You
-     * can return any object you like here, including the activity instance
-     * itself, which can later be retrieved by calling
-     * {@link #getLastNonConfigurationInstance()} in the new activity
-     * instance.
-     
-     仅仅是优化选项，不是为了必然处理
-     
-     This function is called purely as an optimization, and you must
-     * not rely on it being called.  When it is called, a number of guarantees
-     * will be made to help optimize configuration switching:
-        
-    /**
-     * Retain all appropriate fragment and loader state.  You can NOT
-     * override this yourself!  Use {@link #onRetainCustomNonConfigurationInstance()}
-     * if you want to retain your own state.
-     */
-    @Override
-    public final Object onRetainNonConfigurationInstance() {
-        if (mStopped) {
-            doReallyStop(true);
-        }
-
-        Object custom = onRetainCustomNonConfigurationInstance();
-
-        ArrayList<Fragment> fragments = mFragments.retainNonConfig();
-        boolean retainLoaders = false;
-        if (mAllLoaderManagers != null) {
-            // prune out any loader managers that were already stopped and so
-            // have nothing useful to retain.
-            final int N = mAllLoaderManagers.size();
-            LoaderManagerImpl loaders[] = new LoaderManagerImpl[N];
-            for (int i=N-1; i>=0; i--) {
-                loaders[i] = mAllLoaderManagers.valueAt(i);
-            }
-            for (int i=0; i<N; i++) {
-                LoaderManagerImpl lm = loaders[i];
-                if (lm.mRetaining) {
-                    retainLoaders = true;
-                } else {
-                    lm.doDestroy();
-                    mAllLoaderManagers.remove(lm.mWho);
-                }
-            }
-        }
-        if (fragments == null && !retainLoaders && custom == null) {
-            return null;
-        }
-        
-        NonConfigurationInstances nci = new NonConfigurationInstances();
-        nci.activity = null;
-        nci.custom = custom;
-        nci.children = null;
-        nci.fragments = fragments;
-        nci.loaders = mAllLoaderManagers;
-        return nci;
-    }
- 
-#### 如何应对 Activity退回后台，不退出应用 False跟Activity
-
-    /**
-     * Move the task containing this activity to the back of the activity
-     * stack.  The activity's order within the task is unchanged.
-     * 
-     * @param nonRoot If false then this only works if the activity is the root
-     *                of a task; if true it will work for any activity in
-     *                a task.
-     * 
-     * @return If the task was moved (or it was already at the
-     *         back) true is returned, else false.
-     */
-    public boolean moveTaskToBack(boolean nonRoot) {
-        try {
-            return ActivityManagerNative.getDefault().moveActivityTaskToBack(
-                    mToken, nonRoot);
-        } catch (RemoteException e) {
-            // Empty
-        }
-        return false;
-    }
-
-
 
 <a name="Can_not_onSaveInstanceState"/>
 	        
@@ -986,9 +896,6 @@ PhoneWindowManager
         return fragment;
     }
     
-
-####FragmentActivity中FragmentManagerImp的mAdded与mActive
-          
 
  
 <a name="onSaveInstanceState_OnRestoreInstance"/>
