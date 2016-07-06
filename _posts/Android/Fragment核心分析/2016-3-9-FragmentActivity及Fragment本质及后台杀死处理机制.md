@@ -430,9 +430,28 @@ FragmentManagerImpl的beginTransaction()函数返回的是一个BackStackRecord(
 
 ####  FragmentTabHost的后台杀死重建 onRestoreInstanceState、onAttachedToWindow
 
-onRestoreInstanceState之后，会调用onAttachedToWindow，
+系统在onCreate回复Fragment之后，会首先调用onRestoreInstanceState恢复数据，之后会调用onAttachedToWindow添加到窗口显示，在onRestoreInstanceState会将当前postion重新赋值给Tabhost，在onAttachedToWindow时，就可以根据它设置当前位置。
 
-在onAttachedToWindow时候，会首先调用mFragmentManager.findFragmentByTag，被后台杀死后，这里能获取到相应的Fragment，因此不用重建。其实
+    @Override
+    protected Parcelable onSaveInstanceState() {
+        Parcelable superState = super.onSaveInstanceState();
+        SavedState ss = new SavedState(superState);
+        ss.curTab = getCurrentTabTag();
+        return ss;
+    }
+
+    @Override
+    protected void onRestoreInstanceState(Parcelable state) {
+        if (!(state instanceof SavedState)) {
+            super.onRestoreInstanceState(state);
+            return;
+        }
+        SavedState ss = (SavedState) state;
+        super.onRestoreInstanceState(ss.getSuperState());
+        setCurrentTabByTag(ss.curTab);
+    }
+    
+在onAttachedToWindow时候，会首先调用mFragmentManager.findFragmentByTag，被后台杀死后，这里能获取到相应的Fragment，因此不用重建。那些本来就没点击过的Tab其实还是null，在doTabChanged才真正的创建。
 
     @Override
     protected void onAttachedToWindow() {
@@ -596,17 +615,9 @@ ViewPager重建，Adapter的设置尽量靠后，如果靠前，并且设置了�
  
 ####  后台杀死处理方式--如何处理FragmentActivity的后台杀死重建
                 
-* 最简单的方式，但是效率可能一般，取消系统恢复，每次恢复的时候，避免系统重建做法如下
+* 最简单的方式，但是效率可能一般，取消系统恢复，每次恢复的时候，避免系统重建做法如下：
 
-如果是supportv4中的FragmentActivity
-
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-          super.onSaveInstanceState(outState);   
-           outState.putParcelable("android:support:fragments", null); 
-    }
-   
-或者
+如果是supportv4中的FragmentActivity 
 
     protected void onCreate(Bundle savedInstanceState) {
 	     if (savedInstanceState != null) {
@@ -614,23 +625,7 @@ ViewPager重建，Adapter的设置尽量靠后，如果靠前，并且设置了�
 	     super.onCreate(savedInstanceState);
 	}  
 
-如果是系统的Actvity改成是“android:fragments"
- 
-* 手动选择处理方式，
-
-
-
-<a name="Fragment_bugs"> </a>   
-
-####  Fragment使用很多坑，尤其是被后台杀死后恢复     
-
-
-<a name="FragmentPagerAdapter_FragmentStatePagerAdapter"/>
-
-#### FragmentPagerAdapter与FragmentStatePagerAdapter的使用场景
- 
-* FragmentPagerAdapter适用于存在刷新的界面 ，比如列表Fragment，如果采用FragmentStatePagerAdapter就需要保存现场，并且数据的加载会把逻辑弄乱
-* FragmentStatePagerAdapter更加适合图片类的处理，笔记图片预览等，一屏幕显示完全的，否则用FragmentStatePagerAdapter只会比FragmentPagerAdapter更复杂，还要自己缓存Fragment列表。
+如果是系统的Actvity改成是“android:fragments"，不过这里需要注意：对于ViewPager跟FragmentTabHost不需要额外处理，处理了可能反而有反作用。
 
 
 
@@ -665,9 +660,45 @@ ViewPager重建，Adapter的设置尽量靠后，如果靠前，并且设置了�
                 }
             }
             
+   
+####  Fragment重建流程
+
+*   如果非空，重建Fragment并将它们设置为Initialing，毕竟还没有resume
+
+       if (savedInstanceState != null) {
+            Parcelable p = savedInstanceState.getParcelable(FRAGMENTS_TAG);
+            mFragments.restoreAllState(p, nc != null ? nc.fragments : null);
+        }
+        
+* 第二步，就是转化为onCreate
+ 
+        mFragments.dispatchCreate();  
+
+* 第三部 等到Actviity Onresume，就让Fragment resume，至于后面 onPostResume 等待深度剖析
+
+* 第四步 
+
+	    @Override
+	    protected void onResume() {
+	        super.onResume();
+	        mHandler.sendEmptyMessage(MSG_RESUME_PENDING);
+	        mResumed = true;
+	        mFragments.execPendingActions();
+	    } 
+
+* 第五步
+
+	    @Override
+	    protected void onResume() {
+	        super.onResume();
+	        mHandler.sendEmptyMessage(MSG_RESUME_PENDING);
+	        mResumed = true;
+	        mFragments.execPendingActions();
+	    } 
+         
             
 
-#### 应用何时会被后台杀死
+#### 应用何时会被后台杀死，内存不足
 
 在近期的任务列表里面，有些不是主动结束掉的任务，会因为内存紧张等原因被后台杀死。
 
@@ -705,8 +736,7 @@ PhoneWindowManager
 <a name="Can_not_onSaveInstanceState"/>
 	        
 #### 	Fragment Transactions & Activity State Loss  解决IllegalStateException: Can not perform this action after onSaveInstanceState     
-
-   
+ 
 
 大致意思是说 commit方法是在Activity的onSaveInstanceState()之后调用的，这样会出错，因为onSaveInstanceState，方法是在该Activity即将被销毁前调用，来保存Activity数据的，如果在保存玩状态后再给它添加Fragment就会出错。解决办法就是把commit（）方法替换成 commitAllowingStateLoss()就行了，其效果是一样的。
 	        	       
@@ -739,7 +769,9 @@ PhoneWindowManager
     }     
 
 	
-#### Fragment必须提供默认构造方法的原理 反射机制重建Fragment实例 默认无参构造函数
+#### 为什么Fragment必须提供默认构造方法 
+
+后台杀死后，FragmentManager会根据反射机制重建Fragment实例，此时采用的是默认无参构造函数
 
 	   void restoreAllState(Parcelable state, ArrayList<Fragment> nonConfig) {	  ...
 	           mActive = new ArrayList<Fragment>(fms.mActive.length);
@@ -750,8 +782,7 @@ PhoneWindowManager
 	            FragmentState fs = fms.mActive[i];
 	            if (fs != null) {
 	                Fragment f = fs.instantiate(mActivity, mParent);
-	                if (DEBUG) Log.v(TAG, "
-	
+ 	
 	 /**
      * Create a new instance of a Fragment with the given class name.  This is
      * the same as calling its empty constructor.
@@ -794,46 +825,12 @@ PhoneWindowManager
                     + " empty constructor that is public", e);
         }
     }
-    
-####  Fragment重建流程
+  
+####   Viewpager与Fragmenttabhost的恢复逻辑，
 
-*   如果非空，重建Fragment并将它们设置为Initialing，毕竟还没有resume
+Viewpager与Fragmenttabhost有自己的恢复逻辑，当然这些都是在FramgentManager恢复完FragmentActivity之后，在Android 3.0之前，系统只会恢复Activity内部的View的状态
 
-       if (savedInstanceState != null) {
-            Parcelable p = savedInstanceState.getParcelable(FRAGMENTS_TAG);
-            mFragments.restoreAllState(p, nc != null ? nc.fragments : null);
-        }
-* 第二步，就是专为onCreate
- 
-        mFragments.dispatchCreate();  
-
-* 第三部 等到Actviity Onresume，就让Fragment resume，至于后面 onPostResume 等待深度剖析
-
-* 第四步 
-
-	    @Override
-	    protected void onResume() {
-	        super.onResume();
-	        mHandler.sendEmptyMessage(MSG_RESUME_PENDING);
-	        mResumed = true;
-	        mFragments.execPendingActions();
-	    } 
-
-* 第五步
-
-	    @Override
-	    protected void onResume() {
-	        super.onResume();
-	        mHandler.sendEmptyMessage(MSG_RESUME_PENDING);
-	        mResumed = true;
-	        mFragments.execPendingActions();
-	    } 
-         
-
- 
-####   Viewpager跟Fragmenttabhost有自己的回复逻辑，当然这些都是在FramgentManaget恢复完FragmentActivity之后，在Fragment出现前，也就是3.0之前，系统只会恢复Activity内部的View
-
-#####  对于FragmentTabhost
+对于FragmentTabhost，重建之后，不会再次重建，会根据Tag查找到 ，但是如果，你主动重建，就会重复 。
 
  
 	 final class FragmentManagerImpl extends FragmentManager implements LayoutInflaterFactory {  
@@ -864,9 +861,8 @@ PhoneWindowManager
         addTab(tabSpec);
     }
     
-重建之后，不会再次重建，会根据Tag查找到 ，但是如果，你主动重建，就会重复 。
 
-##### 对于FragmentPagerAdapter
+对于Viewpager
 
     @Override
     public Object instantiateItem(ViewGroup container, int position) {
@@ -895,18 +891,25 @@ PhoneWindowManager
 
         return fragment;
     }
-    
-
  
 <a name="onSaveInstanceState_OnRestoreInstance"/>
 
-#### onSaveInstanceState与OnRestoreInstance的调用时机 
+## onSaveInstanceState与OnRestoreInstance的调用时机 
 
-##### 点击home键为什么返回主菜单会调用onSaveInstanceState，再回来会不会重建，调用OnRestoreInstance呢
-一般情况下，是不会的，因为系统不会回收的那么快。其实点击Home键跟Activity跳转的原理是一样的，从Activity A 跳转到Activity B也会调用 A的onSaveInstanceState，但是只要A没有被系统回收掉，就不会调用A的OnRestoreInstance，因为在ActivityManagerService中，A所登记的状态是没有被后台Kill过的。其实Activity所有状态变化的最终依赖都是ActivityManagerService。  
+比如在点击home键时，回调用onSaveInstanceState，但是再次唤醒却不一定调用OnRestoreInstance,这是为什么onSaveInstanceState与OnRestoreInstance不是配对使用呢？因为onSaveInstanceState是为了预防Activity被后台杀死的情况做的预处理，但是如果Activity没有被后台杀死，那么自然也就不需要调用OnRestoreInstance进行现场的恢复，而大多数情况下，Activity不会那么快被杀死。
+
+其实点击Home键跟Activity跳转的原理是一样的，从Activity A 跳转到Activity B也会调用 A的onSaveInstanceState，但是只要A没有被系统回收掉，就不会调用A的OnRestoreInstance，因为在ActivityManagerService中，A所登记的状态是没有被后台Kill过的。其实Activity所有状态变化的最终依赖都是ActivityManagerService。  
+
+<a name="FragmentPagerAdapter_FragmentStatePagerAdapter"/>
+
+#### FragmentPagerAdapter与FragmentStatePagerAdapter的使用场景
+ 
+* FragmentPagerAdapter适用于存在刷新的界面 ，比如列表Fragment，如果采用FragmentStatePagerAdapter就需要保存现场，并且数据的加载会把逻辑弄乱
+* FragmentStatePagerAdapter更加适合图片类的处理，笔记图片预览等，一屏幕显示完全的，否则用FragmentStatePagerAdapter只会比FragmentPagerAdapter更复杂，还要自己缓存Fragment列表。
+
 
   
-####  FragmentTabHost奇葩的毕现 ，点击主屏幕与FragmentTabHost点击事件比较接近的时候崩溃
+##  FragmentTabHost奇葩的毕现 ，点击主屏幕与FragmentTabHost点击事件比较接近的时候崩溃
 
 This problem occurs if tab selection action performs after onSaveInstanceState get called. One example like, if user selects and holds any tab and at the same time also selects the Home Button.To solve this issue just
 
