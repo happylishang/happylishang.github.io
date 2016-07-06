@@ -11,8 +11,8 @@ category: android开发
 * **什么时候会出现这个问题**
 * **为什么会出现**
 * **怎么处理，能解决问题**
-
-###### **前言：Fragment只是Activity更加方便管理View的一种方式**
+#
+### **前言：Fragment只是Activity更加方便管理View的一种方式**
 
 >  [背景](#background)   
 >  [add一个Fragment并显示的原理--及所谓Fragment生命周期](#add_fragment)        
@@ -29,7 +29,7 @@ category: android开发
 
 <a name="background"></a>
 
-#### 背景
+# 背景
 
 开发的时候，虽然一直遵守谷歌的Android开发文档，创建Fragment尽量采用推荐的参数传递方式，并且保留默认的Fragment无参构造方法，避免绝大部分后台杀死-恢复崩溃的问题，但是对于原理的了解紧限于恢复时的重建机制，采用反射机制，并使用了默认的构造参数，直到使用FragmentDialog，示例代码如下：
 
@@ -85,7 +85,7 @@ Fragment被添加到Activity中管理，但是View没有，View 被添加到Dial
 
 <a name="add_fragment"/>
 
-#### Add一个Fragment并显示的原理--所谓Fragment生命周期
+# Add一个Fragment并显示的原理--所谓Fragment生命周期
 
 通常我们FragmentActivity使用Fragment的方法如下：假设是在oncreate函数中：
 
@@ -386,7 +386,7 @@ FragmentManagerImpl的beginTransaction()函数返回的是一个BackStackRecord(
             
 <a name="fragment_activity_restore"></a>
 
-#### FragmentActivity被后台杀死后恢复逻辑
+# FragmentActivity被后台杀死后恢复逻辑
 
 当App被后台异常杀死后，再次点击icon，或者从最近任务列表进入的时候，系统会帮助恢复当时的场景，重新创建Activity，对于FragmentActivity，由于其中有Framgent，逻辑会相对再复杂一些，系统会首先重建被销毁的Fragment。看FragmentActivity的onCreat代码：
 
@@ -428,7 +428,7 @@ FragmentManagerImpl的beginTransaction()函数返回的是一个BackStackRecord(
 
 <a name="lFragmentTabHost_restore_life"></a>
 
-####  FragmentTabHost的后台杀死重建 onRestoreInstanceState、onAttachedToWindow
+#  FragmentTabHost的后台杀死重建 onRestoreInstanceState、onAttachedToWindow
 
 系统在onCreate回复Fragment之后，会首先调用onRestoreInstanceState恢复数据，之后会调用onAttachedToWindow添加到窗口显示，在onRestoreInstanceState会将当前postion重新赋值给Tabhost，在onAttachedToWindow时，就可以根据它设置当前位置。
 
@@ -496,7 +496,7 @@ FragmentManagerImpl的beginTransaction()函数返回的是一个BackStackRecord(
 
 <a name="FragmentPagerAdapter_restore"> </a>
 
-####  ViewPager及FragmentPagerAdapter的后台杀死重建 
+#  ViewPager及FragmentPagerAdapter的后台杀死重建 
 
 ViewPager的情形注意serCurrent，如果设置了一次，后台杀死后，重建ViewPager，恢复现场，调用setCurrent。如果手动将android.support.fragments置空，很容易引发崩溃。其实ViewPager默认支持重建，但是如果MVP开发Presenter就要注意是否合理的被创建。有些场景，如果手动清理android.support.fragments，就会引起崩溃，因为ViewPager也会保存现场，如果置空，重建就会遇到问题，当然如果在onCreate中已经添加了Fragment的除外。比如那些先网络请求，再更新PagerAdapter的，数量是动态的那种，就会出现问题。
 
@@ -613,7 +613,7 @@ ViewPager重建，Adapter的设置尽量靠后，如果靠前，并且设置了�
         
 <a name="how_to_resolve"> </a>   
  
-####  后台杀死处理方式--如何处理FragmentActivity的后台杀死重建
+#  后台杀死处理方式--如何处理FragmentActivity的后台杀死重建
                 
 * 最简单的方式，但是效率可能一般，取消系统恢复，每次恢复的时候，避免系统重建做法如下：
 
@@ -629,7 +629,7 @@ ViewPager重建，Adapter的设置尽量靠后，如果靠前，并且设置了�
 
 
 
-####  OnRestoreInstanceState的调用时机是在什么时候？ 保存后，看看是否被杀死，被杀死机会回调，注意，不仅仅是Fragment，还有View，尤其是ViewPager
+#  OnRestoreInstanceState的调用时机是在什么时候？ 保存后，看看是否被杀死，被杀死机会回调，注意，不仅仅是Fragment，还有View，尤其是ViewPager
 
 
                 mInstrumentation.callActivityOnCreate(activity, r.state);
@@ -661,7 +661,7 @@ ViewPager重建，Adapter的设置尽量靠后，如果靠前，并且设置了�
             }
             
    
-####  Fragment重建流程
+#  Fragment重建流程
 
 *   如果非空，重建Fragment并将它们设置为Initialing，毕竟还没有resume
 
@@ -698,7 +698,7 @@ ViewPager重建，Adapter的设置尽量靠后，如果靠前，并且设置了�
          
             
 
-#### 应用何时会被后台杀死，内存不足
+# 应用何时会被后台杀死，内存不足
 
 在近期的任务列表里面，有些不是主动结束掉的任务，会因为内存紧张等原因被后台杀死。
 
@@ -735,7 +735,7 @@ PhoneWindowManager
 
 <a name="Can_not_onSaveInstanceState"/>
 	        
-#### 	Fragment Transactions & Activity State Loss  解决IllegalStateException: Can not perform this action after onSaveInstanceState     
+# 	Fragment Transactions & Activity State Loss  解决IllegalStateException: Can not perform this action after onSaveInstanceState     
  
 
 大致意思是说 commit方法是在Activity的onSaveInstanceState()之后调用的，这样会出错，因为onSaveInstanceState，方法是在该Activity即将被销毁前调用，来保存Activity数据的，如果在保存玩状态后再给它添加Fragment就会出错。解决办法就是把commit（）方法替换成 commitAllowingStateLoss()就行了，其效果是一样的。
@@ -769,7 +769,7 @@ PhoneWindowManager
     }     
 
 	
-#### 为什么Fragment必须提供默认构造方法 
+# 为什么Fragment必须提供默认构造方法 
 
 后台杀死后，FragmentManager会根据反射机制重建Fragment实例，此时采用的是默认无参构造函数
 
@@ -826,7 +826,7 @@ PhoneWindowManager
         }
     }
   
-####   Viewpager与Fragmenttabhost的恢复逻辑，
+#   Viewpager与Fragmenttabhost的恢复逻辑，
 
 Viewpager与Fragmenttabhost有自己的恢复逻辑，当然这些都是在FramgentManager恢复完FragmentActivity之后，在Android 3.0之前，系统只会恢复Activity内部的View的状态
 
@@ -902,7 +902,7 @@ Viewpager与Fragmenttabhost有自己的恢复逻辑，当然这些都是在Framg
 
 <a name="FragmentPagerAdapter_FragmentStatePagerAdapter"/>
 
-#### FragmentPagerAdapter与FragmentStatePagerAdapter的使用场景
+# FragmentPagerAdapter与FragmentStatePagerAdapter的使用场景
  
 * FragmentPagerAdapter适用于存在刷新的界面 ，比如列表Fragment，如果采用FragmentStatePagerAdapter就需要保存现场，并且数据的加载会把逻辑弄乱
 * FragmentStatePagerAdapter更加适合图片类的处理，笔记图片预览等，一屏幕显示完全的，否则用FragmentStatePagerAdapter只会比FragmentPagerAdapter更复杂，还要自己缓存Fragment列表。
@@ -917,7 +917,7 @@ This problem occurs if tab selection action performs after onSaveInstanceState g
 	and call mTabHost.getTabWidget().setEnabled(true); under onResume. 
 
 
-####  结束语 
+#  结束语 
 
 
 <a name="ref_doc"/>
