@@ -826,7 +826,7 @@ PhoneWindowManager
         }
     }
   
-#   Viewpager与Fragmenttabhost的恢复逻辑，
+#   Viewpager与FragmentTabhost的恢复逻辑，
 
 Viewpager与Fragmenttabhost有自己的恢复逻辑，当然这些都是在FramgentManager恢复完FragmentActivity之后，在Android 3.0之前，系统只会恢复Activity内部的View的状态
 
@@ -894,7 +894,7 @@ Viewpager与Fragmenttabhost有自己的恢复逻辑，当然这些都是在Framg
  
 <a name="onSaveInstanceState_OnRestoreInstance"/>
 
-## onSaveInstanceState与OnRestoreInstance的调用时机 
+# onSaveInstanceState与OnRestoreInstance的调用时机 
 
 比如在点击home键时，回调用onSaveInstanceState，但是再次唤醒却不一定调用OnRestoreInstance,这是为什么onSaveInstanceState与OnRestoreInstance不是配对使用呢？因为onSaveInstanceState是为了预防Activity被后台杀死的情况做的预处理，但是如果Activity没有被后台杀死，那么自然也就不需要调用OnRestoreInstance进行现场的恢复，而大多数情况下，Activity不会那么快被杀死。
 
@@ -909,7 +909,7 @@ Viewpager与Fragmenttabhost有自己的恢复逻辑，当然这些都是在Framg
 
 
   
-##  FragmentTabHost奇葩的毕现 ，点击主屏幕与FragmentTabHost点击事件比较接近的时候崩溃
+#  FragmentTabHost奇葩的毕现 ，点击主屏幕与FragmentTabHost点击事件比较接近的时候崩溃
 
 This problem occurs if tab selection action performs after onSaveInstanceState get called. One example like, if user selects and holds any tab and at the same time also selects the Home Button.To solve this issue just
 
