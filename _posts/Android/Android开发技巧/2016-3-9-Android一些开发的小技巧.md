@@ -766,3 +766,27 @@ On Android 2.3.3 (API level 10) and lower, using recycle() is recommended. If yo
 	在values当中的dimens设置linepaddingbutton=0dp
 	在values-v21 当中的dimens设置linepaddingbutton=7dp
 	这样就可以解决兼容性的问题实现一致的展现的效果
+	
+#### 	如何处理一些handler的使用 ，自己实现Hanlder并且注意Destroy的时候移除
+
+
+	   private Handler mHandler;
+	    private Queue<Runnable> mRunnableQueue =new LinkedBlockingDeque<>();
+	    
+    public void onPostResume() {
+        postRunnables();
+    }
+
+    void postRunnables() {
+
+        Iterator<Runnable> iterator = mRunnableQueue.iterator();
+        while (iterator.hasNext()) {
+            mHandler.post(iterator.next());
+        }
+        mRunnableQueue.clear();
+    }
+
+    public void onDestroy() {
+       
+        mHandler.removeCallbacksAndMessages(null);
+    }
