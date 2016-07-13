@@ -201,6 +201,11 @@ category: android开发
 	
     }
 
+ 最后   
+ 
+	  private void setChildFrame(View child, int left, int top, int width, int height) {
+	        child.layout(left, top, left + width, top + height);
+	    }
 
 #GrideView自身实现逻辑
  

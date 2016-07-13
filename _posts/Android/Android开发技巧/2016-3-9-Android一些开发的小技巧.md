@@ -717,6 +717,8 @@ On Android 2.3.3 (API level 10) and lower, using recycle() is recommended. If yo
   
   <a name="Autocommplete"/>
   
+ layer-list 其实就是层叠图片的效果，
+  
 ####   如何Autocommplete的控制，宽度，位置，边界线
   
       <activity
