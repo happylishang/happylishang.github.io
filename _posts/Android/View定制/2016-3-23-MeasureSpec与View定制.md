@@ -207,6 +207,48 @@ category: android开发
 	        child.layout(left, top, left + width, top + height);
 	    }
 
+# 添加Margin
+
+	  public static class LayoutParams extends ViewGroup.MarginLayoutParams {
+	
+	        public LayoutParams(Context c, AttributeSet attrs) {
+	            super(c, attrs);
+	        }
+	
+	        public LayoutParams(ViewGroup.LayoutParams source) {
+	            super(source);
+	        }
+	
+	        public LayoutParams(MarginLayoutParams source) {
+	            super(source);
+	        }
+	
+	        public LayoutParams(int width, int height) {
+	            super(width, height);
+	        }
+	    }
+	
+	    @Override
+	    protected ViewGroup.LayoutParams generateDefaultLayoutParams() {
+	        return new LayoutParams(LayoutParams.WRAP_CONTENT,
+	                LayoutParams.WRAP_CONTENT);
+	    }
+	
+	    @Override
+	    protected ViewGroup.LayoutParams generateLayoutParams(ViewGroup.LayoutParams p) {
+	        return new LayoutParams(p);
+	    }
+	
+	    @Override
+	    public ViewGroup.LayoutParams generateLayoutParams(AttributeSet attrs) {
+	        return new LayoutParams(getContext(), attrs);
+	    }
+	
+	    @Override
+	    protected boolean checkLayoutParams(ViewGroup.LayoutParams p) {
+	        return p instanceof LayoutParams;
+	    }
+    
 #GrideView自身实现逻辑
  
         if (heightMode == MeasureSpec.AT_MOST) {
