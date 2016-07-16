@@ -56,7 +56,7 @@ category: View
 	
     }
 
- #### GrideView		自身实现逻辑
+ #### GrideView自身实现逻辑
  
         if (heightMode == MeasureSpec.AT_MOST) {
             int ourSize =  mListPadding.top + mListPadding.bottom;
