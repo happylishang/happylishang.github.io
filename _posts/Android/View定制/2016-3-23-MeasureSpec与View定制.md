@@ -91,7 +91,7 @@ MeasureSpec参数的意义是：父控件传给Child的参数，仅供子View参
 
 可以看出，只要View自己通过android:layout_withd等参数设定自己的高度，Android默认会给View想要的尺寸，即：EXACTLY+SIZE，如果设置的是wrap_content或者match_parent，那就需要看父布局的MeasureSpec，如果父的specMode是EXACTLY，并且子View的是match_parent，那么子View尺寸其实就确定了，EXACTLY+SIZE(父)，如果是wrap_content，那么就是AT_MOST+SIZE(父)，如果是AT_MOST，那么子View的就全部是AT_MOST+SIZE(父)，如果是UNSPECIFIED，那么子View的就全部是UNSPECIFIED，父子均不限定size。可以参考下面的图：
 
-<img src="https://github.com/happylishang/happylishang.github.io/blob/master/images/android/view/MeasureSpec.png"/>
+<img src="https://github.com/happylishang/happylishang.github.io/blob/master/images/android/view/MeasureSpec.png"></img>
 
 # View如何处理自己的尺寸
 
