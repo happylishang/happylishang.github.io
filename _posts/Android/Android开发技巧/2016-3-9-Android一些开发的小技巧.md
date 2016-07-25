@@ -29,7 +29,8 @@ category: android开发
 >  [如何Autocommplete的控制，宽度，位置，边界线](#Autocommplete)           
 >  List 的滚动监听       mRvRecord.getRecyclerView().getViewTreeObserver().addOnScrollChangedListener(presenter);      
 >  隐藏状态栏       
->  [关于android:lineSpacingExtra属性 在android5.0与先期版本存在的区别](#lineSpacingExtra)
+>  [关于android:lineSpacingExtra属性 在android5.0与先期版本存在的区别](#lineSpacingExtra)     
+>  [@回复某人]
 
  
             
@@ -792,3 +793,17 @@ On Android 2.3.3 (API level 10) and lower, using recycle() is recommended. If yo
        
         mHandler.removeCallbacksAndMessages(null);
     }
+    
+    
+#     @回复某人  ClickableSpan
+
+		        htmlLinkNick = "<a style=\"color:#9878ff;\" href='sender'>" + spSenderNick
+		                + "</a>" + "<a style=\"color:#9878ff;\" href='awarder'>" + AwarderForSender + "</a>";
+		        if (mInfo.type == 0) {
+	 	            htmlLinkText = "</a><a style=\"color:#252525;\" href='content'>" + mInfo.content + "</a>";
+		        } else {
+	 	            htmlLinkText = "</a>" + " " + mContext.getResources().getString(R.string.receiver)
+		                    + "<a style=\"color:#9878ff;\" href='receiver'>" + mInfo.receiverNick
+		                    + "</a>" + "<a style=\"color:#9878ff;\" href='awarder'>" + AwarderForReceiver + "</a>" +
+		                    "</a> : <a style=\"color:#252525;\" href='content'>" + mInfo.content + "</a>";
+		        }
