@@ -30,8 +30,9 @@ category: android开发
 >  List 的滚动监听       mRvRecord.getRecyclerView().getViewTreeObserver().addOnScrollChangedListener(presenter);      
 >  隐藏状态栏       
 >  [关于android:lineSpacingExtra属性 在android5.0与先期版本存在的区别](#lineSpacingExtra)     
->  [@回复某人]
-
+>  [@回复某人]    
+>  [查看View或者ViewGroup是否可以滚动-商品详情]     
+ 
  
             
 ####    如何取消默认的material design效果以及输入框只显示下边界
@@ -807,3 +808,27 @@ On Android 2.3.3 (API level 10) and lower, using recycle() is recommended. If yo
 		                    + "</a>" + "<a style=\"color:#9878ff;\" href='awarder'>" + AwarderForReceiver + "</a>" +
 		                    "</a> : <a style=\"color:#252525;\" href='content'>" + mInfo.content + "</a>";
 		        }
+
+#查看View或者ViewGroup是否可以滚动-商品详情
+
+	private boolean innerCanChildScrollVertically(View view, int direction) {
+	        if (view instanceof ViewGroup) {
+	            final ViewGroup vGroup = (ViewGroup) view;
+	            View child;
+	            boolean result;
+	            for (int i = 0; i < vGroup.getChildCount(); i++) {
+	                child = vGroup.getChildAt(i);
+	                if (child instanceof View) {
+	                    result = ViewCompat.canScrollVertically(child, direction);
+	                } else {
+	                    result = innerCanChildScrollVertically(child, direction);
+	                }
+	
+	                if (result) {
+	                    return true;
+	                }
+	            }
+	        }
+	
+	        return ViewCompat.canScrollVertically(view, direction);
+	    }
