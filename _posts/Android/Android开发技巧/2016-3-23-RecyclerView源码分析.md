@@ -43,11 +43,12 @@ category: android开发
                 addView(view);
             } else {
                 addView(view, 0);
-                    
+            }    
+            
 #ChildItemView的绘制与ItemDecoration的关系
 # RecyclerView的onDraw
 
-RecyclerView是个容器， super.onDraw(c);会使得内部的View被绘制，但是ItemDecorations不是View，也没有被添加到ViewGroup中，所以要自己绘制，因此在RecyclerView的onDraw中，只看到了ItemDocration的绘制，
+RecyclerView是个容器ViewGroup，一般，对于ViewGroup而言，自己是不需要onDraw进行绘制的，ViewGroup的super.onDraw(c)会使得内部的View被绘制，但是由于ItemDecorations不是View，没有被添加到ViewGroup中，所以RecyclerView要自己绘制：
 
     @Override
     public void onDraw(Canvas c) {
@@ -59,10 +60,6 @@ RecyclerView是个容器， super.onDraw(c);会使得内部的View被绘制，�
         }
     }
 
-
-
-
- 	
-#  		参考文档
+#参考文档
 
 [ListView源码分析](https://github.com/CharonChui/AndroidNote/blob/master/Android%E5%8A%A0%E5%BC%BA/ListView%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90.md)
