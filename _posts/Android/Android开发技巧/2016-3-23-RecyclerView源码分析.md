@@ -46,9 +46,7 @@ category: android开发
             }    
             
 #ChildItemView的绘制与ItemDecoration的关系
-# RecyclerView的onDraw
-
-RecyclerView是个容器ViewGroup，一般，对于ViewGroup而言，自己是不需要onDraw进行绘制的，ViewGroup的super.onDraw(c)会使得内部的View被绘制，但是由于ItemDecorations不是View，没有被添加到ViewGroup中，所以RecyclerView要自己绘制：
+为什么ItemDecoration设置的边距跟绘制的内容会显示到RecyclerView的Item边上，RecyclerView是个容器ViewGroup，一般，对于ViewGroup而言，自己是不需要onDraw进行绘制的，ViewGroup的super.onDraw(c)会使得内部的View被绘制，但是由于ItemDecorations不是View，没有被添加到ViewGroup中，所以RecyclerView要自己绘制： 如下RecyclerView的onDraw：
 
     @Override
     public void onDraw(Canvas c) {
@@ -58,7 +56,7 @@ RecyclerView是个容器ViewGroup，一般，对于ViewGroup而言，自己是�
         for (int i = 0; i < count; i++) {
             mItemDecorations.get(i).onDraw(c, this, mState);
         }
-    }
+    } 
 
 #参考文档
 

@@ -32,7 +32,25 @@ category: android开发
 >  [关于android:lineSpacingExtra属性 在android5.0与先期版本存在的区别](#lineSpacingExtra)     
 >  [@回复某人]    
 >  [查看View或者ViewGroup是否可以滚动-商品详情]     
- 
+>  滚动的有效长度
+>  dialog获取返回按键的监听
+
+
+
+#  dialog获取返回按键的监听
+
+        dialog.setCancelable(false);
+        dialog.setOnKeyListener(new DialogInterface.OnKeyListener() {
+            @Override
+            public boolean onKey(DialogInterface dialog, int keyCode, KeyEvent event) {
+                if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP) {
+                    startOutAnimation();
+                    return true;
+                }
+                return false;
+            }
+        });
+
  
             
 ####    如何取消默认的material design效果以及输入框只显示下边界
@@ -832,3 +850,7 @@ On Android 2.3.3 (API level 10) and lower, using recycle() is recommended. If yo
 	
 	        return ViewCompat.canScrollVertically(view, direction);
 	    }
+	    
+#获取滚动有效距离标尺
+
+	mTouchSlop = ViewConfiguration.get(getContext()).getScaledTouchSlop(); 	    
