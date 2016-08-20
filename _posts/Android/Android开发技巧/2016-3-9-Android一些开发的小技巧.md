@@ -23,21 +23,39 @@ category: android开发
 > [缓存路径与缓存清理](#cache_and_clean)       
 > [Uri方法集合](#uri_method)      
 > [定制View判断是否可以上滚](#view_can_scroll)
-> 调试后台杀死，    
 > [代码中如何用一些小红点 小方框 颜色做icon](#icon_shape)    
 >  [ 如何取消默认的material design效果以及输入框只显示下边界](#cancle_material)         
 >  [如何Autocommplete的控制，宽度，位置，边界线](#Autocommplete)           
->  List 的滚动监听       mRvRecord.getRecyclerView().getViewTreeObserver().addOnScrollChangedListener(presenter);      
->  隐藏状态栏       
+>  List的滚动监听       mRvRecord.getRecyclerView().getViewTreeObserver().addOnScrollChangedListener(presenter);            
 >  [关于android:lineSpacingExtra属性 在android5.0与先期版本存在的区别](#lineSpacingExtra)     
->  [@回复某人]    
->  [查看View或者ViewGroup是否可以滚动-商品详情]     
->  滚动的有效长度
->  dialog获取返回按键的监听
+>  [@回复某人](#ClickableSpan_)       
+> [查看View或者ViewGroup是否可以滚动-商品详情](#can_view_scroll)        
+>  滚动的有效长度     
+> [dialog获取返回按键的监听](#dialog_back_key) 
+> [View 定制如果能基于系统控件就不要完全自定义](#view_extends_origin)
 
 
+<a name="view_extends_origin"/>
 
-#  dialog获取返回按键的监听
+# View 定制如果能基于系统控件就不要完全自定义
+
+在定义仿淘宝京东商品详情的时候
+
+    /***
+     * 复用已经实现的View，省却了测量布局之类的麻烦
+     */
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        measureChildren(widthMeasureSpec, heightMeasureSpec);
+        setMeasuredDimension(getMeasuredWidth(), getMeasuredHeight());
+    }
+
+
+<a name="dialog_back_key"/>
+
+#  dialog获取返回按键的监听 注意区分up与down否则执行两次
+
 
         dialog.setCancelable(false);
         dialog.setOnKeyListener(new DialogInterface.OnKeyListener() {
@@ -813,8 +831,9 @@ On Android 2.3.3 (API level 10) and lower, using recycle() is recommended. If yo
         mHandler.removeCallbacksAndMessages(null);
     }
     
+ <a name="ClickableSpan_"/>
     
-#     @回复某人  ClickableSpan
+# @回复某人  ClickableSpan
 
 		        htmlLinkNick = "<a style=\"color:#9878ff;\" href='sender'>" + spSenderNick
 		                + "</a>" + "<a style=\"color:#9878ff;\" href='awarder'>" + AwarderForSender + "</a>";
@@ -826,6 +845,8 @@ On Android 2.3.3 (API level 10) and lower, using recycle() is recommended. If yo
 		                    + "</a>" + "<a style=\"color:#9878ff;\" href='awarder'>" + AwarderForReceiver + "</a>" +
 		                    "</a> : <a style=\"color:#252525;\" href='content'>" + mInfo.content + "</a>";
 		        }
+
+<a name="can_view_scroll"/>
 
 #查看View或者ViewGroup是否可以滚动-商品详情
 
@@ -850,7 +871,10 @@ On Android 2.3.3 (API level 10) and lower, using recycle() is recommended. If yo
 	
 	        return ViewCompat.canScrollVertically(view, direction);
 	    }
-	    
+
+不过要注意配合requestdisallowintercept 使用
+
+
 #获取滚动有效距离标尺
 
 	mTouchSlop = ViewConfiguration.get(getContext()).getScaledTouchSlop(); 	    
