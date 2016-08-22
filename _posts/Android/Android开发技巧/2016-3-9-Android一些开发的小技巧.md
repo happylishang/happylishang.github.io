@@ -6,6 +6,8 @@ category: android开发
 
 ---
 
+
+> [判断TouchEvent位于哪个View中](#touch_view)     
 > [判断一个Activity的Application是否在运行](#anchor_activity_is_runing)   
 > [获取当前运行的顶层Activity](#anchor_top_activity_runing)   
 > [Android 6.0 Apache HTTP Client Removal](#COMPILE_SDK_VERSION_23)  
@@ -34,6 +36,24 @@ category: android开发
 > [dialog获取返回按键的监听](#dialog_back_key) 
 > [View 定制如果能基于系统控件就不要完全自定义](#view_extends_origin)
 
+<a name="touch_view"/>
+
+# 判断TouchEvent位于哪个View中
+
+    /***
+     * judge is event  is in current view
+     */
+    protected boolean isTransformedTouchPointInView(MotionEvent ev, View view) {
+        float x = ev.getRawX();
+        float y = ev.getRawY();
+        int[] rect = new int[2];
+        view.getLocationInWindow(rect);
+        float localX = x - rect[0];
+        float localY = y - rect[1];
+        return localX >= 0 && localX < (view.getRight() - view.getLeft())
+                && localY >= 0 && localY < (view.getBottom() - view.getTop());
+    }
+    
 
 <a name="view_extends_origin"/>
 
