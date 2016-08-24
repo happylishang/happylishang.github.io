@@ -6,7 +6,7 @@ category: android开发
 
 ---
 
-
+> [AndroidHttpClient简单创建网络请求](#AndroidHttpClient)      
 > [判断TouchEvent位于哪个View中](#touch_view)     
 > [判断一个Activity的Application是否在运行](#anchor_activity_is_runing)   
 > [获取当前运行的顶层Activity](#anchor_top_activity_runing)   
@@ -35,6 +35,13 @@ category: android开发
 >  滚动的有效长度     
 > [dialog获取返回按键的监听](#dialog_back_key) 
 > [View 定制如果能基于系统控件就不要完全自定义](#view_extends_origin)
+
+<a name="AndroidHttpClient"/>
+
+# AndroidHttpClient
+
+AndroidHttpClient.newInstance(userAgent)
+
 
 <a name="touch_view"/>
 
