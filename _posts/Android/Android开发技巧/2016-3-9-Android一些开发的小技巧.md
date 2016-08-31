@@ -5,7 +5,8 @@ description: "Java"
 category: android开发
 
 ---
-
+> 隐藏标题、状态栏
+> [TextureView的优点不会启动时黑一下](#TextureView_pro)
 > [AndroidHttpClient简单创建网络请求](#AndroidHttpClient)      
 > [判断TouchEvent位于哪个View中](#touch_view)     
 > [判断一个Activity的Application是否在运行](#anchor_activity_is_runing)   
@@ -26,8 +27,8 @@ category: android开发
 > [Uri方法集合](#uri_method)      
 > [定制View判断是否可以上滚](#view_can_scroll)
 > [代码中如何用一些小红点 小方框 颜色做icon](#icon_shape)    
->  [ 如何取消默认的material design效果以及输入框只显示下边界](#cancle_material)         
->  [如何Autocommplete的控制，宽度，位置，边界线](#Autocommplete)           
+> [ 如何取消默认的material design效果以及输入框只显示下边界](#cancle_material)         
+> [如何Autocommplete的控制，宽度，位置，边界线](#Autocommplete)           
 >  List的滚动监听       mRvRecord.getRecyclerView().getViewTreeObserver().addOnScrollChangedListener(presenter);            
 >  [关于android:lineSpacingExtra属性 在android5.0与先期版本存在的区别](#lineSpacingExtra)     
 >  [@回复某人](#ClickableSpan_)       
@@ -35,6 +36,13 @@ category: android开发
 >  滚动的有效长度     
 > [dialog获取返回按键的监听](#dialog_back_key) 
 > [View 定制如果能基于系统控件就不要完全自定义](#view_extends_origin)
+
+<a name="TextureView_pro"/>
+
+# TextureView的优点不会启动时黑一下
+
+TextureView+一张站位图，解决视频预加载时黑一下的尴尬
+
 
 <a name="AndroidHttpClient"/>
 
