@@ -29,9 +29,9 @@ category: android开发
 > [代码中如何用一些小红点 小方框 颜色做icon](#icon_shape)    
 > [ 如何取消默认的material design效果以及输入框只显示下边界](#cancle_material)         
 > [如何Autocommplete的控制，宽度，位置，边界线](#Autocommplete)           
->  List的滚动监听       mRvRecord.getRecyclerView().getViewTreeObserver().addOnScrollChangedListener(presenter);            
->  [关于android:lineSpacingExtra属性 在android5.0与先期版本存在的区别](#lineSpacingExtra)     
->  [@回复某人](#ClickableSpan_)       
+> [List的滚动监听 mRvRecord.getRecyclerView().getViewTreeObserver().addOnScrollChangedListener(presenter);            
+> [关于android:lineSpacingExtra属性 在android5.0与先期版本存在的区别](#lineSpacingExtra)     
+> [@回复某人](#ClickableSpan_)       
 > [查看View或者ViewGroup是否可以滚动-商品详情](#can_view_scroll)        
 >  滚动的有效长度     
 > [dialog获取返回按键的监听](#dialog_back_key) 
