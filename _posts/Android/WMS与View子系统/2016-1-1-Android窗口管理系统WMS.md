@@ -18,6 +18,19 @@ categories: [android]
 * 资源编号的的bundle
 * 状态栏的创建
 
+#几种Window的区别
+
+可以看见上面无论Acitivty、Dialog、PopWindow、Toast的实质其实都是如下接口提供的方法操作：
+
+	public interface ViewManager
+	{
+	    public void addView(View view, ViewGroup.LayoutParams params);
+	    public void updateViewLayout(View view, ViewGroup.LayoutParams params);
+	    public void removeView(View view);
+	}
+	
+整个应用各种窗口的显示都离不开这三个方法而已，只是token及type与Window是否共用的问题。
+
 ### 导读，问题引入原理
 
 我们知道，启动一个Activity，之后setContentView之后，就可以显示界面了，那么具体的实现是怎么样子的，界面的绘制是在当前进程吗，还是由那个服务来完成的，set后的后续处理如何做到，view的布局如何解析并绘制的，
@@ -111,3 +124,5 @@ categories: [android]
  Android 4.4(KitKat)窗口管理子系统 - 体系框架 <http://blog.csdn.net/jinzhuojun/article/details/37737439>
   
  Android桌面悬浮窗效果实现，仿360手机卫士悬浮窗效果 <http://blog.csdn.net/guolin_blog/article/details/8689140> 
+ 
+ [ Android应用Activity、Dialog、PopWindow、Toast窗口添加机制及源码分析](http://blog.csdn.net/yanbober/article/details/46361191)

@@ -7,6 +7,13 @@ tags: [Binder]
 
 ---
 
+# Service是什么 （ 很多东西，能简单几句话描述清楚，就说明你懂了）
+
+是一个可以在后台执行长时间运行操作而不使用用户界面的应用组件。服务可由其他应用组件启动，而且即使用户切换到其他应用，服务仍将在后台继续运行。 此外，组件可以绑定到服务，以与之进行交互，甚至是执行进程间通信 (IPC)。例如，服务可以处理网络事务、播放音乐，执行文件 I/O 或与内容提供程序交互，而所有这一切均可在后台进行。（做个音乐播放器）
+
+Service 作为四大组件之一，提供了不需要前台页面情况下，在后台继续执行任务的能力。Service 一般有两种使用方式，分别是通过 startService 和 bindService，前者适合执行一次性的任务，而后者则具备一定交互的能力，可以用作处理相对复杂的后台逻辑。
+
+没界面，生命周期跟界面无关，Service运行在后台，开线程处理一些耗时任务，完成后，Service再销毁。
 
 ##### binderService源码分析
 
@@ -506,11 +513,9 @@ binderService其实是通过AMS进行中转，如果Service没启动，就启动
 * 5、Activity内部定义的ServiceConnection对象的onServiceConnected函数在得到这个Binder对象后，就通过它的getService成同函数获得CounterService接口，封装跟拆解       
 * 6、Java层的mRemote本身都是BinderProxy
 
-####     参考文档
-
-[android4.4组件分析--service组件-bindService源码分析](http://blog.csdn.net/xiashaohua/article/details/40424767)
-		
-### 参考文档：
+
+# 参考文档：
 
 
-【1】[android4.4组件分析--service组件-bindService源码分析](http://blog.csdn.net/xiashaohua/article/details/40424767)
+【1】[android4.4组件分析--service组件-bindService源码分析](http://blog.csdn.net/xiashaohua/article/details/40424767)			
+【2】[从源码出发深入理解 Android Service](http://www.woaitqs.cc/android/2016/09/20/android-service-usage.html)

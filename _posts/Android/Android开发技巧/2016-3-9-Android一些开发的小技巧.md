@@ -5,7 +5,10 @@ description: "Java"
 category: android开发
 
 ---
-> 隐藏标题、状态栏
+> 隐藏标题、状态栏  
+> [Activity之间跳转动画](#activity_jump_animaiton)
+> [全屏的DialogFragment](fullscreen_dialog_fragment)      
+> [ViewPager获取当前显示的View](#viewpger_current_view)       
 > [TextureView的优点不会启动时黑一下](#TextureView_pro)
 > [AndroidHttpClient简单创建网络请求](#AndroidHttpClient)      
 > [判断TouchEvent位于哪个View中](#touch_view)     
@@ -36,6 +39,388 @@ category: android开发
 >  滚动的有效长度     
 > [dialog获取返回按键的监听](#dialog_back_key) 
 > [View 定制如果能基于系统控件就不要完全自定义](#view_extends_origin)
+
+
+<a name="activity_jump_animaiton"/>
+
+# Activity之间跳转动画
+
+Animation有四种，scale,rotate,translate,alpha,而Activity之间的跳转有两种。
+一种是overPendingTransition，传入in和out的animation文件，Activity转换的时候就可以显示动画了，一个是Activity进来的动画，一个是Activity销毁的动画，而且这个动画必须在startActivity或者finish函数之后调用才有效果。
+另外一种是通过Theme的方式来进行Animation的设置的。
+其中要了解有四个属性，都是Window类里面的属性：
+
+* activityOpenEnterAnimation:当打开一个新的Activity，这Animation就会作用于接下来进入屏幕的Activity
+* activityOpenExitAnimation:当打开一个新的Activity，这Animation就会作用于接下来退出屏幕的Activity
+* activityCloseEnterAnimation: 当关闭现在的Activity，这个Animation就会作用于接下来的进入屏幕的Activity
+* activityCloseExitAnimation:当关闭现在的Activity，这个Animation就会作用于接下来的要退出屏幕的Activity
+* 
+即，当启动一个Activity的时候，activityOpenEnterAnimation这个Animation就是刚要进来的Activity的Animation，activityOpenEXiteAnimation就是给退出的Activity使用的Animation,而activityCloseEnterAnimation是给即将显示在屏幕上的Activity用的Animation,activityCloseExitAnimation就是给即将退出屏幕的Activity所显示的。
+接着再把这个四个属性写进一个style文件中，而它是继承自@android:style/Animation.Activity的，所以parent需要写上@android:style/Animation.Activity，接着给android:windowAnimationStyle赋值为该style，接着在Theme中赋值。
+
+	 <style name="anim">
+	        <item name="android:windowAnimationStyle">@style/animation</item>
+	    </style>
+
+    <style name="animation" parent="@android:style/Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@anim/in</item>
+        <item name="android:activityOpenExitAnimation">@anim/out</item>
+        <item name="android:activityCloseEnterAnimation">@anim/acin</item>
+        <item name="android:activityCloseExitAnimation">@anim/acout</item>
+    </style>
+    
+anim style文件，就是最终要给Theme赋值的文件。这样就能显示了，而如果要给所有的Activity都添加上Animation的显示效果，就在Application的标签中添加上这个Theme行了。
+
+注意配合，一定要前面的也用
+  
+
+
+<a name="fullscreen_dialog_fragment"/>
+
+# 全屏的DialogFragment及默认动效
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        Dialog dialog = getDialog();
+        if (dialog != null) {
+            int width = ViewGroup.LayoutParams.MATCH_PARENT;
+            int height = ViewGroup.LayoutParams.MATCH_PARENT;
+            dialog.getWindow().setLayout(width, height);
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(0x00000000));
+        }
+    }
+ 
+ 或者
+    
+     @Override
+    public void onStart() {
+        super.onStart();
+        Dialog dialog = getDialog();
+         if (dialog != null) {
+        WindowManager.LayoutParams params = dialog.getWindow().getAttributes();
+        params.width = WindowManager.LayoutParams.MATCH_PARENT;
+        params.height = WindowManager.LayoutParams.MATCH_PARENT;
+        params.gravity = Gravity.BOTTOM;
+        dialog.getWindow().setAttributes(params);
+        }
+    }
+
+默认动效跟自己的动效其实是同时执行的，所以可能会导致View的动效看不到 ，当然可以  <item name="android:windowAnimationStyle">@style/animat</item>
+
+
+    <style name="Dialog.FullScreen" parent="Theme.AppCompat.Dialog">
+        <item name="android:padding">0dp</item>
+        <item name="android:windowNoTitle">false</item>
+        <item name="android:background">@null</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+        <item name="android:windowAnimationStyle">@style/animat</item>
+    </style>
+
+    <style name="animat" parent="Animation.AppCompat.Dialog">
+        <item name="android:windowEnterAnimation">@anim/anim_fade_in</item>
+        <item name="android:windowExitAnimation">@anim/activity_slide_left_out</item>
+    </style>
+
+    <style name="animat1" parent="Animation.AppCompat.Dialog">
+        <item name="android:windowEnterAnimation">@anim/anim_fade_in</item>
+        <item name="android:windowExitAnimation">@anim/anim_fade_out</item>
+    </style>
+
+        
+            @Override
+    public LayoutInflater getLayoutInflater(Bundle savedInstanceState) {
+        if (!mShowsDialog) {
+
+是FragmentManager在peformCreateView时候调用的，DialogFragment覆盖该函数，并在里面创建了Dialog，在OnactivityCreate的时候setContentView，注意将默认动效关闭
+
+## dialog 在onstart设置属性有效的原理
+
+    public void show() {
+        if (mShowing) {
+            if (mDecor != null) {
+                if (mWindow.hasFeature(Window.FEATURE_ACTION_BAR)) {
+                    mWindow.invalidatePanelMenu(Window.FEATURE_ACTION_BAR);
+                }
+                mDecor.setVisibility(View.VISIBLE);
+            }
+            return;
+        }
+
+        mCanceled = false;
+        
+        if (!mCreated) {
+            dispatchOnCreate(null);
+        }
+	<!--这里是原理-->
+        onStart();
+        mDecor = mWindow.getDecorView();
+        
+##         Activity setTheme的时机
+
+      如果没有手动设置mThemeResource，则选取系统中为我们提供的默认Theme。当然我们也可以手动设置Theme 
+ Resource ，如开篇所述。
+            
+  方法一： Activity中调用setTheme()方法，该方法会实现在ContextThemeWrapper.java类中。
+     @Override 
+     
+     public void setTheme(int resid) {
+         mThemeResource = resid;    //设置mThemeResource
+         initializeTheme();
+     }
+     
+ 方法二：在AndroidManifest文件中，为Activity节点配置android:theme属性. 当通过startActivity()启动一个
+ Activity时，会调用setTheme()方法。文件路径:frameworks\base\core\java\android\app\ActivityThread.java
+ 
+	    private final Activity performLaunchActivity(ActivityClientRecord r, Intent customIntent) {
+	        ...
+	        Activity activity = null;
+	        try {
+	        	//创建Activity实例
+	            java.lang.ClassLoader cl = r.packageInfo.getClassLoader();
+	            activity = mInstrumentation.newActivity(
+	                    cl, component.getClassName(), r.intent);
+	        } 
+	        ...
+	        try {
+	        	...
+	            if (activity != null) {
+	            	//创建相应的信息.
+	                ContextImpl appContext = new ContextImpl();
+	                appContext.init(r.packageInfo, r.token, this);
+	                appContext.setOuterContext(activity);
+	                CharSequence title = r.activityInfo.loadLabel(appContext.getPackageManager());
+	                ...   
+	                activity.attach(appContext, this, getInstrumentation(), r.token,
+	                        r.ident, app, r.intent, r.activityInfo, title, r.parent,
+	                        r.embeddedID, r.lastNonConfigurationInstance,
+	                        r.lastNonConfigurationChildInstances, config);
+	                ...
+	                //activityInfo相关信息是由ActivityManagerService通过IPC调用而来
+	                //可以参考Android SDK的ActivityInfo类 API。
+	                int theme = r.activityInfo.getThemeResource();
+	                if (theme != 0) {
+	                    activity.setTheme(theme); //调用setTheme()方法，参见方法1
+	                }
+	          ...
+	            }
+	        }
+	        ...  
+	        return activity;
+	    }
+
+  总结： 如果没有为设置Theme Resource ，则会选取默认的Theme Style，否则选用我们设置的Theme。因为mTheme对象是相对统一的，只不过每次都通过apply一个新的Style ID，感觉Android 框架会为每个用程序的资源形成一个统一的资源库，应用程序定义的所有Style都存在在该资源库中，可以通过通过Style ID值显示获取对应值集合。 但由于对系统获取资源的过程不了解，目前还不清楚Android中是如何根据资源ID获取对应的资源甚至一组资源的。但可喜的是，老罗目前正在研究这块，希望能在老罗的文章中找到答案。
+  
+ 参考文档 [http://blog.csdn.net/qinjuning/article/details/8829877]
+ 
+##  （注意：Dialog不能让Activity的生命周期发生变化
+
+我们常见的Activity跳转当中，是第二个Activity将第一个Activity完全覆盖让其不再可见。所以这样的跳转第一个Activity的生命周期的变化是onResume()->onPause()->onStop()。
+
+而当第二个Activity为Dialog样式时第一个Activity的生命周期变化是：onResume()->onPause()。
+
+也就是上图中文字说明的：The activity is no longer visibale当activity不再可见时才会运行到onStop()。（注意：Dialog不能让Activity的生命周期发生变化）
+
+参考文档：http://leochin.com/android-ui-activitydialogtheme/
+
+ <a name="viewpger_current_view"/>
+ 
+##  Activity跟Dialog的样式
+
+       <item name="android:windowIsFloating">false</item>
+       
+之所以会悬浮，居中，就是因为这个    在PhoneWindow.java中
+
+    protected ViewGroup generateLayout(DecorView decor) {
+    。。。。
+        if (mIsFloating) {
+            setLayout(WRAP_CONTENT, WRAP_CONTENT); 
+            setFlags(0, flagsToUpdate);
+        } else {
+            setFlags(FLAG_LAYOUT_IN_SCREEN|FLAG_LAYOUT_INSET_DECOR, flagsToUpdate);
+        }
+ 
+而setLayout最终调用Window的setLayout
+
+    public void setLayout(int width, int height) {
+        final WindowManager.LayoutParams attrs = getAttributes();
+        attrs.width = width;
+        attrs.height = height;
+        if (mCallback != null) {
+            mCallback.onWindowAttributesChanged(attrs);
+        }
+    }
+    
+这里是就直接改变WindowManager.LayoutParams 的值而回调会导致窗口重绘,对于Activity同样的原理
+
+    public void onWindowAttributesChanged(WindowManager.LayoutParams params) {
+        if (mDecor != null) {
+            mWindowManager.updateViewLayout(mDecor, params);
+        }
+    }
+    
+                     
+虽然在Window中 默认Match
+
+    private final WindowManager.LayoutParams mWindowAttributes =
+        new WindowManager.LayoutParams();
+        
+  
+generateLayout代码分析
+
+        
+       protected ViewGroup generateLayout(DecorView decor) {
+        // Apply data from current theme.
+        TypedArray a = getWindowStyle();   //获得当前的Theme属性对应的TypedArray对象.
+
+        //是否是Dialog样式的界面 , android:windowIsFloating属性
+        mIsFloating = a.getBoolean(com.android.internal.R.styleable.Window_windowIsFloating, false);
+        int flagsToUpdate = (FLAG_LAYOUT_IN_SCREEN | FLAG_LAYOUT_INSET_DECOR)
+                & (~getForcedWindowFlags());
+        //如果是Dialog样式，则设置当前的WindowManager.LayoutParams的width和height值，代表该界面的大小由布局文件大小指定。
+        // 因为默认的WindowManager.LayoutParams的width和height是MATCH_PARENT，即与屏幕大小一致.
+        if (mIsFloating) {
+            setLayout(WRAP_CONTENT, WRAP_CONTENT);
+            setFlags(0, flagsToUpdate); //取消FLAG_LAYOUT_IN_SCREEN | FLAG_LAYOUT_INSET_DECOR 位标记
+        } else {
+            setFlags(FLAG_LAYOUT_IN_SCREEN | FLAG_LAYOUT_INSET_DECOR, flagsToUpdate);
+        }
+        //是否是没有标题栏 , android:windowNoTitle属性
+        if (a.getBoolean(com.android.internal.R.styleable.Window_windowNoTitle, false)) {
+            requestFeature(FEATURE_NO_TITLE); //添加FEATURE_NO_TITLE
+        }
+        //是否是全屏, android:windowFullscreen属性
+        if (a.getBoolean(com.android.internal.R.styleable.Window_windowFullscreen, false)) {
+            setFlags(FLAG_FULLSCREEN, FLAG_FULLSCREEN & (~getForcedWindowFlags()));
+        }
+        //是否是显示墙纸, android:windowShowWallpaper属性
+        if (a.getBoolean(com.android.internal.R.styleable.Window_windowShowWallpaper, false)) {
+            setFlags(FLAG_SHOW_WALLPAPER, FLAG_SHOW_WALLPAPER & (~getForcedWindowFlags()));
+        }
+        WindowManager.LayoutParams params = getAttributes(); //当前的WindowManager.LayoutParams对象
+        if (!hasSoftInputMode()) {  //是否已经设置了softInputMode模式，可显示通过#setSoftInputMode()方法设定
+            params.softInputMode = a.getInt(
+                    com.android.internal.R.styleable.Window_windowSoftInputMode,//android:windowSoftInputMode
+                    params.softInputMode);  //可以由 WindowManager.LayoutParams指定
+        }
+        //是否是某个Activity的子Activity，一般不是，getContainer()返回 null.
+        if (getContainer() == null) {
+            if (mBackgroundDrawable == null) {   //获得了指定的背景图片.
+                if (mBackgroundResource == 0) {  //获得了指定的背景图片资源
+                    mBackgroundResource = a.getResourceId(  //背景图片id ,  android:windowBackground
+                            com.android.internal.R.styleable.Window_windowBackground, 0);
+                }
+            }
+            ...
+        }
+        // Inflate the window decor.
+        int layoutResource;
+        int features = getLocalFeatures(); // 等同于mFeatures,由requestFeature()设定.
+        if ((features & ((1 << FEATURE_LEFT_ICON) | (1 << FEATURE_RIGHT_ICON))) != 0) {
+            //1、判断是否为对话框样式
+            if (mIsFloating) {
+                layoutResource = com.android.internal.R.layout.dialog_title_icons;
+            } else {
+                layoutResource = com.android.internal.R.layout.screen_title_icons;
+            }
+        } else if { //2、进度条样式  ;  //3、自定义Title}
+            else if ((features & (1 << FEATURE_NO_TITLE)) == 0) {
+                //4、没有标题栏
+                // If no other features and not embedded, only need a title.
+                // If the window is floating, we need a dialog layout
+                if (mIsFloating) {
+                    layoutResource = com.android.internal.R.layout.dialog_title;
+                } else {
+                    layoutResource = com.android.internal.R.layout.screen_title;
+                }
+                // System.out.println("Title!");
+            } else {
+                layoutResource = com.android.internal.R.layout.screen_simple;
+            }
+            View in = mLayoutInflater.inflate(layoutResource, null);
+            decor.addView(in, new ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT));
+            ...
+            if (getContainer() == null) {
+                Drawable drawable = mBackgroundDrawable;
+                if (mBackgroundResource != 0) {        //获取背景图片资源
+                    drawable = getContext().getResources().getDrawable(mBackgroundResource);
+                }
+                mDecor.setWindowBackground(drawable); //为DecorView设置背景图片
+                drawable = null;
+                //判断是否需要设置WindowFrame图片,该资源代表一个前景foreground图片，相对于背景background图片，
+                if (mFrameResource != 0) {        //默认为null ，<item name="windowFrame">@null</item>
+                    drawable = getContext().getResources().getDrawable(mFrameResource);
+                }
+                mDecor.setWindowFrame(drawable);
+            }
+            return contentParent;
+        }
+   
+   
+   RootMeasureSpec的生成 windowSize是计算的，rootDimension可以使matchparent等，这个是可以设置的，或者是根据Theme生成的
+   
+   
+       private static int getRootMeasureSpec(int windowSize, int rootDimension) {
+        int measureSpec;
+        switch (rootDimension) {
+
+        case ViewGroup.LayoutParams.MATCH_PARENT:
+            // Window can't resize. Force root view to be windowSize.
+            measureSpec = MeasureSpec.makeMeasureSpec(windowSize, MeasureSpec.EXACTLY);
+            break;
+        case ViewGroup.LayoutParams.WRAP_CONTENT:
+            // Window can resize. Set max size for root view.
+            measureSpec = MeasureSpec.makeMeasureSpec(windowSize, MeasureSpec.AT_MOST);
+            break;
+        default:
+            // Window wants to be an exact size. Force root view to be that size.
+            measureSpec = MeasureSpec.makeMeasureSpec(rootDimension, MeasureSpec.EXACTLY);
+            break;
+        }
+        return measureSpec;
+    }
+    
+##   getContext().getResources().getDisplayMetrics()帮助考虑是否需要底部导航栏的高度，并生成顶层的一些参数
+  
+          @Override
+        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+            final DisplayMetrics metrics = getContext().getResources().getDisplayMetrics();
+            final boolean isPortrait = metrics.widthPixels < metrics.heightPixels;
+
+            final int widthMode = getMode(widthMeasureSpec);
+            final int heightMode = getMode(heightMeasureSpec);
+
+            boolean fixedWidth = false;
+            if (widthMode == AT_MOST) {
+                final TypedValue tvw = isPortrait ? mFixedWidthMinor : mFixedWidthMajor;
+                if (tvw != null && tvw.type != TypedValue.TYPE_NULL) {
+                    final int w;
+                    
+##         android:fitsSystemWindows="true"
+
+这里帮助View添加了Padding的信息       
+                
+# ViewPager获取当前显示的View 一定要通过setPrimaryItem配合自定的接口实现
+
+    private View mCurrentView;
+
+    @Override
+    public void setPrimaryItem(ViewGroup container, int position, Object object) {
+        if (object instanceof View) {
+            mCurrentView = (View) object;
+        } else if (object instanceof Fragment) {
+            Fragment fragment = (Fragment) object;
+            mCurrentView = fragment.getView();
+        }
+    }
+
+    public View getPrimaryItem() {
+        return mCurrentView;
+    }
+
 
 <a name="TextureView_pro"/>
 
