@@ -115,6 +115,13 @@ categories: [android]
 	            }
 	        }
 	    }
+	    
+	    
+	    
+	        Call<PhoneResult> call = service.getResult("3ce2066cc7c59d8d602dd9d743e449a5", 
+	        
+	           Call<PhoneResult> getResult(@Header("apikey") String apikey, @Query("phone") String phone);
+	    
 	          
            
 ### 参考文档

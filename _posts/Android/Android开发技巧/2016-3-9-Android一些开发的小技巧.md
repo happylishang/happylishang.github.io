@@ -503,7 +503,7 @@ AndroidHttpClient.newInstance(userAgent)
 ####加速Android Studio的Gradle构建速度
  
 	org.gradle.daemon=true
-	org.gradle.jvmargs=-Xmx2048m -XX:MaxPermSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+	org.gradle.jvmargs=-Xmx2048m -XX:MaxPermSize=2048m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
 	org.gradle.parallel=true
 	org.gradle.configureondemand=true
  
@@ -538,6 +538,9 @@ AndroidHttpClient.newInstance(userAgent)
 	# Only relevant projects are configured which results in faster builds for large multi-projects.
 	# http://www.gradle.org/docs/current/userguide/multi_project_builds.html#sec:configuration_on_demand
 	org.gradle.configureondemand=true
+
+其次，不要将release、split之类的 在debug中放出来，最后要注意使用aar，而不是project
+
 
 #### Looper.loop()会创建一个常驻线程除非自己主动结束
 
