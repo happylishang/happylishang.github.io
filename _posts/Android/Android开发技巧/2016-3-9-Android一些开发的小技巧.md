@@ -6,6 +6,7 @@ category: android开发
 
 ---
 > 隐藏标题、状态栏  
+> [图片显示是否需要关闭硬件加速](#hardware_speed)      
 > [Activity之间跳转动画](#activity_jump_animaiton)
 > [全屏的DialogFragment](fullscreen_dialog_fragment)      
 > [ViewPager获取当前显示的View](#viewpger_current_view)       
@@ -40,7 +41,46 @@ category: android开发
 > [dialog获取返回按键的监听](#dialog_back_key) 
 > [View 定制如果能基于系统控件就不要完全自定义](#view_extends_origin)
 
+<a name="hardware_speed"/>
 
+# 图片显示是否需要关闭硬件加速
+
+原因  [http://www.cnblogs.com/jackxlee/p/4744447.html] 
+
+    //added by Jack for handle exception "Bitmap too large to be uploaded into a texture".
+    public boolean isNeedCloseHardwareAcceleration(int w, int h) {
+        int[] maxSize = new int[1];
+        GLES10.glGetIntegerv(GL10.GL_MAX_TEXTURE_SIZE, maxSize, 0);
+        if(maxSize[0] < h || maxSize[0] < w) {
+            return true;
+        }
+        return false;
+    }
+    
+ 如果想要加载超级大图那就分块加载
+ 
+ 最近做项目发现其他手机没有问题，但是出现了一个手机报异常，最难过的是不显示报错信息，弄了很久，才发现了一句话：Bitmap too large to be uploaded into a texture exception，百度一下才知道怎么回事。简单说就是硬件加速的时候，对图片的大小有限制。不同设备可能有不同的最大值。这个问题悲催的地方是，程序貌似没有捕获到这个exception, 结果是程序也不报错，图片也显示不出来。只有看debug log才能发现这个error message.
+
+一个解决的方法是禁止硬件加速，简单粗暴：但是影响性能
+
+	<application android:hardwareAccelerated="false" ...>
+
+比较好的解决方法是类似google map的实现：将图片分成不同的块，每次加载需要的块。android提供了一个方法：
+ 
+	public void drawBitmap (Bitmap bitmap, Rect src, RectF dst, Paint paint)
+	public Bitmap decodeRegion (Rect rect, BitmapFactory.Options options)
+
+采取上述操作后，就可以加载很多图片，同时也可以显示超级大图了。
+还有用ImageLoad加载图片，如果出现这个问题我们可以这样处理：
+可以对ImageView设置最大高度和最大宽度：
+
+
+		android:maxHeight="1000dip"
+		android:maxWidth="1000dip"
+		
+同时相应的scaleType为FIT_CENTER  FIT_XY   FIT_START FIT_END CENTER_INSIDE
+
+    
 <a name="activity_jump_animaiton"/>
 
 # Activity之间跳转动画
