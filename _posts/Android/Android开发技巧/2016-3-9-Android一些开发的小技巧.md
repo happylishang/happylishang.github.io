@@ -45,7 +45,12 @@ category: android开发
 
 # 图片显示是否需要关闭硬件加速
 
-原因  [http://www.cnblogs.com/jackxlee/p/4744447.html] 
+原因 [http://www.cnblogs.com/jackxlee/p/4744447.html] 
+
+Android  GPU  CPU 公用内存，不存在显存内存之分。
+
+在Android 5.0之前，Android应用程序的主线程同时也是一个Open GL线程。但是从Android 5.0之后，Android应用程序的Open GL线程就独立出来了，称为Render Thread，所以下面的函数要注意使用的地方
+
 
     //added by Jack for handle exception "Bitmap too large to be uploaded into a texture".
     public boolean isNeedCloseHardwareAcceleration(int w, int h) {
