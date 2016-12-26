@@ -34,24 +34,11 @@ Android L面世之后，Google就推荐在开发项目中使用RecyclerView来�
         linearLayoutManager.setOrientation(LinearLayoutManager.VERTICAL);
         mRecyclerView.setLayoutManager(linearLayoutManager);
 
-以上就是最简单的线性RecyclerView的实现，但默认不带分割线，如果想要使用比如20dp的黑色作为分割线，就需要自己定制，Google为RecyclerView提供了ItemDecoration，它的作用就是为Item添加一些附属信息，不如分割线，浮层等。
+以上就是最简单的线性RecyclerView的实现，但默认不带分割线，如果想要使用比如20dp的黑色作为分割线，就需要自己定制，Google为RecyclerView提供了ItemDecoration，它的作用就是为Item添加一些附属信息，比如：分割线，浮层等。
 
 ## 带分割线的线性RecyclerView--LinearItemDecoration
 
-RecyclerView提供了addItemDecoration接口与ItemDecoration类用来定制分割线样式，首先看一下RecyclerView源码中，怎么用使用ItemDecoration的，RecyclerView在onDraw函数中会调用ItemDecoration的onDraw，绘制分割线或者其他辅助信息，ItemDecoration 
-支持上下左右四个方向定制占位分割线等信息，具体要绘制的样式跟位置都完全由开发者确定，所以自由度非常大，但是对于线性RecyclerView，只需要考虑下面的分割线即可：
-
-    @Override
-    public void onDraw(Canvas c) {
-        super.onDraw(c);
-
-        final int count = mItemDecorations.size();
-        for (int i = 0; i < count; i++) {
-            mItemDecorations.get(i).onDraw(c, this, mState);
-        }
-    }
-    
-View的绘制流程：measure->layout->draw，也就是说，在draw的时候，measure跟layout都已经完成，已经为为ItemDecoration的绘制挪出了空间，到底什么时候为ItemDecoration计算出的空间呢？看一下RecyclerView的measureChildWithMargins，它通过getItemDecorInsetsForChild函数获得ItemDecoration需要的空间，在measure跟layout的时候考虑进去。
+RecyclerView提供了addItemDecoration接口与ItemDecoration类用来定制分割线样式，在RecyclerView源码中，是怎么用使用ItemDecoration的呢，与普通View的绘制流程一致：measure->layout->draw，也就是说，在draw的时候，measure跟layout都已经完成，已经为为ItemDecoration的绘制挪出了空间，到底什么时候为ItemDecoration计算出的空间呢？看一下RecyclerView的measureChildWithMargins，它通过getItemDecorInsetsForChild函数获得ItemDecoration需要的空间，在measure跟layout的时候考虑进去。
 
       public void measureChildWithMargins(View child, int widthUsed, int heightUsed) {
           final LayoutParams lp = (LayoutParams) child.getLayoutParams();
@@ -116,7 +103,23 @@ View的绘制流程：measure->layout->draw，也就是说，在draw的时候，
             }
         }
     }   
-    
+
+
+
+
+RecyclerView在onDraw函数中会调用ItemDecoration的onDraw，绘制分割线或者其他辅助信息，ItemDecoration 
+支持上下左右四个方向定制占位分割线等信息，具体要绘制的样式跟位置都完全由开发者确定，所以自由度非常大，但是对于线性RecyclerView，只需要考虑下面的分割线即可：
+
+    @Override
+    public void onDraw(Canvas c) {
+        super.onDraw(c);
+
+        final int count = mItemDecorations.size();
+        for (int i = 0; i < count; i++) {
+            mItemDecorations.get(i).onDraw(c, this, mState);
+        }
+    }
+        
 在来看一下LinearItemDecoration的onDraw（只看Vertical的）
     
     
@@ -126,29 +129,6 @@ View的绘制流程：measure->layout->draw，也就是说，在draw的时候，
             drawVertical(c, parent);
         } else {
             drawHorizontal(c, parent);
-        }
-    }
-
-drawVertical的时候，尽量个前面设置的尺寸统一，当然，绘制过多，过多的部分不仅仅显示不出来，还会导致过过度绘制，
-
-    private void drawVertical(Canvas c, RecyclerView parent) {
-        final int left = parent.getPaddingLeft();
-        final int right = parent.getWidth() - parent.getPaddingRight();
-        final int childCount = parent.getChildCount();
-        for (int i = 0; i < childCount; i++) {
-            final View child = parent.getChildAt(i);
-            final RecyclerView.LayoutParams params = (RecyclerView.LayoutParams) child
-                    .getLayoutParams();
-            final int top = child.getBottom() + params.bottomMargin +
-                    Math.round(ViewCompat.getTranslationY(child));
-            final int bottom = top + mSpanSpace;
-            if (i < parent.getAdapter().getItemCount() - 1) {
-                mDivider.setBounds(left, top, right, bottom);
-                mDivider.draw(c);
-            } else {
-                mDivider.setBounds(left, top, right, top);
-                mDivider.draw(c);
-            }
         }
     }
     
