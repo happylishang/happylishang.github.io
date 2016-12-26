@@ -156,7 +156,7 @@ drawVertical的时候，尽量个前面设置的尺寸统一，当然，绘制�
 
 网格式RecyclerView需要根据每个Item的位置为其设置好ItemDocration，比如最左面的不需要左边占位，最右面的不需要右面的占位，最后一行不需要底部的占位，如下图所示
 
-![网格式ItemDocration的限制](http://upload-images.jianshu.io/upload_images/1460468-e0c4624835c94a8b.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+![网格式ItemDocration的限制](http://upload-images.jianshu.io/upload_images/1460468-01441ee79842622c.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 我们知道每个View都要通过getItemOffsets来设置自己ItemDecoration四个方向的占位，比如网格五等分,这五个Item如何处理四个方向的占位呢？这里采用最直接的分配，假设N等分，那么每个Item需要占用的是N-1/N，
 
@@ -178,6 +178,7 @@ drawVertical的时候，尽量个前面设置的尺寸统一，当然，绘制�
     }
      
 ## 全展开的线性RecyclerView--ExpandedLinearLayoutManager
+
 
 ## 全展开的网格式RecyclerView--ExpandedGridLayoutManager
  
