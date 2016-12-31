@@ -1,15 +1,13 @@
 # Site settings
-title: Your Title
-author: author
+title: 看书的小蜗牛
+author: happysnail
 email:
 description: > # this means to ignore newlines until "baseurl:"
-  Write an awesome description for your new site here. You can edit this
-  line in _config.yml. It will appear in your document head meta (for
-  Google search results) and in your feed.xml site description.
-
+  
+  每个和尚都应该为自己挖一口井
 
 # Site URL NOTE: if your site is base on subdir /blog you should change base to "/blog"
-domain: "http://yourdomain.github.io" # the domain URL for your site
+domain: "http://happylishang.github.io/" # the domain URL for your site
 base: ""  # the relative path that different with domain so you can test locally
 
 # Source URL NOTE: end with / cause it's [URL + FILE]
