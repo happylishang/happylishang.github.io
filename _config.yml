@@ -1,80 +1,61 @@
-#
-# This file contains configuration flags to customize your site
-#
-
-# Name of your site (displayed in the header)
-name: happysnail
-
-# Short bio or description (displayed in the header)
-description: 看书小蜗牛的博客
-
-# URL of your avatar or profile pic (you could use your GitHub profile pic)
-avatar: /images/snail.png
-#https://raw.githubusercontent.com/barryclark/jekyll-now/master/images/jekyll-logo.png
-
-safe: true
-#
-# Flags below are optional
-#
-
-# Includes an icon in the footer for each username you enter
-footer-links:
-  dribbble:
-  email:
-  facebook:
-  flickr:
-  github: happylishang/happylishang.github.io
-  instagram:
-  linkedin:
-  pinterest:
-  rss: # just type anything here for a working RSS icon
-  twitter: jekyllrb
-  stackoverflow: # your stackoverflow profile, e.g. "users/50476/bart-kiers"
-  youtube: # channel/<your_long_string> or user/<user-name>
-  googleplus: # anything in your profile username that comes after plus.google.com/
+# Site settings
+title: Your Title
+author: author
+email:
+description: > # this means to ignore newlines until "baseurl:"
+  Write an awesome description for your new site here. You can edit this
+  line in _config.yml. It will appear in your document head meta (for
+  Google search results) and in your feed.xml site description.
 
 
-# Enter your Disqus shortname (not your username) to enable commenting on posts
-# You can find your shortname on the Settings page of your Disqus account
-disqus:
+# Site URL NOTE: if your site is base on subdir /blog you should change base to "/blog"
+domain: "http://yourdomain.github.io" # the domain URL for your site
+base: ""  # the relative path that different with domain so you can test locally
 
-# Enter your Google Analytics web tracking code (e.g. UA-2110908-2) to activate tracking
-google_analytics:
+# Source URL NOTE: end with / cause it's [URL + FILE]
+w3c_url: "/w3c/"  # the base url of css js and images
+images_url: "/w3c/images/" # the base url of post images
+postfile: "/db/Postfile" # the Database
+sitefile: "/db/Sitefile" # the Database
 
-# Your website URL (e.g. http://barryclark.github.io or http://www.barryclark.co)
-# Used for Sitemap.xml and your RSS feed
-url:
+# 3rd URL
+duoshuo_short_name: "sbys" # the user of user.domain.com
+duoshuo_user_uid: "6324572809590735618" # the admin user uid
+duoshuo_user_name: "xk" # the admin user name
+duoshuo_max_depth: "2"  # the max_depth setting in duoshuo comments
+duoshuo_url: "/w3c/duoshuo/embed.min.js" # the local duoshuo comment plugin, you can change it to remote "http://static.duoshuo.com/"
+jquery_url: "http://cdn.bootcss.com/jquery/3.1.0/jquery.min.js" # use cdn
+baiduTemplate_url: "/w3c/js/baiduTemplate.js" #use local
+google_analytics_id: "UA-83197743-1"
 
-# If you're hosting your site at a Project repository on GitHub pages
-# (http://yourusername.github.io/repository-name)
-# and NOT your User repository (http://yourusername.github.io)
-# then add in the baseurl here, like this: "/repository-name"
-baseurl: ""
-
-#
-# !! You don't need to change any of the configuration flags below !!
-#
-
+# Build Settings
+excerpt_separator: "\n\n" # you can specify your own separator here, default is "\n\n" String
+permalink: /:year/:month/:day/:title.html
+highlighter: rouge
 markdown: kramdown
-highlighter: 'rouge'
-permalink: /:title/
-
-# The release of Jekyll Now that you're using
-version: v1.1.0
-
-# Set the Sass partials directory, as we're using @imports
-sass:
-  style: :expanded # You might prefer to minify using :compressed
-
-# Use the following plug-ins
+kramdown:
+  input: GFM
+  hard_wrap: true # a newline in markdown text would be changed to <br>
 gems:
-  - jekyll-sitemap # Create a sitemap using the official Jekyll sitemap gem
-  - jekyll-feed # Create an Atom feed using the official Jekyll feed gem
+  - jemoji
 
-# Exclude these files from your production _site
-exclude:
-    - Gemfile
-    - Gemfile.lock
-    - LICENSE
-    - README.md
-    - CNAME
+# Following is got in Github Help With Configuring Jekyll
+
+# Github Page Default Settings which you can override:
+# kramdown:
+#   input: GFM
+#   hard_wrap: false
+# gems:
+#   - jekyll-coffeescript
+#   - jekyll-paginate
+
+# Github Page override the following settings which you cannot change:
+# lsi: false
+# safe: true
+# source: [your repo's top level directory]
+# incremental: false
+# highlighter: rouge
+# gist:
+#  noscript: false
+# kramdown:
+#  math_engine: mathjax
