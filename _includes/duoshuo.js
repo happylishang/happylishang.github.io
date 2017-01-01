@@ -7,14 +7,25 @@
   ga('create', '{{ site.google_analytics_id }}', 'auto');
   ga('send', 'pageview');
 </script>
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
 <script type="text/javascript">
-  var duoshuoQuery = {short_name:"{{ site.duoshuo_short_name }}"};
-  var duoshuoDir = "{{ site.duoshuo_url }}";
-  duoshuoDir = duoshuoDir.substring(0, duoshuoDir.lastIndexOf("/")+1);
-  //console.log(duoshuoDir);
-  var duoshuoShortName = "{{ site.duoshuo_short_name }}";
-  var duoshuoUserName = "{{ site.duoshuo_user_name }}";
-</script>
+var duoshuoQuery = {short_name:"happysnail"};
+  (function() {
+    var ds = document.createElement('script');
+    ds.type = 'text/javascript';ds.async = true;
+    ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+    ds.charset = 'UTF-8';
+    (document.getElementsByTagName('head')[0] 
+     || document.getElementsByTagName('body')[0]).appendChild(ds);
+  })();
+  </script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
 <script src="{{ site.duoshuo_url }}"></script>
 <style type="text/css">
 /**************override duoshuo css*************/
