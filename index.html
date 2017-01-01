@@ -170,12 +170,9 @@ body {
 }
 /*********************category*************************/
 .right-aside .categories {
-	position: fixed;
 	top: 0;
 	background-color: white;
 	border-width: 1px;
-	box-sizing: border-box;
-	z-index: 1;
 }
 
 .right-aside .category {
@@ -183,6 +180,25 @@ body {
 	padding: 13px 0 13px 18px;
 	margin: 5px 0;
 }
+.right-aside .category li {
+	float: left;
+	margin: 0px 15px 15px 0;
+}
+.right-aside .category li.active a {
+	color: white;
+	border-color: #e78170;
+	background: #ffb0b0;
+}
+.right-aside .category li a {
+	padding: 5px 10px;
+	border: 1px solid #d9d9d9;
+	border-radius: 14px;
+	box-sizing: border-box;
+	font-size: 12px;
+	font-weight: normal;
+	line-height: 1.5;
+}
+
 
 .talk {
 	width: 100%;
@@ -324,20 +340,20 @@ a.white, a.white:hover, a.white:visited {
 </div>
 
 <div class="right-aside">
-<div id="top-menu" class="categories">
-	<ul class="nostyle category">
-		<li data="All"><a href="?category=">All</a></li>
-		{%comment%}通过liquid获取文件夹作为目录{%endcomment%}
-		{% include total-categories.liquid %}
-		{% for item in total-categories %}
-			{% if forloop.index0 == 0 %}
-			<li data="{{ item }}"><a href="?category={{ item }}">{{ item }}</a></li>
-			{% else %}
-			<li data="{{ item }}"><a href="?category={{ item }}">{{ item }}</a></li>
-			{% endif %}
-		{% endfor %}
-	</ul>
-</div>
+	<div  class="categories">
+		<ul class="nostyle category">
+			<li data="All"><a href="?category=">All</a></li>
+			{%comment%}通过liquid获取文件夹作为目录{%endcomment%}
+			{% include total-categories.liquid %}
+			{% for item in total-categories %}
+				{% if forloop.index0 == 0 %}
+				<li data="{{ item }}"><a href="?category={{ item }}">{{ item }}</a></li>
+				{% else %}
+				<li data="{{ item }}"><a href="?category={{ item }}">{{ item }}</a></li>
+				{% endif %}
+			{% endfor %}
+		</ul>
+	</div>
 </div>
 <div class="talk">Don't be afraid, Step By Step</div>
 <div class="footer"></div>
