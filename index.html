@@ -45,6 +45,13 @@ body {
 	color: white;
 }
 
+.left-aside .remark .avatar {
+	width: 80px;
+	height: 80px;
+	margin-right: 10px;
+	border-radius: 50%;
+}
+
 
 .left-aside .copyright {
 	width: 100%;
@@ -271,7 +278,9 @@ a.white, a.white:hover, a.white:visited {
 	<div class="left-aside" >
 		<div class="remark" align="center">
 			<h4>
- 			<img src="https://github.com/happylishang/happylishang.github.io/blob/master/w3c/images/sicon.png?raw=true" width=70px >
+			<div class="avatar">
+			 <img src="{{ site.w3c_url }}images/sicon.jpg" alt="100"/>
+			</div>
   			</h4>
 			<a class="white" href="{{ site.base }}/">
 			 <h4>{{ site.title }}</h4>
