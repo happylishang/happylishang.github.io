@@ -8,7 +8,7 @@ description: > # this means to ignore newlines until "baseurl:"
 
 # Site URL NOTE: if your site is base on subdir /blog you should change base to "/blog"
 domain: "http://happylishang.github.io/" # the domain URL for your site
-base: ""  # the relative path that different with domain so you can test locally
+base: "http://localhost:8000"  # the relative path that different with domain so you can test locally
 
 # Source URL NOTE: end with / cause it's [URL + FILE]
 w3c_url: "/w3c/"  # the base url of css js and images
