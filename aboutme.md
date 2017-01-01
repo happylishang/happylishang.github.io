@@ -12,4 +12,4 @@ title: 关于我
 
 ### Contact me
 
-[email@domain.com](mailto:email@domain.com)
+[happylishang@163.com](mailto:happylishang@163.com)
