@@ -277,11 +277,9 @@ a.white, a.white:hover, a.white:visited {
 <div class="content">
 	<div class="left-aside" >
 		<div class="remark" align="center">
-			<h4>
 			<div class="avatar">
 			 <img src="{{ site.w3c_url }}images/sicon.jpg" alt="100"/>
-			</div>
-  			</h4>
+			</div> 
 			<a class="white" href="{{ site.base }}/">
 			 <h4>{{ site.title }}</h4>
 			</a>
@@ -347,7 +345,7 @@ a.white, a.white:hover, a.white:visited {
 	 <div class="right-aside" align="top">
 		 
 			<ul class="nostyle category">
-				<li data="All"><a href="?category=">全部</a></li>
+				<li data="All" width=200><a href="?category=">全部</a></li>
 				{%comment%}通过liquid获取文件夹作为目录{%endcomment%}
 				{% include total-categories.liquid %}
 				{% for item in total-categories %}
