@@ -49,7 +49,7 @@ $(document).ready(function(){
   //TimeAgo
   var showTimeAgo = function() {
     $("span.time").each(function(){
-        $(this).text( $.timeago($(this).attr('date-time')) + 'date-time' );
+        $(this).text( $.timeago($(this).attr('date-time')) + $(this).attr('date-time'));
     });
   }
 
