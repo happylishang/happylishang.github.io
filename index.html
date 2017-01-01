@@ -19,6 +19,8 @@ body {
 	padding: 0;
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
 }
+
+
 .content {
 	z-index: 1;
 	width: 100%;
@@ -50,6 +52,15 @@ body {
 	color: white;
 	text-align: center;
 }
+
+.left-aside .avatar {
+	width:100px;
+	height:100px;
+	border-radius:100px
+}
+
+ 
+
 .left-aside .copyright p {
 	margin: 0;
 	color: rgba(255, 255, 255, 0.2);
@@ -228,7 +239,12 @@ a.white, a.white:hover, a.white:visited {
 	
 	<div class="left-aside">
 		<div class="remark">
-			<a class="white" href="{{ site.base }}/"><h1>{{ site.title }}</h1>
+			<a class="avatar" >
+				<img src="https://github.com/happylishang/happylishang.github.io/blob/master/w3c/images/sicon.png?raw=true" >
+			</a> 
+
+			<a class="white" href="{{ site.base }}/">
+			 <h1>{{ site.title }}</h1>
 			</a>
 		    <h4>每个和尚都应该为自己挖一口井
 		    </h4>
@@ -293,15 +309,25 @@ a.white, a.white:hover, a.white:visited {
 </div>
 
 <div class="right-aside">
-	<!-- RSS -->
-	<a style="float: right;" href="{{ site.base }}/feed.xml" target="_blank">
-		<img style="margin-top: 10px; margin-right: 10px;" src="{{ site.images_url }}rss.svg" width="20px" alt="" border="0"/>
-	</a>
-	<!-- duoshuo -->
-	<div class="ds-thread" data-thread-key="index" data-max-depth="{{ site.duoshuo_max_depth }}" data-title="{{ site.title }}" data-url="{{ site.domain }}{{ page.url }}"></div>
+ 	
+ 			<div id="top-menu" class="top">
+			<ul class="nostyle category">
+				<li data="All"><a href="?category=">All</a></li>
+				{%comment%}通过liquid获取文件夹作为目录{%endcomment%}
+				{% include total-categories.liquid %}
+				{% for item in total-categories %}
+					{% if forloop.index0 == 0 %}
+      			<li data="{{ item }}"><a href="?category={{ item }}">{{ item }}</a></li>
+					{% else %}
+      			<li data="{{ item }}"><a href="?category={{ item }}">{{ item }}</a></li>
+					{% endif %}
+				{% endfor %}
+			</ul>
+		</div>
+
 </div>
 
-	
+
 <div class="talk">Don't be afraid, Step By Step</div>
 <div class="footer"></div>
 
