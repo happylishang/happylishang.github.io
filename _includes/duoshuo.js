@@ -8,7 +8,7 @@
   ga('send', 'pageview');
 </script>
 <script type="text/javascript">
-  var duoshuoQuery = {short_name:"happysnail"};
+  var duoshuoQuery = {short_name:"{{ site.duoshuo_short_name }}"};
   var duoshuoDir = "{{ site.duoshuo_url }}";
   duoshuoDir = duoshuoDir.substring(0, duoshuoDir.lastIndexOf("/")+1);
   //console.log(duoshuoDir);
