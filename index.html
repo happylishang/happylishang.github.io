@@ -318,9 +318,15 @@ a.white, a.white:hover, a.white:visited {
 						<div class="list-footer">
 							<!--<a class="grey-link" target="_parent" href="<%=posts[i].url%>">阅读 5915</a>-->
 							<span>字数 <%= posts[i].words %></span>
-							<a class="grey-link post-data" target="_parent" href="<%= posts[i].url %>#comments" data-method="comments" data-thread-key="<%= posts[i].pid %>" data-text=" · 评论 %s"> · 评论 0</a>
+							<a class="author-name dark-grey-link" target="_parent" href="{{ site.base }}/aboutme"><%= posts[i].author %></a>
+							<em>&nbsp;·</em>
+							<span class="time" date-time="<%= posts[i].date %>"></span>
+
+							<!-- 简化一下 -->
+							
+						<!-- 	<a class="grey-link post-data" target="_parent" href="<%= posts[i].url %>#comments" data-method="comments" data-thread-key="<%= posts[i].pid %>" data-text=" · 评论 %s"> · 评论 0</a>
 							<span class="post-data" data-method="likes" data-thread-key="<%= posts[i].pid %>" data-text=" · 喜欢 %s"> · 喜欢 0</span>
-							<span class="post-data" data-method="reposts" data-thread-key="<%= posts[i].pid %>" data-text=" · 转发 %s"> · 转发 0</span>
+							<span class="post-data" data-method="reposts" data-thread-key="<%= posts[i].pid %>" data-text=" · 转发 %s"> · 转发 0</span> -->
 						</div>
 						<% if ( posts[i].excerpt ) { %>
 						<div class="excerpt">
