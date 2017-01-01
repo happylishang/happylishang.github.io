@@ -7,25 +7,14 @@
   ga('create', '{{ site.google_analytics_id }}', 'auto');
   ga('send', 'pageview');
 </script>
-
-
-<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
 <script type="text/javascript">
-var duoshuoQuery = {short_name:"happysnail"};
-  (function() {
-    var ds = document.createElement('script');
-    ds.type = 'text/javascript';ds.async = true;
-    ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
-    ds.charset = 'UTF-8';
-    (document.getElementsByTagName('head')[0] 
-     || document.getElementsByTagName('body')[0]).appendChild(ds);
-  })();
-  </script>
-<!-- 多说公共JS代码 end -->
-
-
-
-
+  var duoshuoQuery = {short_name:"happysnail"};
+  var duoshuoDir = "{{ site.duoshuo_url }}";
+  duoshuoDir = duoshuoDir.substring(0, duoshuoDir.lastIndexOf("/")+1);
+  //console.log(duoshuoDir);
+  var duoshuoShortName = "{{ site.duoshuo_short_name }}";
+  var duoshuoUserName = "{{ site.duoshuo_user_name }}";
+</script>
 <script src="{{ site.duoshuo_url }}"></script>
 <style type="text/css">
 /**************override duoshuo css*************/
@@ -36,20 +25,20 @@ var duoshuoQuery = {short_name:"happysnail"};
   margin: 5px 10px 5px 5px;
 }
 #ds-thread #ds-reset .ds-login-buttons .ds-social-links {
-	width: auto;
+  width: auto;
 }
 #ds-notify {
   bottom: 5px;
   right: 5px;
 }
 #ds-thread #ds-reset a.ds-user-name[data-user-id='{{ site.duoshuo_user_uid }}']:after {
-	content: "博主";
-	margin-left: 6px;
-	font-size: 12px;
-	color: #ffffff;
-	background: rgba(62, 46, 46, 0.35);
-	border-radius: 4px;
-	padding: 1px 3px;
+  content: "博主";
+  margin-left: 6px;
+  font-size: 12px;
+  color: #ffffff;
+  background: rgba(62, 46, 46, 0.35);
+  border-radius: 4px;
+  padding: 1px 3px;
 }
 #ds-thread #ds-reset span.ds-user-name:after {
   content: "游客";
