@@ -1,5 +1,6 @@
 ---
 layout: post
+title: Java线程通信
 description: "Java"
 category: Java
 
