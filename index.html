@@ -277,9 +277,10 @@ a.white, a.white:hover, a.white:visited {
 <div class="content">
 	<div class="left-aside" >
 		<div class="remark" align="center">
-			<div class="avatar">
-			 <img src="{{ site.w3c_url }}images/sicon.jpg" alt="100"/>
-			</div> 
+			<h5>
+			<div class="remark">
+ 			<img src="https://github.com/happylishang/happylishang.github.io/blob/master/w3c/images/sicon.png?raw=true" width=70px >
+  			</h5>
 			<a class="white" href="{{ site.base }}/">
 			 <h4>{{ site.title }}</h4>
 			</a>
@@ -345,7 +346,7 @@ a.white, a.white:hover, a.white:visited {
 	 <div class="right-aside" align="top">
 		 
 			<ul class="nostyle category">
-				<li data="All" width=200><a href="?category=">全部</a></li>
+				<li data="All"><a href="?category=">全部</a></li>
 				{%comment%}通过liquid获取文件夹作为目录{%endcomment%}
 				{% include total-categories.liquid %}
 				{% for item in total-categories %}
