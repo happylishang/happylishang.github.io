@@ -50,7 +50,7 @@
       "title": "{{ post.title }}",
       "words": "{{ post.content | number_of_words }}",
       "author": "{{ site.author }}",
-      "date": "{{ post.date | date:"%Y-%m-%d %H:%M:%S" }}",
+      "date": "{{ post.date | date:"%Y-%m-%d" }}",
       "url": "{{ post.url }}",
       "pid": "{{ post.pid }}",
       {% comment %}没有赋值为null，静态化后结果为""，但是判断时null != ''为true，所以这里不能为or{% endcomment %}
