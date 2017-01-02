@@ -6,29 +6,32 @@ category: View定制
 
 ---
 
-# 背景
-
-对于电商App，商品详情无疑是很重要的一个模块，观察主流购物App的详情界面，发现大部分都是做成了上下两部分，上面展示商品规格信息，下面是H5商品详情，或者是嵌套了一个包含H5详情及评论列表的ViewPager界面，本文就是实现了一个兼容不同需求的上下滚动黏滞View-**[DragScrollDetailsLayout](https://github.com/happylishang/DragScrollDetailsLayout)**。
+对于电商App，商品详情无疑是很重要的一个模块，观察主流购物App的详情界面，发现大部分都是做成了上下两部分，上面展示商品规格信息，下面是H5商品详情，或者是嵌套了一个包含H5详情及评论列表的ViewPager界面，本文就是实现了一个兼容不同需求的上下滚动黏滞View.
 
 **[DragScrollDetailsLayout  GitHub链接 ](https://github.com/happylishang/DragScrollDetailsLayout)**
-#实现效果图
+
+# 实现效果图
 
 首先看一下实现效果图
-####简单的ScrollView+Webview
+
+####  简单的ScrollView+Webview
+
 当然，如果将Webview替换成其他的ListView之类的也是支持的。
 
 ![scrollview+webview.gif](http://upload-images.jianshu.io/upload_images/1460468-f026299ee35b008e.gif?imageMogr2/auto-orient/strip)
 
-####ScrollView+ViewPager
+#### ScrollView+ViewPager
 适用场景：底部需要添加多个界面，并且需要滑动
 
 ![scrollview+viewpager.gif](http://upload-images.jianshu.io/upload_images/1460468-88eed3e50cc798b1.gif?imageMogr2/auto-orient/strip)
 
-####ScrollView+Fragmenttabhost
+#### ScrollView+Fragmenttabhost
+
 适用场景：底部需要添加多个界面，但是不需要滑动
 
 ![scrollview+fragmenttabhost.gif ](http://upload-images.jianshu.io/upload_images/1460468-e1e243a70b498f2a.gif?imageMogr2/auto-orient/strip)
-#实现
+
+# 实现
 
 对于这个需求的场景，很容易想到可以分成上下两部分来实现，只需要一个Vertical的LinearLayout
 
@@ -57,7 +60,7 @@ category: View定制
 * 松手后如何处理后续的动效
 
    
-##如何判断滚动边界
+## 如何判断滚动边界
 
 首先来看第一个问题，如何知道上面或者下面的View滚动到了边界，其实Android源码中有个类ViewCompat，它有个函数canScrollVertically(View view, int offSet, MotionEvent ev)就可以判断当前View是否可以向哪个方向滚动，offset的正负值用来判断向上还是向下，当然，仅仅靠这个函数还是不够的，因为ViewGroup是可以相互嵌套的，也许ViewGroup本身不能滚动，但是其内部的子View却可以滚动，这时候，就需要递归遍历相关的View，比如对于ViewPager中嵌套了包含WebView或者List的Fragment。不过，并非所有的子View都需要遍历，只有与TouchEvent相关的View才需要判断。因此还需要写个函数判断View是否在TouchEvent所在的区域，如下函数isTransformedTouchPointInView：
 
@@ -102,7 +105,7 @@ category: View定制
 	    }
 知道View是否可以上下滑动到边界后，拦截事件的时机就比较清晰了，那么接着看第二个问题，如何拦截滑动。
 
-##事件拦截处理
+## 事件拦截处理
 
 onInterceptTouchEvent在返回True之后，就不会再执行了，我们只需要把握准确的拦截时机，比如如果处于上面的View，就要对上拉事件比较敏感，处于底部就要对下拉事件敏感，同时还要将无效的手势归零，比如，操作上面的View时，如果先是下拉，并且是无效的下拉，那么就要将拦截点重置。
 
@@ -179,7 +182,7 @@ checkCanInterceptTouchEvent主要用来判断是否需要拦截，并非不可�
         mVelocityTracker.addMovement(event);
     }    
 
-##收尾动画
+## 收尾动画
 
 在Up事件之后，还要简单的处理一下一下收尾的滚动动画，比如，滚动距离不够要复原，否则，就滚动到目标视图，这里主要是根据Up事件的位置，计算需要滚动的距离，并通过Scroller来完成剩下的滚动。
 
