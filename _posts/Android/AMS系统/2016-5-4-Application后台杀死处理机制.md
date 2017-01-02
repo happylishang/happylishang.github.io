@@ -6,17 +6,34 @@ category: android开发
 
 ---
 
-开发的时候，虽然一直遵守谷歌的Android开发文档，创建Fragment尽量采用推荐的参数传递方式，并且保留默认的Fragment无参构造方法，避免绝大部分后台杀死-恢复崩溃的问题，但是对于原理的了解紧限于恢复时的重建机制，采用反射机制，并使用了默认的构造参数，直到使用FragmentDialog，示例代码如下：
+Android开发经常会遇到这样的问题，App在后台久置之后，再次点击图标或从最近的任务列表打开时，App可能会崩溃。这种情况往往是App在后台被系统杀死，在恢复的时候遇到了问题，这种问题经常出现在FragmentActivity中，尤其是里面添加了Fragment的时候。开发时一直遵守谷歌的Android开发文档，创建Fragment尽量采用推荐的参数传递方式，并且保留默认的Fragment无参构造方法，避免绝大部分后台杀死-恢复崩溃的问题，但是对于原理的了解紧限于恢复时的重建机制，采用反射机制，并使用了默认的构造参数，直到使用FragmentDialog，示例代码如下：
 
 ![Activity Launch流程图.png](http://upload-images.jianshu.io/upload_images/1460468-c91b004975ed70c4.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-#### 对于APP，所有的处理都是被动响应，Android是基于操作系统的被动式开发。
+# Application保存流程
 
-####  基于Android源码4.3
+## 新Activity启动跟旧Activity的保存
 
-#### Activity后台杀死原理--总结一句话，进程死了，但是现场还在，AMS端根据保留的现场恢复进程 --ActivityStack
+# 恢复流程
 
-#### 场景
+## Fragment无参构造函数的影响 
+
+# 对于APP，所有的处理都是被动响应，Android是基于操作系统的被动式开发。
+
+# 主动清楚最近的任务
+
+
+![删除最近的任务.png](http://upload-images.jianshu.io/upload_images/1460468-436339b7fc278e2d.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+
+# 后台杀死原理：Application进程被Kill，但现场被AMS保存，AMS根据保存现场恢复Application
+
+# ActivityStack
+
+# 场景
+
+# ViewPager跟FragmentTabHost恢复 View恢复
+
 
 Android开发的时候经常会遇到这样的问题，App在后台久置之后，再次点击图标或者从最近的任务列表打开时，App可能会崩溃，这种情况往往是App在后台被系统杀死，在恢复的时候遇到了问题，这种问题经常出现在FragmentActivity中，尤其是里面添加了Fragment的时候。
 
@@ -39,7 +56,7 @@ Android开发的时候经常会遇到这样的问题，App在后台久置之后�
 
 这样App再次从最近的任务列表中唤醒的时候，其实会回到上次被杀死的状态下。
 
-#### 原理 Activity永远是在ActivityRecord之后创建。我们可以保留ActivityRecord，在需要的时候，创建Activity
+# 原理：Activity永远是在AMS创建ActivityRecord之后创建的。异常场景AMS仍然可以保留ActivityRecord，在恢复的时候，AMS重建Activity
 
 分析入口：最近的任务列表 -》RecentsActivity.java-》RecentsPanelView.java,唤出最近的任务列表，并唤醒App的时候，其实是进行下面的操作。找到当前要启动App的TaskDescription，并判断该App是否有效，或者说是否被ActivityManagerService清空。如果清空了taskId=-1，就要全新启动APP，如果没有清空，说明App要么存活，要么被后台杀死，但是这两种状况下，APP的现场都是保留的，点击启动，AMS会恢复APP现场。
  
@@ -86,7 +103,7 @@ Android开发的时候经常会遇到这样的问题，App在后台久置之后�
         }
     }
     
-####  那么问题就是，什么时候后台杀死，杀死的时候如何处理taskId，会处理吗？主动后台杀死与主动清理手动退出的任务。被动杀死只是被Lowmemorykiller杀死。
+#  那么问题就是，什么时候后台杀死，杀死的时候如何处理taskId，会处理吗？主动后台杀死与主动清理手动退出的任务。被动杀死只是被Lowmemorykiller杀死。
        
  后台杀死ActivityManager
  
@@ -200,17 +217,17 @@ Android开发的时候经常会遇到这样的问题，App在后台久置之后�
         // Find the first activity that is not finishing.
         ActivityRecord next = topRunningActivityLocked(null);
         
-#### onSaveInstanceState()的调用时机，都是在onPause或者onStop之前，Android Honeycomb之前之后，之前onPause，之后onStop，但是对于按返回键的怎么处理呢
+# onSaveInstanceState()的调用时机，都是在onPause或者onStop之前，Android Honeycomb之前之后，之前onPause，之后onStop，但是对于按返回键的怎么处理呢
 
 	The reason why these slight inconsistencies exist stems from a significant change to the Activity lifecycle that was made in Honeycomb. Prior to Honeycomb, activities were not considered killable until after they had been paused, meaning that onSaveInstanceState() was called immediately before onPause(). Beginning with Honeycomb, however, Activities are considered to be killable only after they have been stopped, meaning that onSaveInstanceState() will now be called before onStop() instead of immediately before onPause(). These differences are summarized in the table below:
 
 
-#### 但是如何判断是否被销毁，如何知道从oncreate还是从onresume开始 
+# 但是如何判断是否被销毁，如何知道从oncreate还是从onresume开始 
 
 其实这个交给AMS来完成，ActivityManagerService首先会去除ActivityRecord，然后去找Task或者说Process，如果找不到，就新建，新建之后就相当于恢复现场
 
 
-#####   mService.startProcessLocked其实是ActivitymanagerService，后台杀死跟正常的清除不太一样，后台杀死，现场保留，但是清理的话，是完全清除
+##   mService.startProcessLocked其实是ActivitymanagerService，后台杀死跟正常的清除不太一样，后台杀死，现场保留，但是清理的话，是完全清除
 
 如果Activity所在的进程未启动，那么先启动进程，在进程起来后会调用attachApplicationLocked()，函数中会接着调用realStartActivityLocked()函数继续启动这个Activity；      
         
@@ -249,13 +266,13 @@ Android开发的时候经常会遇到这样的问题，App在后台久置之后�
         
 ### 	　　onStoreInstanceState()在onStart() 和 onPostCreate(Bundle)之间调用。
 
-##### ActivityThread 自从2.3之后，就从pause到stop了
+## ActivityThread 自从2.3之后，就从pause到stop了
 
                 ActivityManagerNative.getDefault().activityStopped(
                     activity.token, state, thumbnail, description);
 
 
-##### Activitymanagerservice
+## Activitymanagerservice
 
     public final void activityStopped(IBinder token, Bundle icicle, Bitmap thumbnail,
             CharSequence description) {
@@ -285,7 +302,7 @@ Android开发的时候经常会遇到这样的问题，App在后台久置之后�
         trimApplications();
                             
                     
-##### activitymanagerNative
+## activitymanagerNative
 
 	   public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
 	            throws RemoteException {
@@ -302,7 +319,7 @@ Android开发的时候经常会遇到这样的问题，App在后台久置之后�
             return true;
         }
         
-##### activitymanagerservice
+## activitymanagerservice
 
     public final void activityStopped(IBinder token, Bundle icicle, Bitmap thumbnail,
             CharSequence description) {
@@ -327,7 +344,7 @@ Android开发的时候经常会遇到这样的问题，App在后台久置之后�
             }
         }
  
-####  被动杀死Lowmemorykiller
+#  被动杀死Lowmemorykiller
     
 Andorid用户层的Application，在各种Activity生命周期切换时都会触发AMS中的回收机制，比如启动新的apk，一直back 退出一个apk，除了android AMS中默认的回收机制外，还会去维护一个oom adj 变量，作为linux层 lowmemorykiller的参考依据，如果内存不够，就让底层决定杀死谁。
 
@@ -343,7 +360,7 @@ ActivityManagerService
             }
         }
                
-#####  通过socket与Lowmemorykiller通信
+##  通过socket与Lowmemorykiller通信
 
     private final boolean applyOomAdjLocked(ProcessRecord app,
             ProcessRecord TOP_APP, boolean doingAll, long now) {
@@ -384,11 +401,11 @@ ActivityManagerService
 	    critical
 	    socket lmkd seqpacket 0660 system system
  
-#### 注意事项 
+# 注意事项 
 
 一般需要注意的是Fragment的处理
 
-#### 正常退出的处理机制
+# 正常退出的处理机制
 
 按返回键调用onBackPressed，finish自己。
 
@@ -456,15 +473,15 @@ AMS PAUSE之后调用stop，APP端都是被动相应，其实APP端，都是被�
                 r.state = state;
             }
             
-#### 强制杀死问题
+# 强制杀死问题
 
 	? I/ActivityManager: Process com.ls.tools (pid 12284) has died
 	05-05 15:26:13.124 762-10606/? W/ActivityManager: Force removing ActivityRecord{1a378c0 u0 com.ls.tools/.activity.KillBackGroundActivity t759}: app died, no saved state
 	05-05 15:26:13.135 12803-12803/? I/art: Late-enabling -Xcheck:jni
 
-#### Activity的恢复顺序，严格按照AMS中ActivityStack的顺序
+# Activity的恢复顺序，严格按照AMS中ActivityStack的顺序
 
-#### 参考文档
+# 参考文档
 
 [Android应用程序启动过程源代码分析](http://blog.csdn.net/luoshengyang/article/details/6689748)
 
@@ -477,3 +494,5 @@ AMS PAUSE之后调用stop，APP端都是被动相应，其实APP端，都是被�
 [对Android近期任务列表（Recent Applications）的简单分析](http://www.cnblogs.com/coding-way/archive/2013/06/05/3118732.html)
 
 [ Android——内存管理-lowmemorykiller 机制](http://blog.csdn.net/jscese/article/details/47317765)  
+
+[Android 操作系统的内存回收机制](https://www.ibm.com/developerworks/cn/opensource/os-cn-android-mmry-rcycl/)       
