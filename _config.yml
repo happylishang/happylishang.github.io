@@ -57,3 +57,8 @@ gems:
 #  noscript: false
 # kramdown:
 #  math_engine: mathjax
+
+pygments: true
+safe: true
+auto: true
+
