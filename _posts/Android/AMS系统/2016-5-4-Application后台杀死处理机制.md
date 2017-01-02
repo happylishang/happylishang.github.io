@@ -8,8 +8,7 @@ category: android开发
 
 开发的时候，虽然一直遵守谷歌的Android开发文档，创建Fragment尽量采用推荐的参数传递方式，并且保留默认的Fragment无参构造方法，避免绝大部分后台杀死-恢复崩溃的问题，但是对于原理的了解紧限于恢复时的重建机制，采用反射机制，并使用了默认的构造参数，直到使用FragmentDialog，示例代码如下：
 
-
-![Activity Launch流程图.png](http://upload-images.jianshu.io/upload_images/1460468-aedc2254517c4f47.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+![Activity Launch流程图.png](http://upload-images.jianshu.io/upload_images/1460468-c91b004975ed70c4.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 #### 对于APP，所有的处理都是被动响应，Android是基于操作系统的被动式开发。
 
