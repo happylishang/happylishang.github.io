@@ -25,16 +25,20 @@ body {
 }
 .pin {
 	position: fixed;
-	right: 10px;
+	right: 20px;
 	z-index: 100;
-	bottom: 40%;
+	bottom: 20%;
 	display: none;
+
 }
 .pin span {
-	border: 1px solid #999999;
+
+  border: 1px solid #999999;
   border-radius: 100%;
-  padding: 2px;
-}
+  padding: 10px;
+  background: url("{{ site.w3c_url }}images/up1.png");
+	background-size:cover;
+	}
 /****** post ******/
 .center-aside {
 	width: 60%;
@@ -184,7 +188,7 @@ a.grey-link, a.grey-link:hover, a.grey-link:visited {
 	{% include post-image.liquid %}
 <img src="{{ post-image }}" style="display:none;"/>
 <div class="content">
-	<div class="pin"><span><a href="javascript:void(0);">up</a></span>
+	<div class="pin" ><span><a href="javascript:void(0);">"  "</a></span>
 	</div>
 	<div class="top-aside">
 	</div>
