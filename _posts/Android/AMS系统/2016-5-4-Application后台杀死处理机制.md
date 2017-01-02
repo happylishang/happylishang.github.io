@@ -34,6 +34,7 @@ Android开发经常会遇到这样的问题，App在后台久置之后，再次�
 
 # ViewPager跟FragmentTabHost恢复 View恢复
 
+# Lowmemorykiller不同版本在Framework层表现不同
 
 Android开发的时候经常会遇到这样的问题，App在后台久置之后，再次点击图标或者从最近的任务列表打开时，App可能会崩溃，这种情况往往是App在后台被系统杀死，在恢复的时候遇到了问题，这种问题经常出现在FragmentActivity中，尤其是里面添加了Fragment的时候。
 
