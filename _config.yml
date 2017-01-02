@@ -36,6 +36,10 @@ kramdown:
   hard_wrap: true # a newline in markdown text would be changed to <br>
 gems:
   - jemoji
+  - jekyll-paginate
+
+paginate: 16
+
 
 # Following is got in Github Help With Configuring Jekyll
 
@@ -58,7 +62,7 @@ gems:
 # kramdown:
 #  math_engine: mathjax
 
-pygments: true
+highlighter: rouge
 safe: true
 auto: true
 
