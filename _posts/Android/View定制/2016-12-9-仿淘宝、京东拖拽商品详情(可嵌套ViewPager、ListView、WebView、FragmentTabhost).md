@@ -3,6 +3,7 @@ layout: post
 title: "仿淘宝、京东拖拽商品详情(可嵌套ViewPager、ListView、WebView、FragmentTabhost)"
 description: "Java"
 category: View定制
+image: http://upload-images.jianshu.io/upload_images/1460468-f026299ee35b008e.gif?imageMogr2/auto-orient/strip
 
 ---
 
