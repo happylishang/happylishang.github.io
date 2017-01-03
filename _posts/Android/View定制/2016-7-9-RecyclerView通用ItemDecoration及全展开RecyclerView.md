@@ -3,10 +3,10 @@ layout: post
 title: "通用RecyclerView的ItemDecoration及全展开RecyclerView的实现"
 description: "View定制"
 category: android开发
+image: http://upload-images.jianshu.io/upload_images/1460468-a663f26677c53449.gif?imageMogr2/auto-orient/strip
 
 ---
 
-# RecyclerView的几种常用场景
 
 Android L面世之后，Google就推荐在开发项目中使用RecyclerView来取代ListView，因为RecyclerView的灵活性跟性能都要比ListView更强，但是，带来的问题也不少，比如：列表分割线都要开发者自己控制，再者，RecyclerView的测量与布局的逻辑都委托给了自己LayoutManager来处理，如果需要对RecyclerView进行改造，相应的也要对其LayoutManager进行定制。本文主要就以以下场景给出RecyclerView使用参考：
 
