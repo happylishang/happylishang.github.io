@@ -36,6 +36,11 @@ Android开发经常会遇到这样的问题，App在后台久置之后，再次�
 
 # Lowmemorykiller不同版本在Framework层表现不同(Lolipop之后 单独封装成了服务lmks)
 
+## android5.0之前
+## android5.0之后，采用了socket通信去service更新 
+
+[参考](http://gityuan.com/2016/09/17/android-lowmemorykiller/)
+
 Android开发的时候经常会遇到这样的问题，App在后台久置之后，再次点击图标或者从最近的任务列表打开时，App可能会崩溃，这种情况往往是App在后台被系统杀死，在恢复的时候遇到了问题，这种问题经常出现在FragmentActivity中，尤其是里面添加了Fragment的时候。
 
 其实我们可以模拟一下后台杀死，
@@ -496,4 +501,10 @@ AMS PAUSE之后调用stop，APP端都是被动相应，其实APP端，都是被�
 
 [ Android——内存管理-lowmemorykiller 机制](http://blog.csdn.net/jscese/article/details/47317765)  
 
-[Android 操作系统的内存回收机制](https://www.ibm.com/developerworks/cn/opensource/os-cn-android-mmry-rcycl/)       
+[Android 操作系统的内存回收机制](https://www.ibm.com/developerworks/cn/opensource/os-cn-android-mmry-rcycl/) 
+  
+[Android LowMemoryKiller原理分析](http://gityuan.com/2016/09/17/android-lowmemorykiller/)
+
+[Android进程生命周期与ADJ](http://gityuan.com/2015/10/01/process-lifecycle/)
+
+[Linux下/proc目录简介](http://blog.csdn.net/zdwzzu2006/article/details/7747977)
