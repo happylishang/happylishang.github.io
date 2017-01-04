@@ -9,6 +9,13 @@ category: android开发
 # Android后台杀死原理分析
 
 
+Android系统以Linux内核为基础，所以对于进程的管理自然离不开Linux本身提供的机制。例如：
+
+通过fork来创建进行
+通过信号量来管理进程
+通过proc文件系统来查询和调整进程状态 等
+
+
 Android中对于内存的回收，主要依靠Lowmemorykiller来完成，是一种根据阈值级别触发相应力度的内存回收的机制。
 Android开发经常会遇到这样的问题，App在后台久置之后，再次点击图标或从最近的任务列表打开时，App可能会崩溃。这种情况往往是App在后台被系统杀死，在恢复的时候遇到了问题，这种问题经常出现在FragmentActivity中，尤其是里面添加了Fragment的时候。开发时一直遵守谷歌的Android开发文档，创建Fragment尽量采用推荐的参数传递方式，并且保留默认的Fragment无参构造方法，避免绝大部分后台杀死-恢复崩溃的问题，但是对于原理的了解紧限于恢复时的重建机制，采用反射机制，并使用了默认的构造参数，直到使用FragmentDialog，示例代码如下：
 
@@ -48,7 +55,7 @@ Android系统将尽量长时间地保持应用进程，但为了新建进程或�
 
 # oomAdj
 
-# 进程优先级
+# 进程优先级 更新
 # LMKD
 # 进程保活
 # 冷热启动
@@ -56,6 +63,10 @@ Android系统将尽量长时间地保持应用进程，但为了新建进程或�
 # oomKILLer(Linux自带)与Lowmemeorykiller（android定制）
 
 # Lowmemeorykiller流程
+
+![LowMemorykiller更新进程优先级](http://upload-images.jianshu.io/upload_images/1460468-ff1cdc46734ac3e2.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+![5.0更新](http://upload-images.jianshu.io/upload_images/1460468-97a3a5e8a2a9555f.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 以finish为例
 
@@ -447,5 +458,7 @@ LomemoryKiller属于被动相应的一个模块，系统内存不足的时候，
 
 [Linux下/proc目录简介](http://blog.csdn.net/zdwzzu2006/article/details/7747977)
 
-[Android系统中的进程管理：进程的创建](http://qiangbo.space/2016-10-10/AndroidAnatomy_Process_Creation/)
+[Android系统中的进程管理：进程的创建 精 ](http://qiangbo.space/2016-10-10/AndroidAnatomy_Process_Creation/)    
+
+[Android系统中的进程管理：进程的优先级](Android系统中的进程管理：进程的优先级)
 
