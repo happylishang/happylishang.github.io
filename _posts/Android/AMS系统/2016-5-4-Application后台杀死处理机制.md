@@ -8,6 +8,11 @@ category: android开发
 
 Android开发经常会遇到这样的问题，App在后台久置之后，再次点击图标或从最近的任务列表打开时，App可能会崩溃。这种情况往往是App在后台被系统杀死，在恢复的时候遇到了问题，这种问题经常出现在FragmentActivity中，尤其是里面添加了Fragment的时候。开发时一直遵守谷歌的Android开发文档，创建Fragment尽量采用推荐的参数传递方式，并且保留默认的Fragment无参构造方法，避免绝大部分后台杀死-恢复崩溃的问题，但是对于原理的了解紧限于恢复时的重建机制，采用反射机制，并使用了默认的构造参数，直到使用FragmentDialog，示例代码如下：
 
+# 进程优先级
+# LMKD
+# 进程保活
+# 冷热启动
+
 ![Activity Launch流程图.png](http://upload-images.jianshu.io/upload_images/1460468-c91b004975ed70c4.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 # Application保存流程
@@ -485,8 +490,130 @@ AMS PAUSE之后调用stop，APP端都是被动相应，其实APP端，都是被�
 	05-05 15:26:13.124 762-10606/? W/ActivityManager: Force removing ActivityRecord{1a378c0 u0 com.ls.tools/.activity.KillBackGroundActivity t759}: app died, no saved state
 	05-05 15:26:13.135 12803-12803/? I/art: Late-enabling -Xcheck:jni
 
+
 # Activity的恢复顺序，严格按照AMS中ActivityStack的顺序
 
+#  滑动删除Task
+
+removeTask函数是隐藏的，只能killBackGround
+
+
+ActivityManager removeTask
+
+    /**
+     * Completely remove the given task.
+     *
+     * @param taskId Identifier of the task to be removed.
+     * @return Returns true if the given task was found and removed.
+     *
+     * @hide
+     */
+    public boolean removeTask(int taskId) throws SecurityException {
+        try {
+            return ActivityManagerNative.getDefault().removeTask(taskId);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+    	
+	
+	
+	// 处理滑动删除
+	    public boolean removeTask(int taskId, int flags) {
+	        synchronized (this) {
+	            enforceCallingPermission(android.Manifest.permission.REMOVE_TASKS,
+	                    "removeTask()");
+	            long ident = Binder.clearCallingIdentity();
+	            try {
+	                ActivityRecord r = mMainStack.removeTaskActivitiesLocked(taskId, -1,
+	                        false);
+	                if (r != null) {
+	                    mRecentTasks.remove(r.task);
+	                    cleanUpRemovedTaskLocked(r.task, flags);
+	                    return true;
+	                } else {
+	                    TaskRecord tr = null;
+	                    int i=0;
+	                    while (i < mRecentTasks.size()) {
+	                        TaskRecord t = mRecentTasks.get(i);
+	                        if (t.taskId == taskId) {
+	                            tr = t;
+	                            break;
+	                        }
+	                        i++;
+	                    }
+	                    if (tr != null) {
+	                        if (tr.numActivities <= 0) {
+	                            // Caller is just removing a recent task that is
+	                            // not actively running.  That is easy!
+	                            mRecentTasks.remove(i);
+	                            cleanUpRemovedTaskLocked(tr, flags);
+	                            return true;
+	                        } else {
+	                            Slog.w(TAG, "removeTask: task " + taskId
+	                                    + " does not have activities to remove, "
+	                                    + " but numActivities=" + tr.numActivities
+	                                    + ": " + tr);
+	                        }
+	                    }
+	                }
+	            } finally {
+	                Binder.restoreCallingIdentity(ident);
+	            }
+	        }
+	        return false;
+	    }
+    
+    
+    
+    private void cleanUpRemovedTaskLocked(TaskRecord tr, int flags) {
+        final boolean killProcesses = (flags&ActivityManager.REMOVE_TASK_KILL_PROCESS) != 0;
+        Intent baseIntent = new Intent(
+                tr.intent != null ? tr.intent : tr.affinityIntent);
+        ComponentName component = baseIntent.getComponent();
+        if (component == null) {
+            Slog.w(TAG, "Now component for base intent of task: " + tr);
+            return;
+        }
+
+        // Find any running services associated with this app.
+        mServices.cleanUpRemovedTaskLocked(tr, component, baseIntent);
+
+        if (killProcesses) {
+            // Find any running processes associated with this app.
+            final String pkg = component.getPackageName();
+            ArrayList<ProcessRecord> procs = new ArrayList<ProcessRecord>();
+            HashMap<String, SparseArray<ProcessRecord>> pmap = mProcessNames.getMap();
+            for (SparseArray<ProcessRecord> uids : pmap.values()) {
+                for (int i=0; i<uids.size(); i++) {
+                    ProcessRecord proc = uids.valueAt(i);
+                    if (proc.userId != tr.userId) {
+                        continue;
+                    }
+                    if (!proc.pkgList.contains(pkg)) {
+                        continue;
+                    }
+                    procs.add(proc);
+                }
+            }
+
+            // Kill the running processes.
+            for (int i=0; i<procs.size(); i++) {
+                ProcessRecord pr = procs.get(i);
+                if (pr.setSchedGroup == Process.THREAD_GROUP_BG_NONINTERACTIVE) {
+                    Slog.i(TAG, "Killing " + pr.toShortString() + ": remove task");
+                    EventLog.writeEvent(EventLogTags.AM_KILL, pr.userId, pr.pid,
+                            pr.processName, pr.setAdj, "remove task");
+                    pr.killedBackground = true;
+                    Process.killProcessQuiet(pr.pid);
+                } else {
+                    pr.waitingToKill = "remove task";
+                }
+            }
+        }
+    }
+    
+	    
 # 参考文档
 
 [Android应用程序启动过程源代码分析](http://blog.csdn.net/luoshengyang/article/details/6689748)
