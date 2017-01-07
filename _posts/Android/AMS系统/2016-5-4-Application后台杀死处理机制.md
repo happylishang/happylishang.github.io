@@ -7,11 +7,98 @@ category: android开发
 ---
 
 
+# Activitymanagerservice 如何知道应用背后太杀死
+
 
 Android开发经常会遇到这样的问题，App在后台久置之后，再次点击图标或从最近的任务列表打开时，App可能会崩溃。这种情况往往是App在后台被系统杀死，在恢复的时候遇到了问题，这种问题经常出现在FragmentActivity中，尤其是里面添加了Fragment的时候。开发时一直遵守谷歌的Android开发文档，创建Fragment尽量采用推荐的参数传递方式，并且保留默认的Fragment无参构造方法，避免绝大部分后台杀死-恢复崩溃的问题，但是对于原理的了解紧限于恢复时的重建机制，采用反射机制，并使用了默认的构造参数，直到使用FragmentDialog，还要后天杀死后，Dialog不会显示，但是FragmentDialog就可以恢复。其实App在后台待久了很可能被Android的LowMemoryKiller机制给杀掉，但是其现场是被AMS保存的，再次启动是时候，会通过AMS进行恢复。LowMemoryKiller机制在另一篇文章讲述。本文就Activity的保存，及恢复探讨一下Android后台杀死及恢复的机制。
 
 ![Activity Launch流程图.png](http://upload-images.jianshu.io/upload_images/1460468-c91b004975ed70c4.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
+# 最近的任务列表打开
+
+    public void handleOnClick(View view) {
+        ViewHolder holder = (ViewHolder)view.getTag();
+        TaskDescription ad = holder.taskDescription;
+        final Context context = view.getContext();
+        final ActivityManager am = (ActivityManager)
+                context.getSystemService(Context.ACTIVITY_SERVICE);
+        Bitmap bm = holder.thumbnailViewImageBitmap;
+        boolean usingDrawingCache;
+        if (bm.getWidth() == holder.thumbnailViewImage.getWidth() &&
+                bm.getHeight() == holder.thumbnailViewImage.getHeight()) {
+            usingDrawingCache = false;
+        } else {
+            holder.thumbnailViewImage.setDrawingCacheEnabled(true);
+            bm = holder.thumbnailViewImage.getDrawingCache();
+            usingDrawingCache = true;
+        }
+        Bundle opts = (bm == null) ?
+                null :
+                ActivityOptions.makeThumbnailScaleUpAnimation(
+                        holder.thumbnailViewImage, bm, 0, 0, null).toBundle();
+
+        show(false);
+        if (ad.taskId >= 0) {
+            // This is an active task; it should just go to the foreground.
+            am.moveTaskToFront(ad.taskId, ActivityManager.MOVE_TASK_WITH_HOME,
+                    opts);
+        } else {
+            Intent intent = ad.intent;
+            intent.addFlags(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY
+                    | Intent.FLAG_ACTIVITY_TASK_ON_HOME
+                    | Intent.FLAG_ACTIVITY_NEW_TASK);
+            if (DEBUG) Log.v(TAG, "Starting activity " + intent);
+            try {
+                context.startActivityAsUser(intent, opts,
+                        new UserHandle(UserHandle.USER_CURRENT));
+            } catch (SecurityException e) {
+                Log.e(TAG, "Recents does not have the permission to launch " + intent, e);
+            }
+        }
+        if (usingDrawingCache) {
+            holder.thumbnailViewImage.setDrawingCacheEnabled(false);
+        }
+    }
+    
+非主动退出的最近进程列表一般是ad.taskId >0,否则就是-1，
+
+
+
+    public List<ActivityManager.RecentTaskInfo> getRecentTasks(int maxNum,
+            int flags, int userId) {
+     		 。。。
+            IPackageManager pm = AppGlobals.getPackageManager();
+
+            final int N = mRecentTasks.size();
+            ArrayList<ActivityManager.RecentTaskInfo> res
+                    = new ArrayList<ActivityManager.RecentTaskInfo>(
+                            maxNum < N ? maxNum : N);
+            for (int i=0; i<N && maxNum > 0; i++) {
+                TaskRecord tr = mRecentTasks.get(i);
+                // Only add calling user's recent tasks
+ 
+                if (i == 0
+                        || ((flags&ActivityManager.RECENT_WITH_EXCLUDED) != 0)
+                        || (tr.intent == null)
+                        || ((tr.intent.getFlags()
+                                &Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS) == 0)) {
+                    ActivityManager.RecentTaskInfo rti
+                            = new ActivityManager.RecentTaskInfo();
+                    rti.id = tr.numActivities > 0 ? tr.taskId : -1;
+                    rti.persistentId = tr.taskId;
+                    rti.baseIntent = new Intent(
+                            tr.intent != null ? tr.intent : tr.affinityIntent);
+                    if (!detailed) {
+                        rti.baseIntent.replaceExtras((Bundle)null);
+                    }
+                    
+如果不是主动退出，tr.numActivities就大于0.
+
+
+moveTaskToFront
+
+
+    
 # Application保存及恢复流程
 
 ## 新Activity启动跟旧Activity的保存
@@ -153,7 +240,6 @@ ActivityManagerService
     }
     
 ActivityStack
-
 
     final int startActivityMayWait(IApplicationThread caller, int callingUid,
             String callingPackage, Intent intent, String resolvedType, IBinder resultTo,
@@ -470,8 +556,7 @@ ActivityStack
         mService.mWindowManager.validateAppTokens(mValidateAppTokens);
     }
   
-  ActivityStack
-  
+  ActivityStack  
     
       final boolean resumeTopActivityLocked(ActivityRecord prev, Bundle options) {
         // Find the first activity that is not finishing.
@@ -711,8 +796,8 @@ ActivityStack
 	        }
 	    }
   
-  performPauseActivity(token, finished, r.isPreHoneycomb());之类其实是2.3之前的在执行pause的时候，是否保存村现场。  执行完毕，还要通知AMS，执行结束，
-  
+performPauseActivity(token, finished, r.isPreHoneycomb());之类其实是2.3之前的在执行pause的时候，是否保存村现场。  执行完毕，还要通知AMS，执行结束，
+
 ActivityManagerService
 
     public final void activityPaused(IBinder token) {
@@ -720,7 +805,6 @@ ActivityManagerService
         mMainStack.activityPaused(token, false);
         Binder.restoreCallingIdentity(origId);
     }
-
 
 ActivityStack
   
@@ -750,7 +834,6 @@ ActivityStack
         }
     }
     
- 
      private final void completePauseLocked() {
         ActivityRecord prev = mPausingActivity;
         if (DEBUG_PAUSE) Slog.v(TAG, "Complete pause: " + prev);
@@ -923,8 +1006,7 @@ ActivityStack
         info.activity = r;
         info.state = r.state;
         mH.post(info);
-    }
-    
+    }    
     
 保存现场    
     
@@ -1001,17 +1083,190 @@ ActivityStack
 
 ## Application没有被后台杀死
 
-返回键或者finish调用引起的，
+返回键或者finish返回上一个Activity
 
-### Activity被后台杀死，
-### Activity没被后台杀死，
+### 上一个Activity没被后台杀死
+
+
+AMS
+
+    public final boolean finishActivity(IBinder token, int resultCode, Intent resultData) {
+        // Refuse possible leaked file descriptors
+        if (resultData != null && resultData.hasFileDescriptors() == true) {
+            throw new IllegalArgumentException("File descriptors passed in Intent");
+        }
+
+        synchronized(this) {
+            if (mController != null) {
+                // Find the first activity that is not finishing.
+                ActivityRecord next = mMainStack.topRunningActivityLocked(token, 0);
+                if (next != null) {
+                    // ask watcher if this is allowed
+                    boolean resumeOK = true;
+                    try {
+                        resumeOK = mController.activityResuming(next.packageName);
+                    } catch (RemoteException e) {
+                        mController = null;
+                        Watchdog.getInstance().setActivityController(null);
+                    }
+    
+                    if (!resumeOK) {
+                        return false;
+                    }
+                }
+            }
+            final long origId = Binder.clearCallingIdentity();
+            boolean res = mMainStack.requestFinishActivityLocked(token, resultCode,
+                    resultData, "app-request", true);
+            Binder.restoreCallingIdentity(origId);
+            return res;
+        }
+    }
+    
+ActivityStack
+
+    final boolean finishActivityLocked(ActivityRecord r, int index, int resultCode,
+            Intent resultData, String reason, boolean immediate, boolean oomAdj) {
+        if (r.finishing) {
+            Slog.w(TAG, "Duplicate finish request for " + r);
+            return false;
+        }
+
+        r.makeFinishing();
+        EventLog.writeEvent(EventLogTags.AM_FINISH_ACTIVITY,
+                r.userId, System.identityHashCode(r),
+                r.task.taskId, r.shortComponentName, reason);
+        if (index < (mHistory.size()-1)) {
+            ActivityRecord next = mHistory.get(index+1);
+            if (next.task == r.task) {
+                if (r.frontOfTask) {
+                    // The next activity is now the front of the task.
+                    next.frontOfTask = true;
+                }
+                if ((r.intent.getFlags()&Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET) != 0) {
+                    // If the caller asked that this activity (and all above it)
+                    // be cleared when the task is reset, don't lose that information,
+                    // but propagate it up to the next activity.
+                    next.intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET);
+                }
+            }
+        }
+
+        r.pauseKeyDispatchingLocked();
+        if (mMainStack) {
+            if (mService.mFocusedActivity == r) {
+                mService.setFocusedActivityLocked(topRunningActivityLocked(null));
+            }
+        }
+
+        finishActivityResultsLocked(r, resultCode, resultData);
+        
+        if (mService.mPendingThumbnails.size() > 0) {
+            // There are clients waiting to receive thumbnails so, in case
+            // this is an activity that someone is waiting for, add it
+            // to the pending list so we can correctly update the clients.
+            mService.mCancelledThumbnails.add(r);
+        }
+
+        if (immediate) {
+            return finishCurrentActivityLocked(r, index,
+                    FINISH_IMMEDIATELY, oomAdj) == null;
+        } else if (mResumedActivity == r) {
+            boolean endTask = index <= 0
+                    || (mHistory.get(index-1)).task != r.task;
+            if (DEBUG_TRANSITION) Slog.v(TAG,
+                    "Prepare close transition: finishing " + r);
+            mService.mWindowManager.prepareAppTransition(endTask
+                    ? AppTransition.TRANSIT_TASK_CLOSE
+                    : AppTransition.TRANSIT_ACTIVITY_CLOSE, false);
+    
+            // Tell window manager to prepare for this one to be removed.
+            mService.mWindowManager.setAppVisibility(r.appToken, false);
+                
+            if (mPausingActivity == null) {
+                if (DEBUG_PAUSE) Slog.v(TAG, "Finish needs to pause: " + r);
+                if (DEBUG_USER_LEAVING) Slog.v(TAG, "finish() => pause with userLeaving=false");
+                startPausingLocked(false, false);
+            }
+
+        } else if (r.state != ActivityState.PAUSING) {
+            // If the activity is PAUSING, we will complete the finish once
+            // it is done pausing; else we can just directly finish it here.
+            if (DEBUG_PAUSE) Slog.v(TAG, "Finish not pausing: " + r);
+            return finishCurrentActivityLocked(r, index,
+                    FINISH_AFTER_PAUSE, oomAdj) == null;
+        } else {
+            if (DEBUG_PAUSE) Slog.v(TAG, "Finish waiting for pause of: " + r);
+        }
+
+        return false;
+    }
+
+ActivityStack    
+    
+        private final ActivityRecord finishCurrentActivityLocked(ActivityRecord r,
+            int index, int mode, boolean oomAdj) {
+        // First things first: if this activity is currently visible,
+        // and the resumed activity is not yet visible, then hold off on
+        // finishing until the resumed one becomes visible.
+        if (mode == FINISH_AFTER_VISIBLE && r.nowVisible) {
+            if (!mStoppingActivities.contains(r)) {
+                mStoppingActivities.add(r);
+                if (mStoppingActivities.size() > 3) {
+                    // If we already have a few activities waiting to stop,
+                    // then give up on things going idle and start clearing
+                    // them out.
+                    scheduleIdleLocked();
+                } else {
+                    checkReadyForSleepLocked();
+                }
+            }
+            if (DEBUG_STATES) Slog.v(TAG, "Moving to STOPPING: " + r
+                    + " (finish requested)");
+            r.state = ActivityState.STOPPING;
+            if (oomAdj) {
+                mService.updateOomAdjLocked();
+            }
+            return r;
+        }
+
+        // make sure the record is cleaned out of other places.
+        mStoppingActivities.remove(r);
+        mGoingToSleepActivities.remove(r);
+        mWaitingVisibleActivities.remove(r);
+        if (mResumedActivity == r) {
+            mResumedActivity = null;
+        }
+        final ActivityState prevState = r.state;
+        if (DEBUG_STATES) Slog.v(TAG, "Moving to FINISHING: " + r);
+        r.state = ActivityState.FINISHING;
+
+        if (mode == FINISH_IMMEDIATELY
+                || prevState == ActivityState.STOPPED
+                || prevState == ActivityState.INITIALIZING) {
+            // If this activity is already stopped, we can just finish
+            // it right now.
+            boolean activityRemoved = destroyActivityLocked(r, true,
+                    oomAdj, "finish-imm");
+            if (activityRemoved) {
+                resumeTopActivityLocked(null);
+            }
+            return activityRemoved ? null : r;
+        } else {
+            // Need to go through the full pause cycle to get this
+            // activity into the stopped state and then finish it.
+            if (localLOGV) Slog.v(TAG, "Enqueueing pending finish: " + r);
+            mFinishingActivities.add(r);
+            resumeTopActivityLocked(null);
+        }
+        return r;
+    }
+        
+
+### Activity被后台杀死，（比如在开发者模式打开不保留活动）
 
 
 ## Application被后台杀死
-
-
-
-
 
         
 ## Fragment无参构造函数的影响 
@@ -1032,11 +1287,11 @@ ActivityStack
 
 # 几种场景分析
 
-## ViewPager跟FragmentTabHost恢复 View恢复
+## ViewPager跟FragmentTabHost恢复View恢复
 
 ## FragemntDialog
 
-# Lowmemorykiller不同版本在Framework层表现不同(Lolipop之后 单独封装成了服务lmks)
+# Lowmemorykiller不同版本在Framework层表现不同(LoLipop之后 单独封装成了服务LMKS)
 
 ## android5.0之前
 ## android5.0之后，采用了socket通信去service更新 
@@ -1635,3 +1890,5 @@ ActivityManager removeTask
 
 
 [startActivity启动过程分析 精](http://gityuan.com/2016/03/12/start-activity/)
+
+[Activity销毁流程](http://blog.csdn.net/qq_23547831/article/details/51232309)
