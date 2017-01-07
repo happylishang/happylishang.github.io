@@ -11,7 +11,8 @@ category: android开发
 * **什么时候会出现这个问题**
 * **为什么会出现**
 * **怎么处理，能解决问题**
-#
+
+
 ### **前言：Fragment只是Activity更加方便管理View的一种方式**
 
 >  [背景](#background)   
