@@ -25,20 +25,16 @@ body {
 }
 .pin {
 	position: fixed;
-	right: 20px;
+	right: 10px;
 	z-index: 100;
-	bottom: 20%;
+	bottom: 40%;
 	display: none;
-
 }
 .pin span {
-
-  border: 1px solid #999999;
+	border: 1px solid #999999;
   border-radius: 100%;
-  padding: 10px;
-  background: url("{{ site.w3c_url }}images/up1.png");
-	background-size:cover;
-	}
+  padding: 2px;
+}
 /****** post ******/
 .center-aside {
 	width: 60%;
@@ -46,7 +42,7 @@ body {
 	margin-left: auto;
 }
 .center-aside .header-image {
-	height: 0px;
+	height: 200px;
 	background: url("{{ site.w3c_url }}images/bg.jpg");
 	background-position: center;
 	background-size: cover;
@@ -54,7 +50,7 @@ body {
 	-o-background-size: cover;
 }
 .center-aside .author {
-	margin-top: 30px;
+	margin-top: 10px;
 	margin-bottom: 30px;
 	padding-left: 8px;
 	padding-bottom: 15px;
@@ -188,7 +184,7 @@ a.grey-link, a.grey-link:hover, a.grey-link:visited {
 	{% include post-image.liquid %}
 <img src="{{ post-image }}" style="display:none;"/>
 <div class="content">
-	<div class="pin" ><span><a href="javascript:void(0);">"  "</a></span>
+	<div class="pin"><span><a href="javascript:void(0);">up</a></span>
 	</div>
 	<div class="top-aside">
 	</div>
@@ -198,7 +194,7 @@ a.grey-link, a.grey-link:hover, a.grey-link:visited {
 		<div class="author">
 				<div>
 	      <a class="avatar" href="{{ site.base }}/article">
-	        <img src="{{ site.w3c_url }}images/sicon.jpg" alt="100"/>
+	        <img src="{{ site.w3c_url }}images/avator.jpg" alt="100"/>
 				</a>
 				</div>
 				<div class="info">
@@ -208,11 +204,11 @@ a.grey-link, a.grey-link:hover, a.grey-link:visited {
 	      	<a class="author-name blue-link" href="{{ site.base }}/aboutme">
 	        	<span>{{ site.author }}</span>
 					</a>
-					<span style="margin-left: 10px;">{{ page.date | date:"%Y-%m-%d " }}</span>
+					<span style="margin-left: 10px;">{{ page.date | date:"%Y-%m-%d %H:%M:%S" }}</span>
 	      	<div>
 						<span>写了<a class="blue-link" href="{{ site.base }}/article"><i style="font-style:normal;" id="totalPosts">0</i>篇</a>文章</span>，
 	        	<span>共<i style="font-style:normal;" id="totalWords">0</i>字</span>，
-						 
+						<span>获得了<i style="font-style:normal;" id="totalComments">0</i>条评论</span>
 						<!-- <span>获得了<i style="font-style:normal;" id="totalLikes">0</i>个喜欢</span> -->
 	      	</div>
 					<div class="talk"><span id="shuoshuo">暂无说说</span><a class="blue-link" target="_parent" href="{{ site.base }}/#comments"> · 评论</a></div>
