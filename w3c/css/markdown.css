@@ -13,7 +13,7 @@ body { /* font: 400 16px/1.5 "Helvetica Neue", Helvetica, Arial, sans-serif; */ 
 h1, h2, h3, h4, h5, h6, p, blockquote, pre, ul, ol, dl, figure { margin-bottom: 15px; }
 
 /** paragraph */
-p { font-size: 17px; word-break: break-word; word-spacing: 1px; letter-spacing: 0.5px; }
+p { font-size: 15px; word-break: break-word; word-spacing: 1px; letter-spacing: 0.5px; }
 
 /** Images */
 img { max-width: 100%; vertical-align: middle; }
@@ -21,7 +21,7 @@ img { max-width: 100%; vertical-align: middle; }
 /** Figures */
 figure > img { display: block; }
 
-figcaption { font-size: 15px; }
+figcaption { font-size: 12px; }
 
 /** Lists */
 ul, ol { margin-left: 30px; }
@@ -45,11 +45,11 @@ a:visited { color: #1756a9; }
 a:hover { color: #111111; text-decoration: underline; }*/
 
 /** Blockquotes */
-blockquote { color: #b96d6d; border-left: 4px solid #d6a6a6; padding-left: 15px; font-size: 17px; letter-spacing: -1px; background-color: #fef3f3;}
+blockquote { color: #b96d6d; border-left: 4px solid #d6a6a6; padding-left: 15px; font-size: 15px; letter-spacing: -1px; background-color: #fef3f3;}
 blockquote > :last-child { margin-bottom: 0; }
 
 /** Code formatting */
-pre, code { font-size: 16px; border: 1px solid #e8e8e8; border-radius: 3px; background-color: rgba(255, 239, 239, 0.65); }
+pre, code { font-size: 13px; border: 1px solid #e8e8e8; border-radius: 3px; background-color: rgba(255, 239, 239, 0.65); }
 
 code { padding: 2px 5px; background: rgb(247, 247, 247); }
 
