@@ -7,7 +7,9 @@ category: android开发
 ---
 
 
-# startactivity 总是会走realStartActivityLocked，但是恢复，就不走，
+# startactivity总是会走realStartActivityLocked，但是恢复，就不走，恢复的实收是直接走resumeTopActivity，如果被杀死，抛出异常
+
+![Binder访问已经被杀死的进程](http://upload-images.jianshu.io/upload_images/1460468-00df66d0bf4dec82.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 # Activitymanagerservice 如何知道应用背后太杀死,RemoteException 在resume的时候，如果无法启动，那就说明是被杀死了 ,对方进程已经死了，那就无法通信了，那就死了
 
@@ -16,70 +18,8 @@ category: android开发
     final boolean resumeTopActivityLocked(ActivityRecord prev, Bundle options) {
       
 		 ....    恢复逻辑  
-
         if (next.app != null && next.app.thread != null) {
-            if (DEBUG_SWITCH) Slog.v(TAG, "Resume running: " + next);
-
-            // This activity is now becoming visible.
-            mService.mWindowManager.setAppVisibility(next.appToken, true);
-
-            // schedule launch ticks to collect information about slow apps.
-            next.startLaunchTickingLocked();
-
-            ActivityRecord lastResumedActivity = mResumedActivity;
-            ActivityState lastState = next.state;
-
-            mService.updateCpuStats();
-            
-            if (DEBUG_STATES) Slog.v(TAG, "Moving to RESUMED: " + next + " (in existing)");
-            next.state = ActivityState.RESUMED;
-            mResumedActivity = next;
-            next.task.touchActiveTime();
-            if (mMainStack) {
-                mService.addRecentTaskLocked(next.task);
-            }
-            mService.updateLruProcessLocked(next.app, true);
-            updateLRUListLocked(next);
-
-            // Have the window manager re-evaluate the orientation of
-            // the screen based on the new activity order.
-            boolean updated = false;
-            if (mMainStack) {
-                synchronized (mService) {
-                    Configuration config = mService.mWindowManager.updateOrientationFromAppTokens(
-                            mService.mConfiguration,
-                            next.mayFreezeScreenLocked(next.app) ? next.appToken : null);
-                    if (config != null) {
-                        next.frozenBeforeDestroy = true;
-                    }
-                    updated = mService.updateConfigurationLocked(config, next, false, false);
-                }
-            }
-            if (!updated) {
-                // The configuration update wasn't able to keep the existing
-                // instance of the activity, and instead started a new one.
-                // We should be all done, but let's just make sure our activity
-                // is still at the top and schedule another run if something
-                // weird happened.
-                ActivityRecord nextNext = topRunningActivityLocked(null);
-                if (DEBUG_SWITCH) Slog.i(TAG,
-                        "Activity config changed during resume: " + next
-                        + ", new next: " + nextNext);
-                if (nextNext != next) {
-                    // Do over!
-                    mHandler.sendEmptyMessage(RESUME_TOP_ACTIVITY_MSG);
-                }
-                if (mMainStack) {
-                    mService.setFocusedActivityLocked(next);
-                }
-
-                // 配置是否更新
-                ensureActivitiesVisibleLocked(null, 0);
-                mService.mWindowManager.executeAppTransition();
-                mNoAnimActivities.clear();
-                return true;
-            }
-        
+           
             // 正常恢复
             try {
                 // Deliver all pending results.
@@ -87,9 +27,6 @@ category: android开发
                 if (a != null) {
                     final int N = a.size();
                     if (!next.finishing && N > 0) {
-                        if (DEBUG_RESULTS) Slog.v(
-                                TAG, "Delivering results to " + next
-                                + ": " + a);
                         next.app.thread.scheduleSendResult(next.appToken, a);
                     }
                 }
