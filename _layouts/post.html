@@ -280,7 +280,7 @@ a.grey-link, a.grey-link:hover, a.grey-link:visited {
 			{% assign _post = page %}
 			{% include post-categories.liquid %}
 			{% for tag in post-categories %}
-			<span class="tag"><a href="{{ site.base }}/article?category={{ tag }}">{{ tag }}</a></span>
+			<span class="tag"><a href="{{ site.base }}/index?category={{ tag }}">{{ tag }}</a></span>
 			{% endfor %}
 		</div>
 
