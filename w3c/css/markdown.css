@@ -34,10 +34,37 @@ li { margin-bottom: 8px; }
 
 /** Headings */
 h1, h2, h3, h4, h5, h6 { font-weight: 400; }
-h1, h2 { padding-top: 1.5em; padding-bottom: 0.3em; border-bottom: 1px solid #eee; }
+h1, h2 { 
+   padding-top: 1.5em; 
+   padding-bottom: 0.6em; 
+   border-bottom: 1px solid #eee; 
+   font-weight:bold;
+
+}
 h3, h4, h5, h6 { padding-top: 0.6em; }
 h3::before { content: "\25A3\00A0"; font-weight: 100; }
 h4::before { content: "\25b6\00A0"; font-weight: 100; }
+
+
+h1 {
+  font-size: 28px;
+  a {
+    color: inherit;
+  }
+}
+
+h2 {
+  font-size: 22px;
+}
+
+h3 {
+  font-size: 19px;
+}
+
+h4 {
+  font-size: 17px;
+  color: $gray;
+}
 
 /** Links jokin@2016*/
 /*a { color: #2a7ae2; text-decoration: none; }
