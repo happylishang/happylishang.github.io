@@ -130,7 +130,7 @@ image: http://upload-images.jianshu.io/upload_images/1460468-d8e25ab337751361.pn
     
 可以看到父控件会参考自己的MeasureSpec跟子View的布局参数，为子View构建合适的MeasureSpec，盗用网上的一张图来描述就是
 
-![MeasureSpec构建](http://happylishang.github.io/images/android/view/measurespec.png)
+![MeasureSpec构建](http://upload-images.jianshu.io/upload_images/1460468-d8e25ab337751361.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
         
 当子View接收到父控件传递的MeasureSpec的时候，就可以知道父控件希望自己如何显示，这个点对于开发者而言就是onMeasure函数，先来看下View.java中onMeasure函数的实现：
 
