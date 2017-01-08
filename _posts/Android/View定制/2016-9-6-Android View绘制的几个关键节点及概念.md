@@ -30,17 +30,30 @@ category: android开发
     [2.1.0 开发]满赠凑单视觉优化	李尚	2016-09-01 下午06:25
 
 # 绘图的关键是获取到canvas
-#canvas及bitmap的关系
+
+# canvas及bitmap的关系
 
 
-ImageView对于缩放的支持原理立即购买对满赠逻辑的支持Webview在某些版本上硬件加速问题立即购买的满赠视觉2.1Bug修复及视觉微调商品详情悬停样式分析与实现
-
+ImageView对于缩放的支持原理
+立即购买对满赠逻辑的支持
+Webview在某些版本上硬件加速问题
+立即购买的满赠视觉
+2.1Bug修复及视觉微调
+商品详情悬停样式分析与实现
+
+
+
+
+
+
+
 
 Surface本身的作用类似一个句柄，得到了这个句柄就可以得到其中的Canvas、原生缓冲器以及其它方面的内容。
 SurfaceView提供了一个专门用于绘制的surface，这个surface内嵌于。你可以控制这个Surface的格式和尺寸。Surfaceview控制这个Surface在屏幕的正确绘制位置,SurfaceView与Surface的联系就是，Surface是管理显示内容的数据（implementsParcelable），包括存储于数据的交换。而SurfaceView就是把这些数据显示出来到屏幕上面
 SurfaceHolder是控制surface的一个抽象接口，你可以通过SurfaceHolder来控制surface的尺寸和格式，或者修改surface的像素，监视surface的变化等等，SurfaceHolder是SurfaceView的典型接口。
        
 # skia图形库
+
 # 注意padding是会计算到Size里面的
        
 

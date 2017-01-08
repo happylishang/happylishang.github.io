@@ -20,7 +20,7 @@ categories: [android]
 * 资源编号的的bundle
 * 状态栏的创建
 
-#几种Window的区别
+# 几种Window的区别
 
 可以看见上面无论Acitivty、Dialog、PopWindow、Toast的实质其实都是如下接口提供的方法操作：
 

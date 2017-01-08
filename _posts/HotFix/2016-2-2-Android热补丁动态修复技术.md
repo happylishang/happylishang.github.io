@@ -10,7 +10,7 @@ tags: [android]
 
 ## Android热补丁动态修复技术
 
-####使用场景
+#### 使用场景
 
 App发布之后，如果出现了严重的线上BUG，传统的做法是重新打包、测试、上线，可能代码改动很小，但是每次付出的代价是巨大的，有没有办法以补丁的方式动态修复紧急Bug，不再需要重新发布App，不再需要用户重新下载，覆盖安装？向用户下发Patch，在用户无感知的情况下，修复BUG问题。
 
@@ -20,7 +20,8 @@ App发布之后，如果出现了严重的线上BUG，传统的做法是重新�
 
 * 一种是阿里Andfix为代表的方案，在方法级别修复，将存在bug的Java类的方法修改为Native方法，立即生效不用重启。
 
-* 第二种是ClassLoader基于mutidex的实现方式，本文瞄准Nuwa，Android支持多个dex，但是在查找类的时候，有一个有限返回的说法，也就是如果某个类在前面的dex中找到就不会去后面的去寻找。可以把修复好的类放到前面的dex里面，这样就避免了调用后面的类。
+* 第二种是ClassLoader基于mutidex的实现方式，本文瞄准Nuwa，Android支持多个dex，但是在查找类的时候，有一个有限返回的说法，也就是如果某个类在前面的dex中找到就不会去后面的去寻找。可以把修复好的类放到前面的dex里面，这样就避免了调用后面的类。
+
 #### AndFix 坑
 
 Application的onCreate里面处理AndFix相关的逻辑，一定要区分进程，因为如果你的app是多进程的，每个进程都会创建Application对象，导致你的补丁逻辑被重复执行。在内存层面看，补丁操作的影响只会局限在进程之内，似乎没有什么关系，但是如果你的补丁操作涉及到文件系统的操作，比如拷贝文件、删除文件、解压文件等等，那么进程之间就会相互影响了。我们遇到的问题就是在主进程里面下载好的补丁包会莫名其妙地不见，主进程下载好补丁包后，信鸽进程被启动，创建Application对象，执行补丁逻辑，把刚刚主进程下载好的补丁包应用了，然后又把补丁包删除
@@ -159,16 +160,20 @@ Android SDK 从 build tools 21 开始提供了 mainDexClasses 脚本来生成主
 	        patchManager.init(getAppVersion());//current version
 	        patchManager.loadPatch();
 	        }
-	        自然每次都要加载
-打差分包	 ./apkpatch.sh -f app-release2.apk -t app-release.apk -k /Users/personal/prj/TestApplication/keystore.jks -p lishang2011 -a keystore -e lishang2011 -o ./
- 
-AndFix的客户端使用流程 1.客户端在每次启动的时候，可以请求接口，判断是否需要去获取patch文件，如果需要获取，则直接下载patch文件到sd卡，下载好之后将文件名改为我们自己定义的文件名。（防止文件没有下载成功就进行patch加载会导致客户端崩溃）当patch加载成功后，程序会删除掉已经加载成功的patch文件。在sd卡上不会留下patch文件。
-通过启动apk的时候，对是否下载哪些patch文件进行校验，然后再下载patch。
+	        
+自然每次都要加载
+打差分包
+
+	 ./apkpatch.sh -f app-release2.apk -t app-release.apk -k /Users/personal/prj/TestApplication/keystore.jks -p lishang2011 -a keystore -e lishang2011 -o ./
+ 
+AndFix的客户端使用流程 1.客户端在每次启动的时候，可以请求接口，判断是否需要去获取patch文件，如果需要获取，则直接下载patch文件到sd卡，下载好之后将文件名改为我们自己定义的文件名。（防止文件没有下载成功就进行patch加载会导致客户端崩溃）当patch加载成功后，程序会删除掉已经加载成功的patch文件。在sd卡上不会留下patch文件。
+
+通过启动apk的时候，对是否下载哪些patch文件进行校验，然后再下载patch。
 问题：（1)这里需要验证是否已经下载过改版本的patch，如果下载过，就不进行下载 （2)还需要考虑1、2同时下载时的线程安全。（如果不通过push进行更新，则可以不需要考虑，这里考虑到后续还有很多问题，所以暂时不建议做push更新）
 
 patch的使用方式，经过测试，得出patch文件是增量更新的，更新的方式如下： 如果有3个补丁分别为ABC，那么APK如果想进行补丁升级，要先打补丁A，再打补丁B，最后打补丁C，以此类推。所以这里不能进行跨版本升级，因为在更新补丁的时候，没办法删除之前的补丁，删除补丁需要更随APK的升级而升级补丁的版本号，比如：APK 从1.0升级到1.1，那么在1.1这个版本会删除掉之前1.0所有的补丁。
 
- 考虑到服务器拿patch的流程，这里提出2个方案去实施：
+ 考虑到服务器拿patch的流程，这里提出2个方案去实施：
 方案1、每次启动都去依次获取该版本的补丁，直至最新的补丁。比如1.0的版本，发了3个补丁包，那么用户有可能会在出现4种情况，没有补丁，已有补丁A，已有补丁AB，和已有补丁ABC。 （1）如果是没有补丁，就依次去获取补丁ABC。 （2）如果已有补丁A，就需要依次去下载补丁BC。 （3）如果已有补丁AB，就需要去下载补丁C。 （4）如果已经有补丁ABC，就不需要去下载。 在每个补丁内，都需要带版本号，每次去请求网络的时候，都带上版本号，让服务器去返回下载地址。（如果是1.0发了3个补丁，1.1发了2个补丁，那么服务器只能返回1.0的3个补丁，1.1的补丁不应该返回）
 
 方案2、规定每个小版本都只发一个补丁，这样就不需要考虑判断版本号的问题。
@@ -298,11 +303,17 @@ AndFix使用注意事项
 	
 
 
-#### 参考文档：
-[Android线上bug热修复分析 **精**](http://www.jianshu.com/p/9402bef0d905) 
 
-[基于Nuwa实现Android自动化HotFix](http://www.jianshu.com/p/72c17fb76f21)http://blog.csdn.net/qxs965266509/article/details/49816007http://blog.csdn.net/qxs965266509/article/details/49821413
-http://blog.zhaiyifan.cn/2015/11/20/HotPatchCompare/
+#### 参考文档：
+[Android线上bug热修复分析 **精**](http://www.jianshu.com/p/9402bef0d905) 
+
+[基于Nuwa实现Android自动化HotFix](http://www.jianshu.com/p/72c17fb76f21)
+
+http://blog.csdn.net/qxs965266509/article/details/49816007
+http://blog.csdn.net/qxs965266509/article/details/49821413
+
+
+http://blog.zhaiyifan.cn/2015/11/20/HotPatchCompare/
 http://my.oschina.net/853294317/blog/308583
 安卓App热补丁动态修复技术介绍
 http://blog.csdn.net/lmj623565791/article/details/49883661

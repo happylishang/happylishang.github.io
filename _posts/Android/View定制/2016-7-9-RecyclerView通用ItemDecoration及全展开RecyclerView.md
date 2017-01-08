@@ -28,6 +28,7 @@ Android L面世之后，Google就推荐在开发项目中使用RecyclerView来�
 # 不同场景RecyclerView实现
 
 ## 默认的纵向线性RecyclerView
+
 首先看一下最简单的纵向线性RecyclerView，一般用以下代码：
 
         LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this);

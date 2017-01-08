@@ -40,7 +40,7 @@ category: Java
         }).subscribeOn(Schedulers.io()).subscribe();
     }
     
-#notify和notifyAll区别
+# notify和notifyAll区别
 
 notify和notifyAll都是把某个对象上休息区内的线程唤醒,notify只能唤醒一个,但究竟是哪一个不能确定,而notifyAll则唤醒这个对象上的休息室中所有的线程.
 

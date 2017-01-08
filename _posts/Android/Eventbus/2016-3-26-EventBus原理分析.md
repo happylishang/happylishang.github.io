@@ -7,7 +7,7 @@ tags: [Binder]
 
 ---
  
-####单利模式
+#### 单利模式
 
 
     /** Convenience singleton for apps using a process-wide EventBus instance. */

@@ -1319,7 +1319,7 @@ On Android 2.3.3 (API level 10) and lower, using recycle() is recommended. If yo
 
 <a name="can_view_scroll"/>
 
-#查看View或者ViewGroup是否可以滚动-商品详情
+# 查看View或者ViewGroup是否可以滚动-商品详情
 
 	private boolean innerCanChildScrollVertically(View view, int direction) {
 	        if (view instanceof ViewGroup) {
@@ -1346,6 +1346,6 @@ On Android 2.3.3 (API level 10) and lower, using recycle() is recommended. If yo
 不过要注意配合requestdisallowintercept 使用
 
 
-#获取滚动有效距离标尺
+# 获取滚动有效距离标尺
 
 	mTouchSlop = ViewConfiguration.get(getContext()).getScaledTouchSlop(); 	    
