@@ -7,8 +7,8 @@ image: http://upload-images.jianshu.io/upload_images/1460468-d8e25ab337751361.pn
 
 ---
 
-
 自定义View是Android开发中最普通的需求，灵活控制View的尺寸是开发者面临的第一个问题，比如，为什么明明使用的是WRAP_CONTENT却跟MATCH_PARENT表现相同。在处理View尺寸的时候，我们都知道最好在onMeasure中设定好自定义View尺寸，那么究竟如何合理的选择这个尺寸呢。例如，如果要实现一个自定义ViewGroup，应该如何适配它的大小呢，直观来说，可能有以下问题需要考虑：
+
 
 * 自定的ViewGroup最好不要超过父控件的大小，这样才能保证自己能在父控件中完整显示
 * 自定的ViewGroup的子控件最好不要超过自己的大小，这样才能保证子控件显示完整
@@ -17,7 +17,8 @@ image: http://upload-images.jianshu.io/upload_images/1460468-d8e25ab337751361.pn
 
 以上三个问题可能是自定义ViewGroup最需要考虑的问题，首先先看下第一个问题。
 
-## 父容器的限制与MeasureSpec
+
+# 父容器的限制与MeasureSpec
 
 先假定，父容器是300dp*300dp的尺寸，如果子View的布局参数是
     
@@ -159,7 +160,7 @@ image: http://upload-images.jianshu.io/upload_images/1460468-d8e25ab337751361.pn
 
 可以看到，如果自定义View没有重写onMeasure函数，MeasureSpec.AT_MOST跟MeasureSpec.AT_MOST的表现是一样的，也就是对于场景2跟3的表现其实是一样的，也就是wrap_content就跟match_parent一个效果，现在我们知道MeasureSpec的主要作用：***父控件传递给子View的参考***，那么子View拿到后该如何用呢？
 
-#自定义View尺寸的确定
+# 自定义View尺寸的确定
 
 接收到父控件传递的MeasureSpec后，View应该如何用来处理自己的尺寸呢？如果View不是ViewGroup相对就比较简答，只需要参照MeasureSpec，并跟自身需求来设定尺寸即可，其实，默认onMeasure的就是完全按照父控件传递MeasureSpec设定的尺寸。这里重点讲一下ViewGroup，measure的目的其实就是为了确认自己的宽高，不过为了计算合理的宽高尺寸，ViewGroup在measure自己的时候，也必须知道所有子View的宽高，举个例子，用一个常用的流式布局FlowLayout来讲解一下如何定义自己的尺寸。
 
@@ -255,6 +256,6 @@ image: http://upload-images.jianshu.io/upload_images/1460468-d8e25ab337751361.pn
 * 根据自身特点计算所需要的尺寸
 * 综合考量需要的尺寸跟父控件传递的MeasureSpec，得出一个合理的尺寸
 
-#顶层View的MeasureSpec是谁指定
+# 顶层View的MeasureSpec是谁指定
 
 传递给子View的MeasureSpec是父容器根据自己的MeasureSpec及子View的布局参数所确定的，那么根MeasureSpec是谁创建的呢？我们用最常用的两种Window来解释一下，Activity与Dialog，DecorView是Activity的根布局，传递给DecorView的MeasureSpec是系统根据Activity或者Dialog的Theme来确定的，也就是说，最初的MeasureSpec是直接根据Window的属性构建的，一般对于Activity来说，根MeasureSpec是EXACTLY+屏幕尺寸，对于Dialog来说，如果不做特殊设定会采用AT_MOST+屏幕尺寸。这里牵扯到WindowManagerService跟ActivityManagerService，感兴趣的可以跟踪一下WindowManager.LayoutParams ，后面也会专门分析一下，比如如何最简单试下全屏的Dialog就跟这些知识相关。
