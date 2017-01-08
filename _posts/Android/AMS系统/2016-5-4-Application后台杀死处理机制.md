@@ -7,8 +7,175 @@ category: android开发
 ---
 
 
-# Activitymanagerservice 如何知道应用背后太杀死
+# startactivity 总是会走realStartActivityLocked，但是恢复，就不走，
 
+# Activitymanagerservice 如何知道应用背后太杀死,RemoteException 在resume的时候，如果无法启动，那就说明是被杀死了 ,对方进程已经死了，那就无法通信了，那就死了
+
+
+
+    final boolean resumeTopActivityLocked(ActivityRecord prev, Bundle options) {
+      
+		 ....    恢复逻辑  
+
+        if (next.app != null && next.app.thread != null) {
+            if (DEBUG_SWITCH) Slog.v(TAG, "Resume running: " + next);
+
+            // This activity is now becoming visible.
+            mService.mWindowManager.setAppVisibility(next.appToken, true);
+
+            // schedule launch ticks to collect information about slow apps.
+            next.startLaunchTickingLocked();
+
+            ActivityRecord lastResumedActivity = mResumedActivity;
+            ActivityState lastState = next.state;
+
+            mService.updateCpuStats();
+            
+            if (DEBUG_STATES) Slog.v(TAG, "Moving to RESUMED: " + next + " (in existing)");
+            next.state = ActivityState.RESUMED;
+            mResumedActivity = next;
+            next.task.touchActiveTime();
+            if (mMainStack) {
+                mService.addRecentTaskLocked(next.task);
+            }
+            mService.updateLruProcessLocked(next.app, true);
+            updateLRUListLocked(next);
+
+            // Have the window manager re-evaluate the orientation of
+            // the screen based on the new activity order.
+            boolean updated = false;
+            if (mMainStack) {
+                synchronized (mService) {
+                    Configuration config = mService.mWindowManager.updateOrientationFromAppTokens(
+                            mService.mConfiguration,
+                            next.mayFreezeScreenLocked(next.app) ? next.appToken : null);
+                    if (config != null) {
+                        next.frozenBeforeDestroy = true;
+                    }
+                    updated = mService.updateConfigurationLocked(config, next, false, false);
+                }
+            }
+            if (!updated) {
+                // The configuration update wasn't able to keep the existing
+                // instance of the activity, and instead started a new one.
+                // We should be all done, but let's just make sure our activity
+                // is still at the top and schedule another run if something
+                // weird happened.
+                ActivityRecord nextNext = topRunningActivityLocked(null);
+                if (DEBUG_SWITCH) Slog.i(TAG,
+                        "Activity config changed during resume: " + next
+                        + ", new next: " + nextNext);
+                if (nextNext != next) {
+                    // Do over!
+                    mHandler.sendEmptyMessage(RESUME_TOP_ACTIVITY_MSG);
+                }
+                if (mMainStack) {
+                    mService.setFocusedActivityLocked(next);
+                }
+
+                // 配置是否更新
+                ensureActivitiesVisibleLocked(null, 0);
+                mService.mWindowManager.executeAppTransition();
+                mNoAnimActivities.clear();
+                return true;
+            }
+        
+            // 正常恢复
+            try {
+                // Deliver all pending results.
+                ArrayList a = next.results;
+                if (a != null) {
+                    final int N = a.size();
+                    if (!next.finishing && N > 0) {
+                        if (DEBUG_RESULTS) Slog.v(
+                                TAG, "Delivering results to " + next
+                                + ": " + a);
+                        next.app.thread.scheduleSendResult(next.appToken, a);
+                    }
+                }
+
+                if (next.newIntents != null) {
+                    next.app.thread.scheduleNewIntent(next.newIntents, next.appToken);
+                }
+
+                EventLog.writeEvent(EventLogTags.AM_RESUME_ACTIVITY,
+                        next.userId, System.identityHashCode(next),
+                        next.task.taskId, next.shortComponentName);
+                
+                next.sleeping = false;
+                showAskCompatModeDialogLocked(next);
+                next.app.pendingUiClean = true;
+                next.app.thread.scheduleResumeActivity(next.appToken,
+                        mService.isNextTransitionForward());
+                
+                checkReadyForSleepLocked();
+
+            } catch (Exception e) {
+                // Whoops, need to restart this activity!
+                // 这里需要重启，难道被后台杀死，走的是异常分支吗？？？？ 异常杀死
+                if (DEBUG_STATES) Slog.v(TAG, "Resume failed; resetting state to "
+                        + lastState + ": " + next);
+                next.state = lastState;
+                mResumedActivity = lastResumedActivity;
+                <!--确实这里是因为进程挂掉了-->
+                Slog.i(TAG, "Restarting because process died: " + next);
+                if (!next.hasBeenLaunched) {
+                    next.hasBeenLaunched = true;
+                } else {
+                    if (SHOW_APP_STARTING_PREVIEW && mMainStack) {
+                        mService.mWindowManager.setAppStartingWindow(
+                                next.appToken, next.packageName, next.theme,
+                                mService.compatibilityInfoForPackageLocked(
+                                        next.info.applicationInfo),
+                                next.nonLocalizedLabel,
+                                next.labelRes, next.icon, next.windowFlags,
+                                null, true);
+                    }
+                }
+                startSpecificActivityLocked(next, true, false);
+                return true;
+            }
+
+            // From this point on, if something goes wrong there is no way
+            // to recover the activity.
+            try {
+                next.visible = true;
+                completeResumeLocked(next);
+            } catch (Exception e) {
+                // If any exception gets thrown, toss away this
+                // activity and try the next one.
+                Slog.w(TAG, "Exception thrown during resume of " + next, e);
+                requestFinishActivityLocked(next.appToken, Activity.RESULT_CANCELED, null,
+                        "resume-exception", true);
+                return true;
+            }
+            next.stopped = false;
+
+        } else {
+            // Whoops, need to restart this activity!
+            if (!next.hasBeenLaunched) {
+                next.hasBeenLaunched = true;
+            } else {
+                if (SHOW_APP_STARTING_PREVIEW) {
+                    mService.mWindowManager.setAppStartingWindow(
+                            next.appToken, next.packageName, next.theme,
+                            mService.compatibilityInfoForPackageLocked(
+                                    next.info.applicationInfo),
+                            next.nonLocalizedLabel,
+                            next.labelRes, next.icon, next.windowFlags,
+                            null, true);
+                }
+                if (DEBUG_SWITCH) Slog.v(TAG, "Restarting: " + next);
+            }
+            startSpecificActivityLocked(next, true, true);
+        }
+
+        return true;
+    }
+    
+    
+    
+    
 
 Android开发经常会遇到这样的问题，App在后台久置之后，再次点击图标或从最近的任务列表打开时，App可能会崩溃。这种情况往往是App在后台被系统杀死，在恢复的时候遇到了问题，这种问题经常出现在FragmentActivity中，尤其是里面添加了Fragment的时候。开发时一直遵守谷歌的Android开发文档，创建Fragment尽量采用推荐的参数传递方式，并且保留默认的Fragment无参构造方法，避免绝大部分后台杀死-恢复崩溃的问题，但是对于原理的了解紧限于恢复时的重建机制，采用反射机制，并使用了默认的构造参数，直到使用FragmentDialog，还要后天杀死后，Dialog不会显示，但是FragmentDialog就可以恢复。其实App在后台待久了很可能被Android的LowMemoryKiller机制给杀掉，但是其现场是被AMS保存的，再次启动是时候，会通过AMS进行恢复。LowMemoryKiller机制在另一篇文章讲述。本文就Activity的保存，及恢复探讨一下Android后台杀死及恢复的机制。
 
