@@ -6,6 +6,45 @@ category: android开发
 
 ---
 
+
+
+App在后台长时间久置后，再次从桌面或最近的任务列表唤醒时，经常会发生崩溃。这往往是App在后台被系统杀死，再次恢复的时候遇到了问题，而FragmentActivity+Fragment的时候，经常会遇到。比如如果Fragment没有提供默认构造方法，在被杀死恢复的时候的就会因为反射创建Fragment失败而崩溃，或者，采用FragmentDialog的对话框时候，如果在onCreate里面创建，则可能出现两个对话框，等等，再比如，被杀死后，Activity为什么是按照倒叙顺序恢复的呢？这中间到底发生了什么，请看今天的Android后台杀死及回复原理。
+
+开发时一直遵守谷歌的Android开发文档，创建Fragment尽量采用推荐的参数传递方式，并且保留默认的Fragment无参构造方法，避免绝大部分后台杀死-恢复崩溃的问题，但是对于原理的了解紧限于恢复时的重建机制，采用反射机制，并使用了默认的构造参数，直到使用FragmentDialog，示例代码如下：
+
+
+
+![Activity Launch流程图.png](http://upload-images.jianshu.io/upload_images/1460468-c91b004975ed70c4.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+# Application保存流程
+
+## 新Activity启动跟旧Activity的保存
+
+# 恢复流程
+
+## Fragment无参构造函数的影响 
+
+# 对于APP，所有的处理都是被动响应，Android是基于操作系统的被动式开发。
+
+# 主动清楚最近的任务
+
+# Activity的恢复流程 顺序
+
+## 不保留活动
+
+# 内核层面的杀死，框架层AMS是不知道的，只有在恢复的时候，才自己查询得到，并主导恢复流程
+
+
+Android后台杀死系列之--FragmentActivity的onSaveInstance与onRestorInstance
+
+Android后台杀死系列分为三篇：
+
+* 开篇：FragmentActivity的onSaveInstance与onRestorInstance
+* 原理篇1：后台杀死与LowmemoryKiller
+* 原理篇2：后台杀死与恢复
+
+ 				    
+   
 # 分析问题的方法与步骤
 
 * **什么时候会出现这个问题**
