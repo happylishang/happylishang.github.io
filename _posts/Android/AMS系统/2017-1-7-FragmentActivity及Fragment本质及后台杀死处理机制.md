@@ -5,31 +5,8 @@ description: "Java"
 category: android开发
 
 ---
-
-
-开发时一直遵守谷歌的Android开发文档，创建Fragment尽量采用推荐的参数传递方式，并且保留默认的Fragment无参构造方法，避免绝大部分后台杀死-恢复崩溃的问题，但是对于原理的了解紧限于恢复时的重建机制，采用反射机制，并使用了默认的构造参数，直到使用FragmentDialog，示例代码如下：
-
-![Activity Launch流程图.png](http://upload-images.jianshu.io/upload_images/1460468-c91b004975ed70c4.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-# Application保存流程
-
-## 新Activity启动跟旧Activity的保存
-
-# 恢复流程
-
-## Fragment无参构造函数的影响 
-
-# 对于APP，所有的处理都是被动响应，Android是基于操作系统的被动式开发。
-
-# 主动清楚最近的任务
-
-# Activity的恢复流程 顺序
-
-## 不保留活动
-
-# 内核层面的杀死，框架层AMS是不知道的，只有在恢复的时候，才自己查询得到，并主导恢复流程
-
-
+ 
+ 
 App在后台久置后，再次从桌面或最近的任务列表唤醒时经常会发生崩溃，这往往是App在后台被系统杀死，再次恢复的时候遇到了问题，而在使用FragmentActivity+Fragment的时候，经常会遇到：比如Fragment没有提供默认构造方法，就会重建的时候因为反射创建Fragment失败而崩溃，再比如，在onCreate里面new 一个FragmentDialog，并且show，在被后台杀死，再次唤醒的时候，就会show两个对话框，这是为什么？其实这就涉及了后台杀死及恢复的机制，其中涉及的知识点主要是FragmentActivity、ActivityManagerService、LowMemoryKiller机制、ActivityStack、Binder等一系列知识点。放在一篇文章里面可能会有些长，因此，Android后台杀死系列写了三篇：
 
 * 开篇：FragmentActivity的onSaveInstance与onRestorInstance
@@ -384,6 +361,60 @@ FragmentManagerImpl的beginTransaction()函数返回的是一个BackStackRecord(
     
 以上就是针对两个场景，对FramgentActivity的一些分析，主要是回复时候，对于Framgent的一些处理。     
 
+<a name="onSaveInstanceState_OnRestoreInstance"/>
+
+# onSaveInstanceState与OnRestoreInstance的调用时机 
+
+开发时一直遵守谷歌的Android开发文档，创建Fragment尽量采用推荐的参数传递方式，并且保留默认的Fragment无参构造方法，避免绝大部分后台杀死-恢复崩溃的问题，但是对于原理的了解紧限于恢复时的重建机制，采用反射机制，并使用了默认的构造参数，直到使用FragmentDialog，示例代码如下：
+
+
+## OnRestoreInstanceState的调用时机
+
+onSaveInstanceState在Activity跳转或者返回主界面等时机是一定会调用的，那么OnRestoreInstanceState会配套调用吗？当然不会，只有被异常杀死才会走恢复流程，如果不被异常杀死，是不会走恢复新建流程，也就说不会重建Activity，简单看一下Activity的加载流程图：
+
+![Activity Launch流程图.png](http://upload-images.jianshu.io/upload_images/1460468-c91b004975ed70c4.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+可以看出，调用OnRestoreInstanceState的时机只有在mInstrumentation.callActivityOnCreate的时候才会调用，在初次调用onCreate的时候，
+
+          mInstrumentation.callActivityOnCreate(activity, r.state);
+               if (!activity.mCalled) {
+                   throw new SuperNotCalledException(
+                       "Activity " + r.intent.getComponent().toShortString() +
+                       " did not call through to super.onCreate()");
+               }
+               r.activity = activity;
+               r.stopped = true;
+               if (!r.activity.mFinished) {
+                   activity.performStart();
+                   r.stopped = false;
+               }
+               if (!r.activity.mFinished) {
+                   if (r.state != null) {
+                       mInstrumentation.callActivityOnRestoreInstanceState(activity, r.state);
+                   }
+               }
+               if (!r.activity.mFinished) {
+                   activity.mCalled = false;
+                   mInstrumentation.callActivityOnPostCreate(activity, r.state);
+                   if (!activity.mCalled) {
+                       throw new SuperNotCalledException(
+                           "Activity " + r.intent.getComponent().toShortString() +
+                           " did not call through to super.onPostCreate()");
+                   }
+               }
+ 
+ 
+ 
+ 
+
+
+
+比如在点击home键时，回调用onSaveInstanceState，但是再次唤醒却不一定调用OnRestoreInstance,这是为什么onSaveInstanceState与OnRestoreInstance不是配对使用呢？因为onSaveInstanceState是为了预防Activity被后台杀死的情况做的预处理，但是如果Activity没有被后台杀死，那么自然也就不需要调用OnRestoreInstance进行现场的恢复，而大多数情况下，Activity不会那么快被杀死。
+
+其实点击Home键跟Activity跳转的原理是一样的，从Activity A 跳转到Activity B也会调用 A的onSaveInstanceState，但是只要A没有被系统回收掉，就不会调用A的OnRestoreInstance，因为在ActivityManagerService中，A所登记的状态是没有被后台Kill过的。其实Activity所有状态变化的最终依赖都是ActivityManagerService。  
+
+
+# 一些系统View控件对后台杀死做的兼容
 
 <a name="lFragmentTabHost_restore_life"></a>
 
@@ -588,108 +619,7 @@ ViewPager重建，Adapter的设置尽量靠后，如果靠前，并且设置了�
 
 
 
-#  OnRestoreInstanceState的调用时机是在什么时候？ 保存后，看看是否被杀死，被杀死机会回调，注意，不仅仅是Fragment，还有View，尤其是ViewPager
 
-
-                mInstrumentation.callActivityOnCreate(activity, r.state);
-                if (!activity.mCalled) {
-                    throw new SuperNotCalledException(
-                        "Activity " + r.intent.getComponent().toShortString() +
-                        " did not call through to super.onCreate()");
-                }
-                r.activity = activity;
-                r.stopped = true;
-                if (!r.activity.mFinished) {
-                    activity.performStart();
-                    r.stopped = false;
-                }
-                if (!r.activity.mFinished) {
-                    if (r.state != null) {
-                        mInstrumentation.callActivityOnRestoreInstanceState(activity, r.state);
-                    }
-                }
-                if (!r.activity.mFinished) {
-                    activity.mCalled = false;
-                    mInstrumentation.callActivityOnPostCreate(activity, r.state);
-                    if (!activity.mCalled) {
-                        throw new SuperNotCalledException(
-                            "Activity " + r.intent.getComponent().toShortString() +
-                            " did not call through to super.onPostCreate()");
-                    }
-                }
-            }
-            
-   
-#  Fragment重建流程
-
-*   如果非空，重建Fragment并将它们设置为Initialing，毕竟还没有resume
-
-       if (savedInstanceState != null) {
-            Parcelable p = savedInstanceState.getParcelable(FRAGMENTS_TAG);
-            mFragments.restoreAllState(p, nc != null ? nc.fragments : null);
-        }
-        
-* 第二步，就是转化为onCreate
- 
-        mFragments.dispatchCreate();  
-
-* 第三部 等到Actviity Onresume，就让Fragment resume，至于后面 onPostResume 等待深度剖析
-
-* 第四步 
-
-	    @Override
-	    protected void onResume() {
-	        super.onResume();
-	        mHandler.sendEmptyMessage(MSG_RESUME_PENDING);
-	        mResumed = true;
-	        mFragments.execPendingActions();
-	    } 
-
-* 第五步
-
-	    @Override
-	    protected void onResume() {
-	        super.onResume();
-	        mHandler.sendEmptyMessage(MSG_RESUME_PENDING);
-	        mResumed = true;
-	        mFragments.execPendingActions();
-	    } 
-         
-            
-
-# 应用何时会被后台杀死，内存不足
-
-在近期的任务列表里面，有些不是主动结束掉的任务，会因为内存紧张等原因被后台杀死。
-
-PhoneWindowManager 
-
-	 List<ActivityManager.RecentTaskInfo> recentTasks = am  
-	                .getRecentTasks(MAX_RECENT_TASKS,  
-	                        ActivityManager.RECENT_IGNORE_UNAVAILABLE);  
-	                                                。。。
-	/*
-	 * 
-     * 切换应用 
-     */  
-     
-    private void switchTo(RecentTag tag) {  
-        if (tag.info.id >= 0) {  
-            // 这是一个活跃的任务，所以把它移动到最近任务的前面  
-            final ActivityManager am = (ActivityManager) getContext()  
-                    .getSystemService(Context.ACTIVITY_SERVICE);  
-            am.moveTaskToFront(tag.info.id, ActivityManager.MOVE_TASK_WITH_HOME);  
-        } else if (tag.intent != null) {  
-            tag.intent.addFlags(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY  
-                    | Intent.FLAG_ACTIVITY_TASK_ON_HOME);  
-            try {  
-                getContext().startActivity(tag.intent);  
-            } catch (ActivityNotFoundException e) {  
-                Log.w("Recent", "Unable to launch recent task", e);  
-            }  
-        }  
-    }                       
-                        
-后台杀死如何处理RecentTaskInfo
  
 
 <a name="Can_not_onSaveInstanceState"/>
@@ -851,13 +781,7 @@ Viewpager与Fragmenttabhost有自己的恢复逻辑，当然这些都是在Framg
         return fragment;
     }
  
-<a name="onSaveInstanceState_OnRestoreInstance"/>
 
-# onSaveInstanceState与OnRestoreInstance的调用时机 
-
-比如在点击home键时，回调用onSaveInstanceState，但是再次唤醒却不一定调用OnRestoreInstance,这是为什么onSaveInstanceState与OnRestoreInstance不是配对使用呢？因为onSaveInstanceState是为了预防Activity被后台杀死的情况做的预处理，但是如果Activity没有被后台杀死，那么自然也就不需要调用OnRestoreInstance进行现场的恢复，而大多数情况下，Activity不会那么快被杀死。
-
-其实点击Home键跟Activity跳转的原理是一样的，从Activity A 跳转到Activity B也会调用 A的onSaveInstanceState，但是只要A没有被系统回收掉，就不会调用A的OnRestoreInstance，因为在ActivityManagerService中，A所登记的状态是没有被后台Kill过的。其实Activity所有状态变化的最终依赖都是ActivityManagerService。  
 
 <a name="FragmentPagerAdapter_FragmentStatePagerAdapter"/>
 
