@@ -72,43 +72,8 @@ category: android开发
                 startSpecificActivityLocked(next, true, false);
                 return true;
             }
-
-            // From this point on, if something goes wrong there is no way
-            // to recover the activity.
-            try {
-                next.visible = true;
-                completeResumeLocked(next);
-            } catch (Exception e) {
-                // If any exception gets thrown, toss away this
-                // activity and try the next one.
-                Slog.w(TAG, "Exception thrown during resume of " + next, e);
-                requestFinishActivityLocked(next.appToken, Activity.RESULT_CANCELED, null,
-                        "resume-exception", true);
-                return true;
+            ...
             }
-            next.stopped = false;
-
-        } else {
-            // Whoops, need to restart this activity!
-            if (!next.hasBeenLaunched) {
-                next.hasBeenLaunched = true;
-            } else {
-                if (SHOW_APP_STARTING_PREVIEW) {
-                    mService.mWindowManager.setAppStartingWindow(
-                            next.appToken, next.packageName, next.theme,
-                            mService.compatibilityInfoForPackageLocked(
-                                    next.info.applicationInfo),
-                            next.nonLocalizedLabel,
-                            next.labelRes, next.icon, next.windowFlags,
-                            null, true);
-                }
-                if (DEBUG_SWITCH) Slog.v(TAG, "Restarting: " + next);
-            }
-            startSpecificActivityLocked(next, true, true);
-        }
-
-        return true;
-    }
     
     
     
@@ -118,7 +83,11 @@ Android开发经常会遇到这样的问题，App在后台久置之后，再次�
 
 ![Activity Launch流程图.png](http://upload-images.jianshu.io/upload_images/1460468-c91b004975ed70c4.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-# 最近的任务列表打开
+# 最近的任务列表展示原理
+
+# 点击Icon再次唤起原理
+
+# 最近的任务列表唤起App
 
     public void handleOnClick(View view) {
         ViewHolder holder = (ViewHolder)view.getTag();
@@ -166,8 +135,6 @@ Android开发经常会遇到这样的问题，App在后台久置之后，再次�
     
 非主动退出的最近进程列表一般是ad.taskId >0,否则就是-1，
 
-
-
     public List<ActivityManager.RecentTaskInfo> getRecentTasks(int maxNum,
             int flags, int userId) {
      		 。。。
@@ -200,8 +167,6 @@ Android开发经常会遇到这样的问题，App在后台久置之后，再次�
 
 
 moveTaskToFront
-
-
     
 # Application保存及恢复流程
 
@@ -346,164 +311,17 @@ ActivityManagerService
 ActivityStack
 
     final int startActivityMayWait(IApplicationThread caller, int callingUid,
-            String callingPackage, Intent intent, String resolvedType, IBinder resultTo,
-            String resultWho, int requestCode, int startFlags, String profileFile,
-            ParcelFileDescriptor profileFd, WaitResult outResult, Configuration config,
-            Bundle options, int userId) {
-        // Refuse possible leaked file descriptors
-        if (intent != null && intent.hasFileDescriptors()) {
-            throw new IllegalArgumentException("File descriptors passed in Intent");
-        }
-        boolean componentSpecified = intent.getComponent() != null;
-
-        // Don't modify the client's object!
-        intent = new Intent(intent);
-
-        // Collect information about the target of the Intent.
-        ActivityInfo aInfo = resolveActivity(intent, resolvedType, startFlags,
-                profileFile, profileFd, userId);
-
-        synchronized (mService) {
-            int callingPid;
-            if (callingUid >= 0) {
-                callingPid = -1;
-            } else if (caller == null) {
-                callingPid = Binder.getCallingPid();
-                callingUid = Binder.getCallingUid();
-            } else {
-                callingPid = callingUid = -1;
-            }
-            
-            mConfigWillChange = config != null
-                    && mService.mConfiguration.diff(config) != 0;
-            if (DEBUG_CONFIGURATION) Slog.v(TAG,
-                    "Starting activity when config will change = " + mConfigWillChange);
-            
-            final long origId = Binder.clearCallingIdentity();
-            
-            if (mMainStack && aInfo != null &&
-                    (aInfo.applicationInfo.flags&ApplicationInfo.FLAG_CANT_SAVE_STATE) != 0) {
-                // This may be a heavy-weight process!  Check to see if we already
-                // have another, different heavy-weight process running.
-                if (aInfo.processName.equals(aInfo.applicationInfo.packageName)) {
-                    if (mService.mHeavyWeightProcess != null &&
-                            (mService.mHeavyWeightProcess.info.uid != aInfo.applicationInfo.uid ||
-                            !mService.mHeavyWeightProcess.processName.equals(aInfo.processName))) {
-                        int realCallingPid = callingPid;
-                        int realCallingUid = callingUid;
-                        if (caller != null) {
-                            ProcessRecord callerApp = mService.getRecordForAppLocked(caller);
-                            if (callerApp != null) {
-                                realCallingPid = callerApp.pid;
-                                realCallingUid = callerApp.info.uid;
-                            } else {
-                                Slog.w(TAG, "Unable to find app for caller " + caller
-                                      + " (pid=" + realCallingPid + ") when starting: "
-                                      + intent.toString());
-                                ActivityOptions.abort(options);
-                                return ActivityManager.START_PERMISSION_DENIED;
-                            }
-                        }
-                        
-                        IIntentSender target = mService.getIntentSenderLocked(
-                                ActivityManager.INTENT_SENDER_ACTIVITY, "android",
-                                realCallingUid, userId, null, null, 0, new Intent[] { intent },
-                                new String[] { resolvedType }, PendingIntent.FLAG_CANCEL_CURRENT
-                                | PendingIntent.FLAG_ONE_SHOT, null);
-                        
-                        Intent newIntent = new Intent();
-                        if (requestCode >= 0) {
-                            // Caller is requesting a result.
-                            newIntent.putExtra(HeavyWeightSwitcherActivity.KEY_HAS_RESULT, true);
-                        }
-                        newIntent.putExtra(HeavyWeightSwitcherActivity.KEY_INTENT,
-                                new IntentSender(target));
-                        if (mService.mHeavyWeightProcess.activities.size() > 0) {
-                            ActivityRecord hist = mService.mHeavyWeightProcess.activities.get(0);
-                            newIntent.putExtra(HeavyWeightSwitcherActivity.KEY_CUR_APP,
-                                    hist.packageName);
-                            newIntent.putExtra(HeavyWeightSwitcherActivity.KEY_CUR_TASK,
-                                    hist.task.taskId);
-                        }
-                        newIntent.putExtra(HeavyWeightSwitcherActivity.KEY_NEW_APP,
-                                aInfo.packageName);
-                        newIntent.setFlags(intent.getFlags());
-                        newIntent.setClassName("android",
-                                HeavyWeightSwitcherActivity.class.getName());
-                        intent = newIntent;
-                        resolvedType = null;
-                        caller = null;
-                        callingUid = Binder.getCallingUid();
-                        callingPid = Binder.getCallingPid();
-                        componentSpecified = true;
-                        try {
-                            ResolveInfo rInfo =
-                                AppGlobals.getPackageManager().resolveIntent(
-                                        intent, null,
-                                        PackageManager.MATCH_DEFAULT_ONLY
-                                        | ActivityManagerService.STOCK_PM_FLAGS, userId);
-                            aInfo = rInfo != null ? rInfo.activityInfo : null;
-                            aInfo = mService.getActivityInfoForUser(aInfo, userId);
-                        } catch (RemoteException e) {
-                            aInfo = null;
-                        }
-                    }
-                }
-            }
+         
             
             int res = startActivityLocked(caller, intent, resolvedType,
                     aInfo, resultTo, resultWho, requestCode, callingPid, callingUid,
                     callingPackage, startFlags, options, componentSpecified, null);
             
-            if (mConfigWillChange && mMainStack) {
-                // If the caller also wants to switch to a new configuration,
-                // do so now.  This allows a clean switch, as we are waiting
-                // for the current activity to pause (so we will not destroy
-                // it), and have not yet started the next activity.
-                mService.enforceCallingPermission(android.Manifest.permission.CHANGE_CONFIGURATION,
-                        "updateConfiguration()");
-                mConfigWillChange = false;
-                if (DEBUG_CONFIGURATION) Slog.v(TAG,
-                        "Updating to new configuration after starting activity.");
-                mService.updateConfigurationLocked(config, null, false, false);
-            }
-            
-            Binder.restoreCallingIdentity(origId);
-            
-            if (outResult != null) {
-                outResult.result = res;
-                if (res == ActivityManager.START_SUCCESS) {
-                    mWaitingActivityLaunched.add(outResult);
-                    do {
-                        try {
-                            mService.wait();
-                        } catch (InterruptedException e) {
-                        }
-                    } while (!outResult.timeout && outResult.who == null);
-                } else if (res == ActivityManager.START_TASK_TO_FRONT) {
-                    ActivityRecord r = this.topRunningActivityLocked(null);
-                    if (r.nowVisible) {
-                        outResult.timeout = false;
-                        outResult.who = new ComponentName(r.info.packageName, r.info.name);
-                        outResult.totalTime = 0;
-                        outResult.thisTime = 0;
-                    } else {
-                        outResult.thisTime = SystemClock.uptimeMillis();
-                        mWaitingActivityVisible.add(outResult);
-                        do {
-                            try {
-                                mService.wait();
-                            } catch (InterruptedException e) {
-                            }
-                        } while (!outResult.timeout && outResult.who == null);
-                    }
-                }
-            }
-            
-            return res;
-        }
+         。。。
     } 
     
+
+<!--启动新的APP，或者新Activity，或者唤醒-->
 
     private final void startActivityLocked(ActivityRecord r, boolean newTask,
             boolean doResume, boolean keepCurTransition, Bundle options) {
