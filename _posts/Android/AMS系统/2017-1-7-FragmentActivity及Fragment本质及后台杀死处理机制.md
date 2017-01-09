@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Android后台杀死系列之--FragmentActivity的onSaveInstance与onRestorInstance"
+title: "Android后台杀死系列之--Fragment本质及FragmentActivity后台杀死处理机制"
 description: "Java"
 category: android开发
 
@@ -29,21 +29,6 @@ category: android开发
 
 # 内核层面的杀死，框架层AMS是不知道的，只有在恢复的时候，才自己查询得到，并主导恢复流程
 
-
-### **前言：Fragment只是Activity更加方便管理View的一种方式**
-
-    
->  [FragmentActivity被后台杀死后恢复逻辑](#fragment_activity_restore)  
->  [add一个Fragment并显示的原理--及所谓Fragment生命周期](#add_fragment)      
->  [FragmentTabHost的后台杀死重建逻辑](#lFragmentTabHost_restore_life)     
->  [ViewPager及FragmentPagerAdapter的后台杀死重建](#FragmentPagerAdapter_restore)          
->  [FragmentPagerAdapter与FragmentStatePagerAdapter的使用时机](#FragmentPagerAdapter_FragmentStatePagerAdapter)
->  [后台杀死处理方式](#how_to_resolve)    
->  [Fragment使用很多坑，尤其是被后台杀死后恢复](#Fragment_bugs)    
->  [onSaveInstanceState与OnRestoreInstance的调用时机](#onSaveInstanceState_OnRestoreInstance)   
->  [Can not perform this action after onSaveInstanceState](#Can_not_onSaveInstanceState)           
->  [结束语](#end)     
->  [参考文档](#ref_doc)    
 
 App在后台久置后，再次从桌面或最近的任务列表唤醒时经常会发生崩溃，这往往是App在后台被系统杀死，再次恢复的时候遇到了问题，而在使用FragmentActivity+Fragment的时候，经常会遇到：比如Fragment没有提供默认构造方法，就会重建的时候因为反射创建Fragment失败而崩溃，再比如，在onCreate里面new 一个FragmentDialog，并且show，在被后台杀死，再次唤醒的时候，就会show两个对话框，这是为什么？其实这就涉及了后台杀死及恢复的机制，其中涉及的知识点主要是FragmentActivity、ActivityManagerService、LowMemoryKiller机制、ActivityStack、Binder等一系列知识点。放在一篇文章里面可能会有些长，因此，Android后台杀死系列写了三篇：
 
@@ -881,20 +866,9 @@ Viewpager与Fragmenttabhost有自己的恢复逻辑，当然这些都是在Framg
 * FragmentPagerAdapter适用于存在刷新的界面 ，比如列表Fragment，如果采用FragmentStatePagerAdapter就需要保存现场，并且数据的加载会把逻辑弄乱
 * FragmentStatePagerAdapter更加适合图片类的处理，笔记图片预览等，一屏幕显示完全的，否则用FragmentStatePagerAdapter只会比FragmentPagerAdapter更复杂，还要自己缓存Fragment列表。
 
+ 
 
-  
-#  FragmentTabHost奇葩的毕现 ，点击主屏幕与FragmentTabHost点击事件比较接近的时候崩溃
-
-This problem occurs if tab selection action performs after onSaveInstanceState get called. One example like, if user selects and holds any tab and at the same time also selects the Home Button.To solve this issue just
-
-	call mTabHost.getTabWidget().setEnabled(false); under onPause of the Fragment/Activity
-	and call mTabHost.getTabWidget().setEnabled(true); under onResume. 
-
-
-#  结束语 
-
-
-<a name="ref_doc"/>
+ 
 	        
 ###  参考文档
 

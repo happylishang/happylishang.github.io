@@ -7,6 +7,23 @@ category: android开发
 ---
 
 
+# Application保存流程
+
+## 新Activity启动跟旧Activity的保存
+ 
+
+# 对于APP，所有的处理都是被动响应，Android是基于操作系统的被动式开发。
+
+# 主动清楚最近的任务
+
+# Activity的恢复流程 顺序
+
+## 不保留活动
+
+# 内核层面的杀死，框架层AMS是不知道的，只有在恢复的时候，才自己查询得到，并主导恢复流程
+
+
+
 # startactivity总是会走realStartActivityLocked，但是恢复，就不走，恢复的实收是直接走resumeTopActivity，如果被杀死，抛出异常
 
 ![Binder访问已经被杀死的进程](http://upload-images.jianshu.io/upload_images/1460468-00df66d0bf4dec82.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
