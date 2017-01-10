@@ -20,7 +20,7 @@ category: Android
 
 首先来看第一个问题，系统如何知道Application被杀死了，Android使用了Linux的oomKiller机制，只是简单的做了个变种，采用分等级的LowmemoryKiller，但是这个其实是内核层面，LowmemoryKiller杀死进程后，不会像用户空间发送通知，也就是说即使是框架层的ActivityMangerService也无法知道App是否被杀死，但是，只有知道App或者Activity是否被杀死，AMS（ActivityMangerService）才能正确的走唤起流程，那么AMS究竟是在什么时候知道App或者Activity被后台杀死了呢？我们先看一下从最近的任务列表进行唤起的时候，究竟发生了什么。
 
-# 最近的任务列表或者Icon再次唤起App
+## 最近的任务列表或者Icon再次唤起App
 
 在系统源码systemUi的包里，有个RecentActivity，这个其实就是最近的任务列表的入口，而其呈现界面是通过RecentsPanelView来展现的，点击最近的App其执行代码如下：
 
@@ -102,7 +102,9 @@ category: Android
 
 ![从最近的任务列表唤起App的流程](http://upload-images.jianshu.io/upload_images/1460468-e9834e9ea80ad648.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-# 在唤起App的时候侦测App或者Activity是否被异常杀死
+## 在唤起App的时候侦测App或者Activity是否被异常杀死
+
+接着往下看moveTaskToFrontLocked，这个函数在ActivityStack中，主要管理ActivityRecord栈的，所有start的Activity都在ActivityStack中保留一个ActivityRecord，这个也是AMS管理Activiyt的一个依据，最终moveTaskToFrontLocked会调用resumeTopActivityLocked来唤起Activity，AMS获取即将resume的Activity信息的方式主要是通过ActivityRecord，它并不知道Activity本身是否存活，
 
 
 # Application保存流程
