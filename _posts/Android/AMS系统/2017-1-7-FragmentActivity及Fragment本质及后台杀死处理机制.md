@@ -365,60 +365,65 @@ FragmentManagerImpl的beginTransaction()函数返回的是一个BackStackRecord(
 
 # onSaveInstanceState与OnRestoreInstance的调用时机 
 
-开发时一直遵守谷歌的Android开发文档，创建Fragment尽量采用推荐的参数传递方式，并且保留默认的Fragment无参构造方法，避免绝大部分后台杀死-恢复崩溃的问题，但是对于原理的了解紧限于恢复时的重建机制，采用反射机制，并使用了默认的构造参数，直到使用FragmentDialog，示例代码如下：
+在在点击home键，或者跳转其他界面的时候，都会回调用onSaveInstanceState，但是再次唤醒却不一定调用OnRestoreInstance,这是为什么呢？onSaveInstanceState与OnRestoreInstance难道不是配对使用的？在Android中，onSaveInstanceState是为了预防Activity被后台杀死的情况做的预处理，如果Activity没有被后台杀死，那么自然也就不需要进行现场的恢复，也就不会调用OnRestoreInstance，而大多数情况下，Activity不会那么快被杀死。
 
+## onSaveInstanceState的调用时机
+
+onSaveInstanceState函数是Android针对可能被后台杀死的Activity做的一种预防，它的执行时机在2.3之前是在onPause之前，2.3之后，放在了onStop函数之前，也就说Activity失去焦点后，可能会由于内存不足，被回收的情况下，都会去执行onSaveInstanceState。对于startActivity函数的调用很多文章都有介绍，可以简单参考下老罗的博客[Android应用程序内部启动Activity过程（startActivity）的源代码分析](http://blog.csdn.net/luoshengyang/article/details/6703247)，比如在Activity A 调用startActivity启动Activity B的时候，会首先通过AMS  pause Activity A，之后唤起B，在B显示，再stop A，在stop A的时候，需要保存A的现场，因为不可见的Activity都是可能被后台杀死的，比如，在开发者选项中打开**不保留活动**，就会达到这种效果，在启动另一个Activity时，上一个Activity的保存流程大概如下，这里先简单描述，在下一篇原理篇的时候，会详细讲解下流程：
+
+![恢复启动流程.png](http://upload-images.jianshu.io/upload_images/1460468-d21d44117662ccc3.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+在2.3之后，onSaveInstanceState的时机都放在了onStop之前，看一下FragmentActivity的onSaveInstanceState源码：
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        Parcelable p = mFragments.saveAllState();
+        if (p != null) {
+            outState.putParcelable(FRAGMENTS_TAG, p);
+        }
+    }
+
+可以看出，首先就是父类的onSaveInstanceState，主要是保存一些窗口及View的信息，比如ViewPager当前显示的是第几个View等。之后，就是就是通过FragmentManager的saveAllState，来保存FragmentActivity自身的现场-Fragment的一些状态，这些数据是FragmentActivity恢复Framgent所必须的数据，处理不好就会出现上面的那种异常。
 
 ## OnRestoreInstanceState的调用时机
 
-onSaveInstanceState在Activity跳转或者返回主界面等时机是一定会调用的，那么OnRestoreInstanceState会配套调用吗？当然不会，只有被异常杀死才会走恢复流程，如果不被异常杀死，是不会走恢复新建流程，也就说不会重建Activity，简单看一下Activity的加载流程图：
+之前已经说过，OnRestoreInstanceState虽然与onSaveInstanceState是配对实现的，但是其调用却并非完全成对的，在Activity跳转或者返回主界面时，onSaveInstanceState是一定会调用的，但是OnRestoreInstanceState却不会，它只有Activity或者App被异常杀死，走恢复流程的时候才会被调用。如果没有被异常杀死，不走Activity的恢复新建流程，也就不会回调OnRestoreInstanceState，简单看一下Activity的加载流程图：
 
-![Activity Launch流程图.png](http://upload-images.jianshu.io/upload_images/1460468-c91b004975ed70c4.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+![onRestoreInstance调用时机.png](http://upload-images.jianshu.io/upload_images/1460468-5d8135f45ecee77f.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-可以看出，调用OnRestoreInstanceState的时机只有在mInstrumentation.callActivityOnCreate的时候才会调用，在初次调用onCreate的时候，
+可以看出，OnRestoreInstanceState的调用时机是在onStart之后，在onPostCreate之前。那么正常的创建为什么没调用呢？看一下ActivityThread中启动Activity的源码：
 
-          mInstrumentation.callActivityOnCreate(activity, r.state);
-               if (!activity.mCalled) {
-                   throw new SuperNotCalledException(
-                       "Activity " + r.intent.getComponent().toShortString() +
-                       " did not call through to super.onCreate()");
-               }
-               r.activity = activity;
-               r.stopped = true;
-               if (!r.activity.mFinished) {
-                   activity.performStart();
-                   r.stopped = false;
-               }
-               if (!r.activity.mFinished) {
-                   if (r.state != null) {
-                       mInstrumentation.callActivityOnRestoreInstanceState(activity, r.state);
-                   }
-               }
-               if (!r.activity.mFinished) {
-                   activity.mCalled = false;
-                   mInstrumentation.callActivityOnPostCreate(activity, r.state);
-                   if (!activity.mCalled) {
-                       throw new SuperNotCalledException(
-                           "Activity " + r.intent.getComponent().toShortString() +
-                           " did not call through to super.onPostCreate()");
-                   }
-               }
- 
- 
- 
- 
+	 private Activity performLaunchActivity(Activi
+	         
+	         ...
+	          mInstrumentation.callActivityOnCreate(activity, r.state);
+	          	   
+	               r.activity = activity;
+	               r.stopped = true;
+	               if (!r.activity.mFinished) {
+	                   activity.performStart();
+	                   r.stopped = false;
+	               }
+	               if (!r.activity.mFinished) {
+	                   if (r.state != null) {
+	                       mInstrumentation.callActivityOnRestoreInstanceState(activity, r.state);
+	                   }
+	               }
+	               if (!r.activity.mFinished) {
+	                   activity.mCalled = false;
+	                   mInstrumentation.callActivityOnPostCreate(activity, r.state);
+	            
+	               }
+         }
 
-
-
-比如在点击home键时，回调用onSaveInstanceState，但是再次唤醒却不一定调用OnRestoreInstance,这是为什么onSaveInstanceState与OnRestoreInstance不是配对使用呢？因为onSaveInstanceState是为了预防Activity被后台杀死的情况做的预处理，但是如果Activity没有被后台杀死，那么自然也就不需要调用OnRestoreInstance进行现场的恢复，而大多数情况下，Activity不会那么快被杀死。
-
-其实点击Home键跟Activity跳转的原理是一样的，从Activity A 跳转到Activity B也会调用 A的onSaveInstanceState，但是只要A没有被系统回收掉，就不会调用A的OnRestoreInstance，因为在ActivityManagerService中，A所登记的状态是没有被后台Kill过的。其实Activity所有状态变化的最终依赖都是ActivityManagerService。  
+可以看出，只有r.state != null的时候，才会通过mInstrumentation.callActivityOnRestoreInstanceState回调OnRestoreInstanceState，这里的r.state就是ActivityManagerService通过Binder传给ActivityThread数据，主要用来做场景恢复。以上就是onSaveInstanceState与OnRestoreInstance执行时机的一些分析。下面结合具体的系统View空间来分析一下使用：比如ViewPager与FragmentTabHost，这两个空间是主界面最常用的控件，内部对后台杀死做了兼容，这也是为什么被杀死后，Viewpager在恢复后，能自动定位到上次浏览的位置。
 
 
 # 一些系统View控件对后台杀死做的兼容
 
-<a name="lFragmentTabHost_restore_life"></a>
 
-#  FragmentTabHost的后台杀死重建 onRestoreInstanceState、onAttachedToWindow
+##  FragmentTabHost的后台杀死重建 onRestoreInstanceState、onAttachedToWindow
 
 系统在onCreate回复Fragment之后，会首先调用onRestoreInstanceState恢复数据，之后会调用onAttachedToWindow添加到窗口显示，在onRestoreInstanceState会将当前postion重新赋值给Tabhost，在onAttachedToWindow时，就可以根据它设置当前位置。
 
