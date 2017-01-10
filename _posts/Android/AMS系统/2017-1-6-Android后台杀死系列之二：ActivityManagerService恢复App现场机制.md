@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Application后台杀死及恢复原理"
+title: "Android后台杀死系列之二：ActivityManagerService恢复App现场机制"
 description: "Java"
 category: android开发
 
