@@ -1,13 +1,114 @@
 ---
 layout: post
 title: "Android后台杀死系列之二：ActivityManagerService恢复App现场机制"
-description: "Java"
-category: android开发
+category: Android
 
 ---
 
 
+基于4.3 
+本篇是Android后台杀死系列的第二篇，主要讲解ActivityMangerService是如何恢复被后台杀死的进程的，在开篇[FragmentActivity及PhoneWindow后台杀死处理机制](http://www.jianshu.com/p/00fef8872b68)中，简述了后台杀死所引起的一些常见问题，还有Android系统控件对后台杀死所做的一些兼容，以及onSaveInstance跟onRestoreInstance的作用于执行时机，最后说了如何应对后台杀死，但是对于被后台杀死的进程如何恢复的并没有讲解，本篇不涉及后台杀死，比如LowmemoryKiller机制，只讲述被杀死的进程如何恢复的。假设，一个应用被后台杀死，再次从最近的任务列表唤起App时候，系统是如何处理的呢？有这么几个问题可能需要解决：
+
+* 系统如何知道App被杀死了
+* App被杀前的场景是如何保存的
+* 系统如何恢复被杀的App
+* 被后台杀死的App的启动流程跟普通的启动有什么区别
+* Activity的恢复顺序为什么是倒序恢复
+
+
+# 系统如何知道App被杀死了
+
+首先来看第一个问题，系统如何知道Application被杀死了，Android使用了Linux的oomKiller机制，只是简单的做了个变种，采用分等级的LowmemoryKiller，但是这个其实是内核层面，LowmemoryKiller杀死进程后，不会像用户空间发送通知，也就是说即使是框架层的ActivityMangerService也无法知道App是否被杀死，但是，只有知道App或者Activity是否被杀死，AMS（ActivityMangerService）才能正确的走唤起流程，那么AMS究竟是在什么时候知道App或者Activity被后台杀死了呢？我们先看一下从最近的任务列表进行唤起的时候，究竟发生了什么。
+
+# 最近的任务列表或者Icon再次唤起App
+
+在系统源码systemUi的包里，有个RecentActivity，这个其实就是最近的任务列表的入口，而其呈现界面是通过RecentsPanelView来展现的，点击最近的App其执行代码如下：
+
+
+    public void handleOnClick(View view) {
+        ViewHolder holder = (ViewHolder)view.getTag();
+        TaskDescription ad = holder.taskDescription;
+        final Context context = view.getContext();
+        final ActivityManager am = (ActivityManager)
+                context.getSystemService(Context.ACTIVITY_SERVICE);
+        Bitmap bm = holder.thumbnailViewImageBitmap;
+        ...
+        // 关键点 1  如果TaskDescription没有被主动关闭，正常关闭，ad.taskId就是>=0
+        if (ad.taskId >= 0) {
+            // This is an active task; it should just go to the foreground.
+            am.moveTaskToFront(ad.taskId, ActivityManager.MOVE_TASK_WITH_HOME,
+                    opts);
+        } else {
+            Intent intent = ad.intent;
+            intent.addFlags(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY
+                    | Intent.FLAG_ACTIVITY_TASK_ON_HOME
+                    | Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                context.startActivityAsUser(intent, opts,
+                        new UserHandle(UserHandle.USER_CURRENT));
+            }...
+    }
+
+在上面的代码里面，有个判断ad.taskId >= 0，如果满足这个条件，就通过moveTaskToFront唤起APP，那么ad.taskId是如何获取的？recent包里面有各类RecentTasksLoader，这个类就是用来加载最近任务列表的一个Loader，看一下它的源码，主要看一下加载：
+
+     @Override
+            protected Void doInBackground(Void... params) {
+                // We load in two stages: first, we update progress with just the first screenful
+                // of items. Then, we update with the rest of the items
+                final int origPri = Process.getThreadPriority(Process.myTid());
+                Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+                final PackageManager pm = mContext.getPackageManager();
+                final ActivityManager am = (ActivityManager)
+                mContext.getSystemService(Context.ACTIVITY_SERVICE);
+
+                final List<ActivityManager.RecentTaskInfo> recentTasks =
+                        am.getRecentTasks(MAX_TASKS, ActivityManager.RECENT_IGNORE_UNAVAILABLE);
+                 
+                ....
+                    TaskDescription item = createTaskDescription(recentInfo.id,
+                            recentInfo.persistentId, recentInfo.baseIntent,
+                            recentInfo.origActivity, recentInfo.description);
+                ....
+                } 
+                           
+可以看到，其实就是通过ActivityManger的getRecentTasks向AMS请求最近的任务信息，然后通过createTaskDescription创建TaskDescription，这里传递的recentInfo.id其实就是TaskDescription的taskId，来看一下它的意义：
+
+    public List<ActivityManager.RecentTaskInfo> getRecentTasks(int maxNum,
+            int flags, int userId) {
+            ...           
+            IPackageManager pm = AppGlobals.getPackageManager();
+
+            final int N = mRecentTasks.size();
+            ...
+            for (int i=0; i<N && maxNum > 0; i++) {
+                TaskRecord tr = mRecentTasks.get(i);
+                if (i == 0
+                        || ((flags&ActivityManager.RECENT_WITH_EXCLUDED) != 0)
+                        || (tr.intent == null)
+                        || ((tr.intent.getFlags()
+                                &Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS) == 0)) {
+                    ActivityManager.RecentTaskInfo rti
+                            = new ActivityManager.RecentTaskInfo();
+                    rti.id = tr.numActivities > 0 ? tr.taskId : -1;
+                    rti.persistentId = tr.taskId;
+                    rti.baseIntent = new Intent(
+                            tr.intent != null ? tr.intent : tr.affinityIntent);
+                    if (!detailed) {
+                        rti.baseIntent.replaceExtras((Bundle)null);
+                    }
+                    
+可以看出RecentTaskInfo的id是由TaskRecord决定的，如果TaskRecord中numActivities > 0就去TaskRecord的Id，否则就取-1，这里的numActivities其实就是TaskRecode中记录的ActivityRecord的数目，更具体的细节可以自行查看ActivityManagerService及ActivityStack，那么这里就容易解释了，只要是存活的APP，或者被LowmemoryKiller杀死的APP，其AMS的ActivityRecord是完整保存的，这也是恢复的依据。对于RecentActivity获取的数据其实就是AMS中的翻版，它也是不知道将要唤起的APP是否是存活的，只要TaskRecord告诉RecentActivity是存货的，那么久直接走唤起流程。也就是通过ActivityManager的moveTaskToFront唤起App，至于后续的工作，就完全交给AMS来处理。现看一下到这里的流程图：
+
+
+![从最近的任务列表唤起App的流程](http://upload-images.jianshu.io/upload_images/1460468-e9834e9ea80ad648.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+# 在唤起App的时候侦测App或者Activity是否被异常杀死
+
+
 # Application保存流程
+
+* App被杀前的场景是如何保存的
+
 
 ## 新Activity启动跟旧Activity的保存
  
@@ -21,7 +122,6 @@ category: android开发
 ## 不保留活动
 
 # 内核层面的杀死，框架层AMS是不知道的，只有在恢复的时候，才自己查询得到，并主导恢复流程
-
 
 
 # startactivity总是会走realStartActivityLocked，但是恢复，就不走，恢复的实收是直接走resumeTopActivity，如果被杀死，抛出异常
@@ -100,90 +200,6 @@ Android开发经常会遇到这样的问题，App在后台久置之后，再次�
 
 ![Activity Launch流程图.png](http://upload-images.jianshu.io/upload_images/1460468-c91b004975ed70c4.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-# 最近的任务列表展示原理
-
-# 点击Icon再次唤起原理
-
-# 最近的任务列表唤起App
-
-    public void handleOnClick(View view) {
-        ViewHolder holder = (ViewHolder)view.getTag();
-        TaskDescription ad = holder.taskDescription;
-        final Context context = view.getContext();
-        final ActivityManager am = (ActivityManager)
-                context.getSystemService(Context.ACTIVITY_SERVICE);
-        Bitmap bm = holder.thumbnailViewImageBitmap;
-        boolean usingDrawingCache;
-        if (bm.getWidth() == holder.thumbnailViewImage.getWidth() &&
-                bm.getHeight() == holder.thumbnailViewImage.getHeight()) {
-            usingDrawingCache = false;
-        } else {
-            holder.thumbnailViewImage.setDrawingCacheEnabled(true);
-            bm = holder.thumbnailViewImage.getDrawingCache();
-            usingDrawingCache = true;
-        }
-        Bundle opts = (bm == null) ?
-                null :
-                ActivityOptions.makeThumbnailScaleUpAnimation(
-                        holder.thumbnailViewImage, bm, 0, 0, null).toBundle();
-
-        show(false);
-        if (ad.taskId >= 0) {
-            // This is an active task; it should just go to the foreground.
-            am.moveTaskToFront(ad.taskId, ActivityManager.MOVE_TASK_WITH_HOME,
-                    opts);
-        } else {
-            Intent intent = ad.intent;
-            intent.addFlags(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY
-                    | Intent.FLAG_ACTIVITY_TASK_ON_HOME
-                    | Intent.FLAG_ACTIVITY_NEW_TASK);
-            if (DEBUG) Log.v(TAG, "Starting activity " + intent);
-            try {
-                context.startActivityAsUser(intent, opts,
-                        new UserHandle(UserHandle.USER_CURRENT));
-            } catch (SecurityException e) {
-                Log.e(TAG, "Recents does not have the permission to launch " + intent, e);
-            }
-        }
-        if (usingDrawingCache) {
-            holder.thumbnailViewImage.setDrawingCacheEnabled(false);
-        }
-    }
-    
-非主动退出的最近进程列表一般是ad.taskId >0,否则就是-1，
-
-    public List<ActivityManager.RecentTaskInfo> getRecentTasks(int maxNum,
-            int flags, int userId) {
-     		 。。。
-            IPackageManager pm = AppGlobals.getPackageManager();
-
-            final int N = mRecentTasks.size();
-            ArrayList<ActivityManager.RecentTaskInfo> res
-                    = new ArrayList<ActivityManager.RecentTaskInfo>(
-                            maxNum < N ? maxNum : N);
-            for (int i=0; i<N && maxNum > 0; i++) {
-                TaskRecord tr = mRecentTasks.get(i);
-                // Only add calling user's recent tasks
- 
-                if (i == 0
-                        || ((flags&ActivityManager.RECENT_WITH_EXCLUDED) != 0)
-                        || (tr.intent == null)
-                        || ((tr.intent.getFlags()
-                                &Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS) == 0)) {
-                    ActivityManager.RecentTaskInfo rti
-                            = new ActivityManager.RecentTaskInfo();
-                    rti.id = tr.numActivities > 0 ? tr.taskId : -1;
-                    rti.persistentId = tr.taskId;
-                    rti.baseIntent = new Intent(
-                            tr.intent != null ? tr.intent : tr.affinityIntent);
-                    if (!detailed) {
-                        rti.baseIntent.replaceExtras((Bundle)null);
-                    }
-                    
-如果不是主动退出，tr.numActivities就大于0.
-
-
-moveTaskToFront
     
 # Application保存及恢复流程
 
@@ -1425,8 +1441,7 @@ Android开发的时候经常会遇到这样的问题，App在后台久置之后�
 
 
 # 但是如何判断是否被销毁，如何知道从oncreate还是从onresume开始 
-
-其实这个交给AMS来完成，ActivityManagerService首先会去除ActivityRecord，然后去找Task或者说Process，如果找不到，就新建，新建之后就相当于恢复现场
+ 
 
 
 ##   mService.startProcessLocked其实是ActivitymanagerService，后台杀死跟正常的清除不太一样，后台杀死，现场保留，但是清理的话，是完全清除
@@ -1442,7 +1457,7 @@ Android开发的时候经常会遇到这样的问题，App在后台久置之后�
         if (r.launchTime == 0) {
             r.launchTime = SystemClock.uptimeMillis();
             if (mInitialStartTime == 0) {
-                mInitialStartTime = r.launchTime;
+                mInitialStartTime = r.launchTime;   
             }
         } else if (mInitialStartTime == 0) {
             mInitialStartTime = SystemClock.uptimeMillis();
@@ -1545,67 +1560,9 @@ Android开发的时候经常会遇到这样的问题，App在后台久置之后�
                 r.stack.activityStoppedLocked(r, icicle, thumbnail, description);
             }
         }
+  
  
-#  被动杀死Lowmemorykiller
-    
-Andorid用户层的Application，在各种Activity生命周期切换时都会触发AMS中的回收机制，比如启动新的apk，一直back 退出一个apk，除了android AMS中默认的回收机制外，还会去维护一个oom adj 变量，作为linux层 lowmemorykiller的参考依据，如果内存不够，就让底层决定杀死谁。
-
-ActivityManagerService
-
-        if (app.curAdj != app.setAdj) {
-            if (Process.setOomAdj(app.pid, app.curAdj)) {
-             
-                app.setAdj = app.curAdj;
-            } else {
-                success = false;
-                Slog.w(TAG, "Failed setting oom adj of " + app + " to " + app.curAdj);
-            }
-        }
-               
-##  通过socket与Lowmemorykiller通信
-
-    private final boolean applyOomAdjLocked(ProcessRecord app,
-            ProcessRecord TOP_APP, boolean doingAll, long now) {
-            
  
-	   public static final void setOomAdj(int pid, int uid, int amt) {
-	        if (amt == UNKNOWN_ADJ)
-	            return;
-
-    private static void writeLmkd(ByteBuffer buf) {
-
-        for (int i = 0; i < 3; i++) {
-            if (sLmkdSocket == null) {
-                    if (openLmkdSocket() == false) {
-                        try {
-                            Thread.sleep(1000);
-                        } catch (InterruptedException ie) {
-                        }
-                        continue;
-                    }
-            }
-
-            try {
-            
-
- 可以看到try了3次 ，去打开对应的socket 然后写数据，openLmkdSocket 实现如下，android的 LocalSocket 机制，通过lmkd 这个socket通信
-
-	sLmkdSocket = new LocalSocket(LocalSocket.SOCKET_SEQPACKET);
-	            sLmkdSocket.connect(
-	                new LocalSocketAddress("lmkd",
-	                        LocalSocketAddress.Namespace.RESERVED));
-	            sLmkdOutputStream = sLmkdSocket.getOutputStream();
- 
-这是作为client去请求connect ，而service端的处理在 \system\core\lmkd\lmkd.c ， 可以看下这个service的启动：
-
-	service lmkd /system/bin/lmkd
-	    class core
-	    critical
-	    socket lmkd seqpacket 0660 system system
- 
-# 注意事项 
-
-一般需要注意的是Fragment的处理
 
 # 正常退出的处理机制
 
