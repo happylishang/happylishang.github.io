@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "LowMemoryKiller机制及原理（4.3-6.0）"
+title: "Android后台杀死系列之三：LowMemoryKiller原理（4.3-6.0）"
 description: "Java"
 category: android开发
 

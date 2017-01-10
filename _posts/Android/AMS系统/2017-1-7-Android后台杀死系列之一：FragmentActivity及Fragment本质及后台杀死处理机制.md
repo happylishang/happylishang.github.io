@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Android后台杀死系列之--Fragment本质及FragmentActivity后台杀死处理机制"
+title: "Android后台杀死系列之一：Fragment本质及FragmentActivity后台杀死处理机制"
 description: "Java"
 category: android开发
 
