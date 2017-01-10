@@ -417,15 +417,196 @@ onSaveInstanceState函数是Android针对可能被后台杀死的Activity做的�
 	               }
          }
 
-可以看出，只有r.state != null的时候，才会通过mInstrumentation.callActivityOnRestoreInstanceState回调OnRestoreInstanceState，这里的r.state就是ActivityManagerService通过Binder传给ActivityThread数据，主要用来做场景恢复。以上就是onSaveInstanceState与OnRestoreInstance执行时机的一些分析。下面结合具体的系统View空间来分析一下使用：比如ViewPager与FragmentTabHost，这两个空间是主界面最常用的控件，内部对后台杀死做了兼容，这也是为什么被杀死后，Viewpager在恢复后，能自动定位到上次浏览的位置。
+可以看出，只有r.state != null的时候，才通过mInstrumentation.callActivityOnRestoreInstanceState回调OnRestoreInstanceState，r.state就是ActivityManagerService通过Binder传给ActivityThread数据，主要用来做场景恢复。以上就是onSaveInstanceState与OnRestoreInstance执行时机的一些分析。下面结合具体的系统View控件来分析一下这两个函数的具体应用：比如ViewPager与FragmentTabHost，这两个空间是主界面最常用的控件，内部对后台杀死做了兼容，这也是为什么被杀死后，Viewpager在恢复后，能自动定位到上次浏览的位置。
 
 
-# 一些系统View控件对后台杀死做的兼容
+# ViewPager应对后台杀死做的兼容
 
 
-##  FragmentTabHost的后台杀死重建 onRestoreInstanceState、onAttachedToWindow
+首先看一下ViewPager做的兼容，ViewPager在后台杀死的情况下，仍然能恢复到上次关闭的位置，这也是对体验的一种优化，这其中的原理是什么？之前分析onSaveInstanceState与onRestoreInstanceState的时候，只关注了Fragment的处理，其实还有一些针对Window窗口及Vie的处理，先看一下onSaveInstanceState针对窗口保存了什么：
 
-系统在onCreate回复Fragment之后，会首先调用onRestoreInstanceState恢复数据，之后会调用onAttachedToWindow添加到窗口显示，在onRestoreInstanceState会将当前postion重新赋值给Tabhost，在onAttachedToWindow时，就可以根据它设置当前位置。
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putBundle(WINDOW_HIERARCHY_TAG, mWindow.saveHierarchyState());
+      }
+
+> PhonwWinow.java
+
+    @Override
+    public Bundle saveHierarchyState() {
+        Bundle outState = new Bundle();
+        if (mContentParent == null) {
+            return outState;
+        }
+        
+        SparseArray<Parcelable> states = new SparseArray<Parcelable>();
+        mContentParent.saveHierarchyState(states);
+        outState.putSparseParcelableArray(VIEWS_TAG, states);
+
+        // save the focused view id
+          View focusedView = mContentParent.findFocus();
+          ...
+          outState.putInt(FOCUSED_ID_TAG, focusedView.getId());
+        // save the panels
+        if (panelStates.size() > 0) {
+            outState.putSparseParcelableArray(PANELS_TAG, panelStates);
+        }
+        if (mActionBar != null) {
+            outState.putSparseParcelableArray(ACTION_BAR_TAG, actionBarStates);
+        }
+
+        return outState;
+    }
+    
+Window其实就是PhonwWinow，saveHierarchyState其实就是针对当前窗口中的View保存一些场景信息 ，比如：当前获取焦点的View的id、ActionBar、View的一些状态，当然saveHierarchyState递归遍历所有子View，保存所有需要保存的状态：
+
+> ViewGroup.java
+
+
+    @Override
+    protected void dispatchSaveInstanceState(SparseArray<Parcelable> container) {
+        super.dispatchSaveInstanceState(container);
+        final int count = mChildrenCount;
+        final View[] children = mChildren;
+        for (int i = 0; i < count; i++) {
+            View c = children[i];
+            if ((c.mViewFlags & PARENT_SAVE_DISABLED_MASK) != PARENT_SAVE_DISABLED) {
+                c.dispatchSaveInstanceState(container);
+            }
+        }
+    }
+    
+可见，该函数首先通过super.dispatchSaveInstanceState保存自身的状态，再递归传递给子View。onSaveInstanceState主要用于获取View需要保存的State，并将自身的ID作为Key，存储到SparseArray<Parcelable> states列表中，其实就PhoneWindow的一个列表，这些数据最后会通过Binder保存到ActivityManagerService中去
+    
+> View.java
+  
+      protected void dispatchSaveInstanceState(SparseArray<Parcelable> container) {
+        if (mID != NO_ID && (mViewFlags & SAVE_DISABLED_MASK) == 0) {
+            mPrivateFlags &= ~PFLAG_SAVE_STATE_CALLED;
+            Parcelable state = onSaveInstanceState();
+            if ((mPrivateFlags & PFLAG_SAVE_STATE_CALLED) == 0) {
+                throw new IllegalStateException(
+                        "Derived class did not call super.onSaveInstanceState()");
+            }
+            if (state != null) {
+                container.put(mID, state);
+            }
+        }
+    }
+    
+那么针对ViewPager到底存储了什么信息？通过下面的代码很容易看出，其实就是新建个了一个SavedState场景数据，并且将当前的位置mCurItem存进去。
+  
+      @Override
+    public Parcelable onSaveInstanceState() {
+        Parcelable superState = super.onSaveInstanceState();
+        SavedState ss = new SavedState(superState);
+        ss.position = mCurItem;
+        if (mAdapter != null) {
+            ss.adapterState = mAdapter.saveState();
+        }
+        return ss;
+    }
+到这里存储的事情基本就完成了。接下来看一下ViewPager的恢复以及onRestoreInstanceState到底做了什么，
+
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        if (mWindow != null) {
+            Bundle windowState = savedInstanceState.getBundle(WINDOW_HIERARCHY_TAG);
+            if (windowState != null) {
+                mWindow.restoreHierarchyState(windowState);
+            }
+        }
+    }
+
+从代码可以看出，其实就是获取当时保存的窗口信息，之后通过mWindow.restoreHierarchyState做数据恢复，
+
+    @Override
+    public void restoreHierarchyState(Bundle savedInstanceState) {
+        if (mContentParent == null) {
+            return;
+        }
+
+        SparseArray<Parcelable> savedStates
+                = savedInstanceState.getSparseParcelableArray(VIEWS_TAG);
+        if (savedStates != null) {
+            mContentParent.restoreHierarchyState(savedStates);
+        }
+        ...
+        
+        if (mActionBar != null) {
+        	...
+              mActionBar.restoreHierarchyState(actionBarStates);
+          }
+    }
+    
+对于ViewPager会发生什么？从源码很容易看出，其实就是取出SavedState，并获取到异常杀死的时候的位置，以便后续的恢复，
+
+> ViewPager.java
+
+    @Override
+    public void onRestoreInstanceState(Parcelable state) {
+        if (!(state instanceof SavedState)) {
+            super.onRestoreInstanceState(state);
+            return;
+        }
+
+        SavedState ss = (SavedState)state;
+        super.onRestoreInstanceState(ss.getSuperState());
+
+        if (mAdapter != null) {
+            mAdapter.restoreState(ss.adapterState, ss.loader);
+            setCurrentItemInternal(ss.position, false, true);
+        } else {
+            mRestoredCurItem = ss.position;
+            mRestoredAdapterState = ss.adapterState;
+            mRestoredClassLoader = ss.loader;
+        }
+    } 
+    
+以上就解释了ViewPager是如何通过onSaveInstanceState与onRestoreInstanceState保存、恢复现场的。如果是ViewPager+FragmentAdapter的使用方式，就同时涉及FragmentActivity的恢复、也牵扯到Viewpager的恢复，其实FragmentAdapter也同样针对后台杀死做了一些兼容，防止重复新建Fragment，看一下FragmentAdapter的源码：
+
+> FragmentPagerAdapter.java 
+
+    @Override
+    public Object instantiateItem(ViewGroup container, int position) {
+        if (mCurTransaction == null) {
+            mCurTransaction = mFragmentManager.beginTransaction();
+        }
+
+        final long itemId = getItemId(position);
+
+        // Do we already have this fragment?
+        <!--是否已经新建了Fragment？？-->
+        
+        String name = makeFragmentName(container.getId(), itemId);
+        Fragment fragment = mFragmentManager.findFragmentByTag(name);
+        
+        1 如果Activity中存在相应Tag的Fragment，就不要通过getItem新建
+        
+        if (fragment != null) {
+            mCurTransaction.attach(fragment);
+        } else {
+        2 如果Activity中不存在相应Tag的Fragment，就需要通过getItem新建
+            fragment = getItem(position);
+            mCurTransaction.add(container.getId(), fragment,
+                    makeFragmentName(container.getId(), itemId));
+        }
+        if (fragment != mCurrentPrimaryItem) {
+            FragmentCompat.setMenuVisibility(fragment, false);
+            FragmentCompat.setUserVisibleHint(fragment, false);
+        }
+
+        return fragment;
+    }
+
+从1与2 可以看出，通过后台恢复，在FragmentActivity的onCreate函数中，会重建Fragment列表，那些被重建的Fragment不会再次通过getItem再次创建，再来看一下相似的控件FragmentTabHost，FragmentTabHost也是主页常用的控件，FragmentTabHost也有相应的后台杀死处理机制，从名字就能看出，这个是专门针对Fragment才创建出来的控件。
+
+![后台杀死时View的保存及恢复](http://upload-images.jianshu.io/upload_images/1460468-359f4134ac54d901.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+ 
+#    FragmentTabHost应对后台杀死做的兼容 
+
+FragmentTabHost其实跟ViewPager很相似，在onSaveInstanceState执行的时候保存当前位置，并在onRestoreInstanceState恢复postion，并重新赋值给Tabhost，之后FragmentTabHost在onAttachedToWindow时，就可以根据恢复的postion设置当前位置，代码如下：
+
+> FragmentTabHost.java
+
 
     @Override
     protected Parcelable onSaveInstanceState() {
@@ -446,173 +627,29 @@ onSaveInstanceState函数是Android针对可能被后台杀死的Activity做的�
         setCurrentTabByTag(ss.curTab);
     }
     
-在onAttachedToWindow时候，会首先调用mFragmentManager.findFragmentByTag，被后台杀死后，这里能获取到相应的Fragment，因此不用重建。那些本来就没点击过的Tab其实还是null，在doTabChanged才真正的创建。
+在FragmentTabHost执行onAttachedToWindow时候，会首先getCurrentTabTag ,如果是经历了后台杀死，这里得到的值其实是恢复的SavedState里的值，之后通过doTabChanged切换到响应的Tab，注意这里切换的时候，Fragment由于已经重建了，是不会再次新建的。
 
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
 
         String currentTab = getCurrentTabTag();
-
-        // Go through all tabs and make sure their fragments match
-        // the correct state.
-        FragmentTransaction ft = null;
-        for (int i=0; i<mTabs.size(); i++) {
-            TabInfo tab = mTabs.get(i);
-            tab.fragment = mFragmentManager.findFragmentByTag(tab.tag);
-            if (tab.fragment != null && !tab.fragment.isDetached()) {
-                if (tab.tag.equals(currentTab)) {
-                    // The fragment for this tab is already there and
-                    // active, and it is what we really want to have
-                    // as the current tab.  Nothing to do.
-                    mLastTab = tab;
-                } else {
-                    // This fragment was restored in the active state,
-                    // but is not the current tab.  Deactivate it.
-                    if (ft == null) {
-                        ft = mFragmentManager.beginTransaction();
-                    }
-                    ft.detach(tab.fragment);
-                }
-            }
-        }
-
-        // We are now ready to go.  Make sure we are switched to the
-        // correct tab.
-        mAttached = true;
+        ...
+        
         ft = doTabChanged(currentTab, ft);
+        
         if (ft != null) {
             ft.commit();
             mFragmentManager.executePendingTransactions();
         }
     }
 
-
-
-<a name="FragmentPagerAdapter_restore"> </a>
-
-#  ViewPager及FragmentPagerAdapter的后台杀死重建 
-
-ViewPager的情形注意serCurrent，如果设置了一次，后台杀死后，重建ViewPager，恢复现场，调用setCurrent。如果手动将android.support.fragments置空，很容易引发崩溃。其实ViewPager默认支持重建，但是如果MVP开发Presenter就要注意是否合理的被创建。有些场景，如果手动清理android.support.fragments，就会引起崩溃，因为ViewPager也会保存现场，如果置空，重建就会遇到问题，当然如果在onCreate中已经添加了Fragment的除外。比如那些先网络请求，再更新PagerAdapter的，数量是动态的那种，就会出现问题。
-
-	  at android.support.v4.app.FragmentManagerImpl.getFragment(SourceFile:587)
-	       at android.support.v4.app.FragmentStatePagerAdapter.restoreState(SourceFile:211)
-	       at android.support.v4.view.ViewPager.onRestoreInstanceState(SourceFile:1318)
-	       at android.view.View.dispatchRestoreInstanceState(View.java:14770)
-	       
-ViewPager的PagerAdapter如何复用被杀死的Pager，并且不引起崩溃？菜单栏刷新，如何处理
-
-    @Override
-    public HomeFragmentItem getItem(int position) {
-        HomeFragmentItem fragment = null;
-        if (mFragmentHashMap.get(position) == null) {
-            Class frgClass = mFragments[position];
-            try {
-                frgClass.newInstance();
-                fragment = (HomeFragmentItem) frgClass.newInstance();
-                mFragmentHashMap.put(position, fragment);
-            } catch (InstantiationException e) {
-                e.printStackTrace();
-            } catch (IllegalAccessException e) {
-                e.printStackTrace();
-            }
-        } else {
-            fragment = mFragmentHashMap.get(position);
-        }
-        return fragment;
-    }
-
-
-    @Override
-    public Object instantiateItem(ViewGroup container, int position) {
-        HomeFragmentItem fragmentItem = (HomeFragmentItem) super.instantiateItem(container, position);
-        mFragmentHashMap.put(position, fragmentItem);
-        return fragmentItem;
-    }
-           
-
-mFirstLayout =true 可能是还没有创建Fragment，那么我们就不能获取Fragment，也不能使用里面的东西，但是可以调用dispatchOnPageSelected，至于里面如何操作就不知道了
-
-        if (mFirstLayout) {
-            // We don't have any idea how big we are yet and shouldn't have any pages either.
-            // Just set things up and let the pending layout handle things.
-            
-            <!--这里是说 ，可能没有页面，但是页面的回调可以做。其实这里如果牵扯到了Menu等回调，也许还有问题-->
-            
-            mCurItem = item;
-            if (dispatchSelected) {
-                dispatchOnPageSelected(item);
-            }
-            requestLayout();
-        } else {
-            populate(item);
-            scrollToItem(item, smoothScroll, velocity, dispatchSelected);
-        }
-  
-  其实注意创建过程，如果开始FragmentActivity中存在备份，就不用再次getItem。
-  
-      @Override
-    public Object instantiateItem(ViewGroup container, int position) {
-        if (mCurTransaction == null) {
-            mCurTransaction = mFragmentManager.beginTransaction();
-        }
-
-        final long itemId = getItemId(position);
-
-        // Do we already have this fragment?
-        String name = makeFragmentName(container.getId(), itemId);
-        Fragment fragment = mFragmentManager.findFragmentByTag(name);
-        if (fragment != null) {
-            if (DEBUG) Log.v(TAG, "Attaching item #" + itemId + ": f=" + fragment);
-            mCurTransaction.attach(fragment);
-        } else {
-            fragment = getItem(position);
-            if (DEBUG) Log.v(TAG, "Adding item #" + itemId + ": f=" + fragment);
-            mCurTransaction.add(container.getId(), fragment,
-                    makeFragmentName(container.getId(), itemId));
-        }
-        if (fragment != mCurrentPrimaryItem) {
-            fragment.setMenuVisibility(false);
-            fragment.setUserVisibleHint(false);
-        }
-
-        return fragment;
-    }
-  
-      private static String makeFragmentName(int viewId, long id) {
-        return "android:switcher:" + viewId + ":" + id;
-    }        
-
-ViewPager重建，Adapter的设置尽量靠后，如果靠前，并且设置了位置，后台杀死重启可能崩溃，不如网络请求回来动态的处理，再说开始设置一个空的Adapter有意义吗？尤其对于FragmentStateAdapter，更加容易引起bug，毕竟网络请求后，还会再次处理的，如果onCreate里面设置了Adapter，并且Fragment已经确定，那就一定不会有崩溃的问题。
-
-    @Override
-    public void onRestoreInstanceState(Parcelable state) {
-        if (!(state instanceof SavedState)) {
-            super.onRestoreInstanceState(state);
-            return;
-        }
-
-        SavedState ss = (SavedState)state;
-        super.onRestoreInstanceState(ss.getSuperState());
-
-        if (mAdapter != null) {
-            mAdapter.restoreState(ss.adapterState, ss.loader);
-            setCurrentItemInternal(ss.position, false, true);
-        } else {
-            mRestoredCurItem = ss.position;
-            mRestoredAdapterState = ss.adapterState;
-            mRestoredClassLoader = ss.loader;
-        }
-    }
-    
-        
-<a name="how_to_resolve"> </a>   
  
-#  后台杀死处理方式--如何处理FragmentActivity的后台杀死重建
+# App开发时针对后台杀死处理方式
                 
-* 最简单的方式，但是效率可能一般，取消系统恢复，每次恢复的时候，避免系统重建做法如下：
+* 最简单的方式，但是效果一般：**取消系统恢复** 
 
-如果是supportv4中的FragmentActivity 
+比如：针对FragmentActivity ，不重建：
 
     protected void onCreate(Bundle savedInstanceState) {
 	     if (savedInstanceState != null) {
@@ -622,182 +659,13 @@ ViewPager重建，Adapter的设置尽量靠后，如果靠前，并且设置了�
 
 如果是系统的Actvity改成是“android:fragments"，不过这里需要注意：对于ViewPager跟FragmentTabHost不需要额外处理，处理了可能反而有反作用。
 
+针对Window，如果不想让View使用恢复逻辑，在基类的FragmentActivity中覆盖onRestoreInstanceState函数即可。
 
-
-
- 
-
-<a name="Can_not_onSaveInstanceState"/>
-	        
-# 	Fragment Transactions & Activity State Loss  解决IllegalStateException: Can not perform this action after onSaveInstanceState     
- 
-
-大致意思是说 commit方法是在Activity的onSaveInstanceState()之后调用的，这样会出错，因为onSaveInstanceState，方法是在该Activity即将被销毁前调用，来保存Activity数据的，如果在保存玩状态后再给它添加Fragment就会出错。解决办法就是把commit（）方法替换成 commitAllowingStateLoss()就行了，其效果是一样的。
-	        	       
-	Dispatch onResume() to fragments. Note that for better inter-operation with older versions of the platform, at the point of this call the fragments attached to the activity are not resumed. This means that in some cases the previous state may still be saved, not allowing fragment transactions that modify the state. To correctly interact with fragments in their proper state, you should instead override onResumeFragments()
-	        	       
-官方文档 对FragmentActivity.onResume的解释：将onResume() 分发给fragment。注意，为了更好的和旧版本兼容，这个方法调用的时候，依附于这个activity的fragment并没有到resumed状态。着意味着在某些情况下，前面的状态可能被保存了，此时不允许fragment transaction再修改状态。从根本上说，你不能确保activity中的fragment在调用Activity的OnResume函数后是否是onresumed状态，因此你应该避免在执行fragment transactions直到调用了onResumeFragments函数。总的来说就是，你无法确定activity当前的fragment在activity onResume的时候也跟着resumed了，因此要避免在onResumeFragments之前进行fragment transaction，因为到onResumeFragments的时候，状态已经恢复并且它们的确是resumed了的。不当的commit场景：**How to avoid the exception?：**在onCreate、或者点击事件中commit transactions是不会产生任何问题的。但是如果transactions的操作涉及其他Activity生命周期方法的话。比如onActivityResult(), onStart(), and onResume()，这些场景就比较棘手，例如不要在onResume里commit transactions，因为onResume有可能在activity’s state has been restored之前调用，
-
-	**Be careful when committing transactions inside Activity lifecycle methods. A large majority of applications will only ever commit transactions the very first time onCreate() is called and/or in response to user input, and will never face any problems as a result. However, as your transactions begin to venture out into the other Activity lifecycle methods, such as onActivityResult(), onStart(), and onResume(), things can get a little tricky. For example, you should not commit transactions inside the FragmentActivity#onResume() method, as there are some cases in which the method can be called before the activity’s state has been restored (see the documentation for more information). If your application requires committing a transaction in an Activity lifecycle method other than onCreate(), do it in either FragmentActivity#onResumeFragments() or Activity#onPostResume(). These two methods are guaranteed to be called after the Activity has been restored to its original state, and therefore avoid the possibility of state loss all together. (As an example of how this can be done, check out my answer to this StackOverflow question for some ideas on how to commit FragmentTransactions in response to calls made to the Activity#onActivityResult() method).**
-
-其次不要在在异步异步回调中处理transactions事件，比如AsyncTask，LoaderManager，回调不关心Activity的状态是否被restore，常见的场景：home键返回主页，会调用onSaveInstanceState() ，onStop()，如果AsyncTask在此之后被执行，就会导致异常，并且从用户体验的角度来说也并不好。
-
-	Avoid performing transactions inside asynchronous callback methods. This includes commonly used methods such as AsyncTask#onPostExecute() and LoaderManager.LoaderCallbacks#onLoadFinished(). The problem with performing transactions in these methods is that they have no knowledge of the current state of the Activity lifecycle when they are called. For example, consider the following sequence of events:
-	An activity executes an AsyncTask.The user presses the “Home” key, causing the activity’s onSaveInstanceState() and onStop() methods to be called.The AsyncTask completes and onPostExecute() is called, unaware that the Activity has since been stopped.A FragmentTransaction is committed inside the onPostExecute() method, causing an exception to be thrown.In general, the best way to avoid the exception in these cases is to simply avoid committing transactions in asynchronous callback methods all together. Google engineers seem to agree with this belief as well. According to this post on the Android Developers group, the Android team considers the major shifts in UI that can result from committing FragmentTransactions from within asynchronous callback methods to be bad for the user experience. If your application requires performing the transaction inside these callback methods and there is no easy way to guarantee that the callback won’t be invoked after onSaveInstanceState(), you may have to resort to using commitAllowingStateLoss() and dealing with the state loss that might occur. (See also these two StackOverflow posts for additional hints, here and here).
-
-如果万不得已，可以使用commitAllowingStateLoss()，这只是一种妥协，最好还是改进交互
-
-	Use commitAllowingStateLoss() only as a last resort. The only difference between calling commit() and commitAllowingStateLoss() is that the latter will not throw an exception if state loss occurs. Usually you don’t want to use this method because it implies that there is a possibility that state loss could happen. The better solution, of course, is to write your application so that commit() is guaranteed to be called before the activity’s state has been saved, as this will result in a better user experience. Unless the possibility of state loss can’t be avoided, commitAllowingStateLoss() should not be used.
-
-比较合理的使用方法：If you are using the support-v4 library and FragmentActivity, try to always use onResumeFragments() instead of onResume() in your FragmentActivity implementations.FragmentActivity#onResume() documentation:To correctly interact with fragments in their proper state, you should instead override onResumeFragments().
-
-    @Override
-    protected void onResumeFragments() {
-        super.onResumeFragments();
-        if (currentTab != null) {
-            int position = TabType.getTabPosition(currentTab);
-            if (position >= 0) {
-                fragmentTabHost.setCurrentTab(position);
-            }
-        }
-    }     
-
-	
-# 为什么Fragment必须提供默认构造方法 
-
-后台杀死后，FragmentManager会根据反射机制重建Fragment实例，此时采用的是默认无参构造函数
-
-	   void restoreAllState(Parcelable state, ArrayList<Fragment> nonConfig) {	  ...
-	           mActive = new ArrayList<Fragment>(fms.mActive.length);
-	        if (mAvailIndices != null) {
-	            mAvailIndices.clear();
-	        }
-	        for (int i=0; i<fms.mActive.length; i++) {
-	            FragmentState fs = fms.mActive[i];
-	            if (fs != null) {
-	                Fragment f = fs.instantiate(mActivity, mParent);
- 	
-	 /**
-     * Create a new instance of a Fragment with the given class name.  This is
-     * the same as calling its empty constructor.
-     *
-     * @param context The calling context being used to instantiate the fragment.
-     * This is currently just used to get its ClassLoader.
-     * @param fname The class name of the fragment to instantiate.
-     * @param args Bundle of arguments to supply to the fragment, which it
-     * can retrieve with {@link #getArguments()}.  May be null.
-     * @return Returns a new fragment instance.
-     * @throws InstantiationException If there is a failure in instantiating
-     * the given fragment class.  This is a runtime exception; it is not
-     * normally expected to happen.
-     */
-    public static Fragment instantiate(Context context, String fname, @Nullable Bundle args) {
-        try {
-            Class<?> clazz = sClassMap.get(fname);
-            if (clazz == null) {
-                // Class not found in the cache, see if it's real, and try to add it
-                clazz = context.getClassLoader().loadClass(fname);
-                sClassMap.put(fname, clazz);
-            }
-            Fragment f = (Fragment)clazz.newInstance();
-            if (args != null) {
-                args.setClassLoader(f.getClass().getClassLoader());
-                f.mArguments = args;
-            }
-            return f;
-        } catch (ClassNotFoundException e) {
-            throw new InstantiationException("Unable to instantiate fragment " + fname
-                    + ": make sure class name exists, is public, and has an"
-                    + " empty constructor that is public", e);
-        } catch (java.lang.InstantiationException e) {
-            throw new InstantiationException("Unable to instantiate fragment " + fname
-                    + ": make sure class name exists, is public, and has an"
-                    + " empty constructor that is public", e);
-        } catch (IllegalAccessException e) {
-            throw new InstantiationException("Unable to instantiate fragment " + fname
-                    + ": make sure class name exists, is public, and has an"
-                    + " empty constructor that is public", e);
-        }
-    }
-  
-#   Viewpager与FragmentTabhost的恢复逻辑，
-
-Viewpager与Fragmenttabhost有自己的恢复逻辑，当然这些都是在FramgentManager恢复完FragmentActivity之后，在Android 3.0之前，系统只会恢复Activity内部的View的状态
-
-对于FragmentTabhost，重建之后，不会再次重建，会根据Tag查找到 ，但是如果，你主动重建，就会重复 。
-
- 
-	 final class FragmentManagerImpl extends FragmentManager implements LayoutInflaterFactory {  
-	 
-	     int mCurState = Fragment.INITIALIZING;        
-	     
-
-
-    public void addTab(TabHost.TabSpec tabSpec, Class<?> clss, Bundle args) {
-        tabSpec.setContent(new DummyTabFactory(mContext));
-        String tag = tabSpec.getTag();
-
-        TabInfo info = new TabInfo(tag, clss, args);
-
-        if (mAttached) {
-            // If we are already attached to the window, then check to make
-            // sure this tab's fragment is inactive if it exists.  This shouldn't
-            // normally happen.
-            info.fragment = mFragmentManager.findFragmentByTag(tag);
-            if (info.fragment != null && !info.fragment.isDetached()) {
-                FragmentTransaction ft = mFragmentManager.beginTransaction();
-                ft.detach(info.fragment);
-                ft.commit();
-            }
-        }
-
-        mTabs.add(info);
-        addTab(tabSpec);
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
     }
     
-
-对于Viewpager
-
-    @Override
-    public Object instantiateItem(ViewGroup container, int position) {
-        if (mCurTransaction == null) {
-            mCurTransaction = mFragmentManager.beginTransaction();
-        }
-
-        final long itemId = getItemId(position);
-
-        // Do we already have this fragment?
-        String name = makeFragmentName(container.getId(), itemId);
-        Fragment fragment = mFragmentManager.findFragmentByTag(name);
-        if (fragment != null) {
-            if (DEBUG) Log.v(TAG, "Attaching item #" + itemId + ": f=" + fragment);
-            mCurTransaction.attach(fragment);
-        } else {
-            fragment = getItem(position);
-            if (DEBUG) Log.v(TAG, "Adding item #" + itemId + ": f=" + fragment);
-            mCurTransaction.add(container.getId(), fragment,
-                    makeFragmentName(container.getId(), itemId));
-        }
-        if (fragment != mCurrentPrimaryItem) {
-            fragment.setMenuVisibility(false);
-            fragment.setUserVisibleHint(false);
-        }
-
-        return fragment;
-    }
- 
-
-
-<a name="FragmentPagerAdapter_FragmentStatePagerAdapter"/>
-
-# FragmentPagerAdapter与FragmentStatePagerAdapter的使用场景
- 
-* FragmentPagerAdapter适用于存在刷新的界面 ，比如列表Fragment，如果采用FragmentStatePagerAdapter就需要保存现场，并且数据的加载会把逻辑弄乱
-* FragmentStatePagerAdapter更加适合图片类的处理，笔记图片预览等，一屏幕显示完全的，否则用FragmentStatePagerAdapter只会比FragmentPagerAdapter更复杂，还要自己缓存Fragment列表。
-
- 
-
- 
+当然以上的做法都是比较粗暴的做法，最好还是顺着Android的设计，在需要保存现场的地方保存，在需要恢复的地方，去除相应的数据进行恢复。以上就是后台杀死针对FragmentActivity、onSaveInstanceState、onRestoreInstanceState的一些分析，后面会有两篇针对后台杀死原理，以及ActivityManagerService如何处理杀死及恢复的文章。
+  
 	        
 ###  参考文档
 
