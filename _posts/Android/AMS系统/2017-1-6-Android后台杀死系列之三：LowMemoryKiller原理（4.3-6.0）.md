@@ -6,9 +6,7 @@ category: android开发
 
 ---
 
-# Android后台杀死原理分析
-
-
+  
 Android系统以Linux内核为基础，所以对于进程的管理自然离不开Linux本身提供的机制。例如：
 
 * 通过fork来创建进行
