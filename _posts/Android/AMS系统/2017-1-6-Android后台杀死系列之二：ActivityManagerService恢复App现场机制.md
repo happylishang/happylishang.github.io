@@ -107,6 +107,9 @@ category: Android
  
     final boolean resumeTopActivityLocked(ActivityRecord prev, Bundle options) {
       
+         // This activity is now becoming visible.
+            mService.mWindowManager.setAppVisibility(next.appToken, true);
+                   
 		 ....    恢复逻辑  
         if (next.app != null && next.app.thread != null) {
           // 正常恢复
@@ -143,9 +146,92 @@ category: Android
 
 ![Binder访问已经被杀死的进程](http://upload-images.jianshu.io/upload_images/1460468-00df66d0bf4dec82.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-还有一种可能，APP没有被kill，但是Activity被Kill掉了，这个时候会怎么样，首先，Activity的管理是一定通过AMS的，也就是说这种情况下的Activity的杀死是AMS操刀的，是有记录的，严格来说，这种情况并不属于后台杀死，因为这是AMS正常的管理，在可控范围，比如打开了开发者模式中的“不保留活动”。
+还有一种可能，APP没有被kill，但是Activity被Kill掉了，这个时候会怎么样。首先，Activity的管理是一定通过AMS的，Activity的kill一定是是AMS操刀的，是有记录的，严格来说，这种情况并不属于后台杀死，因为这属于AMS正常的管理，在可控范围，比如打开了开发者模式中的“不保留活动”,这个时候，虽然会杀死Activity，但是仍然保留了ActivitRecord，所以再唤醒，或者回退的的时候仍然有迹可循,看一下ActivityStack的Destroy回调代码，
+ 
+ final boolean destroyActivityLocked(ActivityRecord r,
+            boolean removeFromApp, boolean oomAdj, String reason) {
+        ...
 
-  
+        if (hadApp) {
+        
+        ...
+        	
+           boolean skipDestroy = false;
+            
+            try {
+             
+             关键代码 1
+             
+                r.app.thread.scheduleDestroyActivity(r.appToken, r.finishing,
+                        r.configChangeFlags);
+         	...
+ 
+            if (r.finishing && !skipDestroy) {
+                if (DEBUG_STATES) Slog.v(TAG, "Moving to DESTROYING: " + r
+                        + " (destroy requested)");
+                r.state = ActivityState.DESTROYING;
+                Message msg = mHandler.obtainMessage(DESTROY_TIMEOUT_MSG);
+                msg.obj = r;
+                mHandler.sendMessageDelayed(msg, DESTROY_TIMEOUT);
+            } else {
+          关键代码 2
+                r.state = ActivityState.DESTROYED;
+                if (DEBUG_APP) Slog.v(TAG, "Clearing app during destroy for activity " + r);
+                r.app = null;
+            }
+        } 
+        return removedFromHistory;
+    } 
+    
+这里有两个关键啊你单，**1**是告诉客户端的AcvitityThread清除Activity，**2**是标记如果AMS自己非正常关闭的Activity，就将ActivityRecord的state设置为ActivityState.DESTROYED，并且**清空它的ProcessRecord引用**：r.app = null。这里是唤醒时候的一个重要标志，通过这里AMS就能知道Activity被自己异常关闭了，设置ActivityState.DESTROYED是为了让避免后面的清空逻辑。
+
+    final void activityDestroyed(IBinder token) {
+        synchronized (mService) {
+            final long origId = Binder.clearCallingIdentity();
+            try {
+                ActivityRecord r = ActivityRecord.forToken(token);
+                if (r != null) {
+                    mHandler.removeMessages(DESTROY_TIMEOUT_MSG, r);
+                }
+               int index = indexOfActivityLocked(r);
+                if (index >= 0) {
+                1  <!--这里会是否从history列表移除ActivityRecord-->
+                    if (r.state == ActivityState.DESTROYING) {
+                        cleanUpActivityLocked(r, true, false);
+                        removeActivityFromHistoryLocked(r);
+                    }
+                }
+                resumeTopActivityLocked(null);
+            } finally {
+                Binder.restoreCallingIdentity(origId);
+            }
+        }
+    }
+
+看代码关键点**1**，只有r.state == ActivityState.DESTROYING的时候，才会移除ActivityRecord，但是对于不非正常finish的Activity，其状态是不会被设置成ActivityState.DESTROYING，是直接跳过了ActivityState.DESTROYING，被设置成了ActivityState.DESTROYED，所以不会removeActivityFromHistoryLocked，也就是保留了ActivityRecord现场，好像也是依靠异常来区分是否是正常的结束掉Activity。这种情况下是如何启动Activity的呢？ 通过上面两点分析，就知道了两个关键点
+
+1. ActivityRecord没有动HistoryRecord列表中移除
+2. ActivityRecord 的ProcessRecord字段被置空，r.app = null 
+
+这样就保证了在resumeTopActivityLocked的时候，走startSpecificActivityLocked分支
+	
+	final boolean resumeTopActivityLocked(ActivityRecord prev, Bundle options) {
+			  ...
+			 	
+	        if (next.app != null && next.app.thread != null) { 
+	        ...
+	        
+	        } else {
+	            // Whoops, need to restart this activity!
+			  ...
+	            startSpecificActivityLocked(next, true, true);
+	        }
+	
+	        return true;
+	    }
+
+这样AMS就知道了，这个APP或者Activity是不是被异常杀死过，从而决定是走resume流程还是restore流程。
+
 
 # startactivity总是会走realStartActivityLocked，但是恢复，就不走，恢复的实收是直接走resumeTopActivity，如果被杀死，抛出异常
 
