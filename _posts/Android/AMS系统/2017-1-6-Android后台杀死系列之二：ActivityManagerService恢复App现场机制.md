@@ -8,9 +8,10 @@ category: Android
 
 本篇是Android后台杀死系列的第二篇，主要讲解ActivityMangerService是如何恢复被后台杀死的进程的（基于4.3 ），在开篇[FragmentActivity及PhoneWindow后台杀死处理机制](http://www.jianshu.com/p/00fef8872b68)中，简述了后台杀死所引起的一些常见问题，还有Android系统控件对后台杀死所做的一些兼容，以及onSaveInstance跟onRestoreInstance的作用于执行时机，最后说了如何应对后台杀死，但是对于被后台杀死的进程如何恢复的并没有讲解，本篇不涉及后台杀死，比如LowmemoryKiller机制，只讲述被杀死的进程如何恢复的。假设，一个应用被后台杀死，再次从最近的任务列表唤起App时候，系统是如何处理的呢？有这么几个问题可能需要解决：
 
-* 系统如何知道App被杀死了
+
 * App被杀前的场景是如何保存的
-* 系统如何恢复被杀的App
+* **系统（AMS）如何知道App被杀死了**
+* 系统（AMS）如何恢复被杀的App
 * 被后台杀死的App的启动流程跟普通的启动有什么区别
 * Activity的恢复顺序为什么是倒序恢复
 
@@ -148,24 +149,17 @@ category: Android
 
 还有一种可能，APP没有被kill，但是Activity被Kill掉了，这个时候会怎么样。首先，Activity的管理是一定通过AMS的，Activity的kill一定是是AMS操刀的，是有记录的，严格来说，这种情况并不属于后台杀死，因为这属于AMS正常的管理，在可控范围，比如打开了开发者模式中的“不保留活动”,这个时候，虽然会杀死Activity，但是仍然保留了ActivitRecord，所以再唤醒，或者回退的的时候仍然有迹可循,看一下ActivityStack的Destroy回调代码，
  
- final boolean destroyActivityLocked(ActivityRecord r,
+` final boolean destroyActivityLocked(ActivityRecord r,
             boolean removeFromApp, boolean oomAdj, String reason) {
         ...
-
         if (hadApp) {
-        
-        ...
-        	
+          ...
            boolean skipDestroy = false;
-            
             try {
-             
              关键代码 1
-             
                 r.app.thread.scheduleDestroyActivity(r.appToken, r.finishing,
                         r.configChangeFlags);
          	...
- 
             if (r.finishing && !skipDestroy) {
                 if (DEBUG_STATES) Slog.v(TAG, "Moving to DESTROYING: " + r
                         + " (destroy requested)");
@@ -181,7 +175,7 @@ category: Android
             }
         } 
         return removedFromHistory;
-    } 
+    } `
     
 这里有两个关键啊你单，**1**是告诉客户端的AcvitityThread清除Activity，**2**是标记如果AMS自己非正常关闭的Activity，就将ActivityRecord的state设置为ActivityState.DESTROYED，并且**清空它的ProcessRecord引用**：r.app = null。这里是唤醒时候的一个重要标志，通过这里AMS就能知道Activity被自己异常关闭了，设置ActivityState.DESTROYED是为了让避免后面的清空逻辑。
 
@@ -230,39 +224,22 @@ category: Android
 	        return true;
 	    }
 
-这样AMS就知道了，这个APP或者Activity是不是被异常杀死过，从而决定是走resume流程还是restore流程。
+到这里，AMS就知道了这个APP或者Activity是不是被异常杀死过，从而，决定是走resume流程还是restore流程。
 
+# App被杀前的场景是如何保存的
 
-# startactivity总是会走realStartActivityLocked，但是恢复，就不走，恢复的实收是直接走resumeTopActivity，如果被杀死，抛出异常
-
-
-
-# Activitymanagerservice 如何知道应用背后太杀死,RemoteException 在resume的时候，如果无法启动，那就说明是被杀死了 ,对方进程已经死了，那就无法通信了，那就死了
-  
-
-# Application保存流程
-
-* App被杀前的场景是如何保存的
+其实App现场的保存流程相对是比较简单的，其入口基本就是startActivity的时候，只要是界面的跳转基本都牵扯到当前Activity场景的保存，
 
 
 ## 新Activity启动跟旧Activity的保存
  
 
-# 对于APP，所有的处理都是被动响应，Android是基于操作系统的被动式开发。
-
 # 主动清楚最近的任务
 
 # Activity的恢复流程 顺序
-
-## 不保留活动
-
-# 内核层面的杀死，框架层AMS是不知道的，只有在恢复的时候，才自己查询得到，并主导恢复流程
-
-    
-    
-    
-
-Android开发经常会遇到这样的问题，App在后台久置之后，再次点击图标或从最近的任务列表打开时，App可能会崩溃。这种情况往往是App在后台被系统杀死，在恢复的时候遇到了问题，这种问题经常出现在FragmentActivity中，尤其是里面添加了Fragment的时候。开发时一直遵守谷歌的Android开发文档，创建Fragment尽量采用推荐的参数传递方式，并且保留默认的Fragment无参构造方法，避免绝大部分后台杀死-恢复崩溃的问题，但是对于原理的了解紧限于恢复时的重建机制，采用反射机制，并使用了默认的构造参数，直到使用FragmentDialog，还要后天杀死后，Dialog不会显示，但是FragmentDialog就可以恢复。其实App在后台待久了很可能被Android的LowMemoryKiller机制给杀掉，但是其现场是被AMS保存的，再次启动是时候，会通过AMS进行恢复。LowMemoryKiller机制在另一篇文章讲述。本文就Activity的保存，及恢复探讨一下Android后台杀死及恢复的机制。
+ 
+ 
+Activity的保存，及恢复探讨一下Android后台杀死及恢复的机制。
 
 ![Activity Launch流程图.png](http://upload-images.jianshu.io/upload_images/1460468-c91b004975ed70c4.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
