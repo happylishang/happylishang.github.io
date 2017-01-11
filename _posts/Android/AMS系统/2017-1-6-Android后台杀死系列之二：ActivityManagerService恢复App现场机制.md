@@ -101,10 +101,58 @@ category: Android
 
 ![从最近的任务列表唤起App的流程](http://upload-images.jianshu.io/upload_images/1460468-e9834e9ea80ad648.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-## 在唤起App的时候侦测App或者Activity是否被异常杀死
+## 在唤起App的时候AMS侦测App或者Activity是否被异常杀死
 
-接着往下看moveTaskToFrontLocked，这个函数在ActivityStack中，主要管理ActivityRecord栈的，所有start的Activity都在ActivityStack中保留一个ActivityRecord，这个也是AMS管理Activiyt的一个依据，最终moveTaskToFrontLocked会调用resumeTopActivityLocked来唤起Activity，AMS获取即将resume的Activity信息的方式主要是通过ActivityRecord，它并不知道Activity本身是否存活，
+接着往下看moveTaskToFrontLocked，这个函数在ActivityStack中，主要管理ActivityRecord栈的，所有start的Activity都在ActivityStack中保留一个ActivityRecord，这个也是AMS管理Activiyt的一个依据，最终moveTaskToFrontLocked会调用resumeTopActivityLocked来唤起Activity，AMS获取即将resume的Activity信息的方式主要是通过ActivityRecord，它并不知道Activity本身是否存活，获取之后，AMS在唤醒Activity的环节才知道App或者Activity被杀死，而这个过程是通过异常来处理的，具体看一下resumeTopActivityLocked源码：
+ 
+    final boolean resumeTopActivityLocked(ActivityRecord prev, Bundle options) {
+      
+		 ....    恢复逻辑  
+        if (next.app != null && next.app.thread != null) {
+          // 正常恢复
+            try {
+                // Deliver all pending results.
+                ArrayList a = next.results;
+                if (a != null) {
+                    final int N = a.size();
+                    if (!next.finishing && N > 0) {
+                        next.app.thread.scheduleSendResult(next.appToken, a);
+                    }
+                }
+                ...
+                next.app.thread.scheduleResumeActivity(next.appToken,
+                        mService.isNextTransitionForward()); 
+                ...
+            } catch (Exception e) {
+                // Whoops, need to restart this activity!
+                // 这里需要重启，难道被后台杀死，走的是异常分支吗？？？？ 异常杀死
+                if (DEBUG_STATES) Slog.v(TAG, "Resume failed; resetting state to "
+                        + lastState + ": " + next);
+                next.state = lastState;
+                mResumedActivity = lastResumedActivity;
+                <!--确实这里是因为进程挂掉了-->
+                Slog.i(TAG, "Restarting because process died: " + next);
+                 。。。
+                startSpecificActivityLocked(next, true, false);
+                return true;
+            }
+            ...
+            }
 
+由于没有主动调用finish的，所以AMS并不会清理掉ActivitRecord与TaskRecord ，因此resume的时候走的就是上面的分支，可以这里会调用next.app.thread.scheduleSendResult或者next.app.thread.scheduleResumeActivity进行唤起上一个Activity，但是如果APP或者Activity被异常杀死，那么唤起的操作一定是失败，会抛出异常，首先假设APP整个被杀死，那么APP端同AMS通信的Binder线程也不复存在，这个时候通过Binder进行通信就会抛出RemoteException，如此，就会走下面的catch部分，通过startSpecificActivityLocked再次将APP重建，并且将最后的Activity重建，其实你可以本地利用AIDL写一个C/S通信，在将一端关闭，然后用另一端访问，就会抛出RemoteException异常，如下图：
+
+![Binder访问已经被杀死的进程](http://upload-images.jianshu.io/upload_images/1460468-00df66d0bf4dec82.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+还有一种可能，APP没有被kill，但是Activity被Kill掉了，这个时候会怎么样，首先，Activity的管理是一定通过AMS的，也就是说这种情况下的Activity的杀死是AMS操刀的，是有记录的，严格来说，这种情况并不属于后台杀死，因为这是AMS正常的管理，在可控范围，比如打开了开发者模式中的“不保留活动”。
+
+  
+
+# startactivity总是会走realStartActivityLocked，但是恢复，就不走，恢复的实收是直接走resumeTopActivity，如果被杀死，抛出异常
+
+
+
+# Activitymanagerservice 如何知道应用背后太杀死,RemoteException 在resume的时候，如果无法启动，那就说明是被杀死了 ,对方进程已经死了，那就无法通信了，那就死了
+  
 
 # Application保存流程
 
@@ -124,75 +172,6 @@ category: Android
 
 # 内核层面的杀死，框架层AMS是不知道的，只有在恢复的时候，才自己查询得到，并主导恢复流程
 
-
-# startactivity总是会走realStartActivityLocked，但是恢复，就不走，恢复的实收是直接走resumeTopActivity，如果被杀死，抛出异常
-
-![Binder访问已经被杀死的进程](http://upload-images.jianshu.io/upload_images/1460468-00df66d0bf4dec82.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-# Activitymanagerservice 如何知道应用背后太杀死,RemoteException 在resume的时候，如果无法启动，那就说明是被杀死了 ,对方进程已经死了，那就无法通信了，那就死了
-
-
-
-    final boolean resumeTopActivityLocked(ActivityRecord prev, Bundle options) {
-      
-		 ....    恢复逻辑  
-        if (next.app != null && next.app.thread != null) {
-           
-            // 正常恢复
-            try {
-                // Deliver all pending results.
-                ArrayList a = next.results;
-                if (a != null) {
-                    final int N = a.size();
-                    if (!next.finishing && N > 0) {
-                        next.app.thread.scheduleSendResult(next.appToken, a);
-                    }
-                }
-
-                if (next.newIntents != null) {
-                    next.app.thread.scheduleNewIntent(next.newIntents, next.appToken);
-                }
-
-                EventLog.writeEvent(EventLogTags.AM_RESUME_ACTIVITY,
-                        next.userId, System.identityHashCode(next),
-                        next.task.taskId, next.shortComponentName);
-                
-                next.sleeping = false;
-                showAskCompatModeDialogLocked(next);
-                next.app.pendingUiClean = true;
-                next.app.thread.scheduleResumeActivity(next.appToken,
-                        mService.isNextTransitionForward());
-                
-                checkReadyForSleepLocked();
-
-            } catch (Exception e) {
-                // Whoops, need to restart this activity!
-                // 这里需要重启，难道被后台杀死，走的是异常分支吗？？？？ 异常杀死
-                if (DEBUG_STATES) Slog.v(TAG, "Resume failed; resetting state to "
-                        + lastState + ": " + next);
-                next.state = lastState;
-                mResumedActivity = lastResumedActivity;
-                <!--确实这里是因为进程挂掉了-->
-                Slog.i(TAG, "Restarting because process died: " + next);
-                if (!next.hasBeenLaunched) {
-                    next.hasBeenLaunched = true;
-                } else {
-                    if (SHOW_APP_STARTING_PREVIEW && mMainStack) {
-                        mService.mWindowManager.setAppStartingWindow(
-                                next.appToken, next.packageName, next.theme,
-                                mService.compatibilityInfoForPackageLocked(
-                                        next.info.applicationInfo),
-                                next.nonLocalizedLabel,
-                                next.labelRes, next.icon, next.windowFlags,
-                                null, true);
-                    }
-                }
-                startSpecificActivityLocked(next, true, false);
-                return true;
-            }
-            ...
-            }
-    
     
     
     
