@@ -7,21 +7,20 @@ image: http://upload-images.jianshu.io/upload_images/1460468-00df66d0bf4dec82.pn
 ---
 
 
-本篇是Android后台杀死系列的第二篇，主要讲解ActivityMangerService是如何恢复被后台杀死的进程的（基于4.3 ），在开篇FragmentActivity及PhoneWindow后台杀死处理机制中，简述了后台杀死所引起的一些常见问题，还有Android系统控件对后台杀死所做的一些兼容，以及onSaveInstance跟onRestoreInstance的作用于执行时机，最后说了如何应对后台杀死，但是对于被后台杀死的进程如何恢复的并没有讲解，本篇不涉及后台杀死，比如LowmemoryKiller机制，只讲述被杀死的进程如何恢复的。假设，一个应用被后台杀死，再次从最近的任务列表唤起App时候，系统是如何处理的呢？有这么几个问题可能需要解决：
+本篇是Android后台杀死系列的第二篇，主要讲解ActivityMangerService是如何恢复被后台杀死的进程的（基于4.3 ），在开篇FragmentActivity及PhoneWindow后台杀死处理机制中，简述了后台杀死所引起的一些常见问题，还有Android系统控件对后台杀死所做的一些兼容，以及onSaveInstance跟onRestoreInstance的作用于执行时机，最后说了如何应对后台杀死。但是，对于被后台杀死的进程如何恢复的并没有讲解，本篇不涉及后台杀死，比如LowmemoryKiller机制，只讲述被杀死的进程如何恢复的。假设，一个应用被后台杀死，再次从最近的任务列表唤起App时候，系统是如何处理的呢？有这么几个问题可能需要解决：
 
 * **Android框架层（AMS）如何知道App被杀死了**
 * App被杀前的场景是如何保存的
 * 系统（AMS）如何恢复被杀的App
-* 被后台杀死的App的启动流程跟普通的启动有什么区别
 * Activity的恢复顺序为什么是倒序恢复
  
 [Android后台杀死系列之一：FragmentActivity及Fragment本质及后台杀死处理机制](http://www.jianshu.com/p/00fef8872b68) 
 
-# 系统（AMS）如何知道App被杀死了
+# Android框架层（AMS）如何知道App被杀死了
 
 首先来看第一个问题，系统如何知道Application被杀死了，Android使用了Linux的oomKiller机制，只是简单的做了个变种，采用分等级的LowmemoryKiller，但这个其实是内核层面，LowmemoryKiller杀死进程后，不会像用户空间发送通知，也就是说即使是框架层的ActivityMangerService也无法知道App是否被杀死，但是，只有知道App或者Activity是否被杀死，AMS（ActivityMangerService）才能正确的走唤起流程，那么AMS究竟是在什么时候知道App或者Activity被后台杀死了呢？我们先看一下从最近的任务列表进行唤起的时候，究竟发生了什么。
 
-## 最近的任务列表或者Icon再次唤起App
+## 从最近的任务列表或者Icon再次唤起App流程
 
 在系统源码systemUi的包里，有个RecentActivity，这个其实就是最近的任务列表的入口，而其呈现界面是通过RecentsPanelView来展现的，点击最近的App其执行代码如下：
 

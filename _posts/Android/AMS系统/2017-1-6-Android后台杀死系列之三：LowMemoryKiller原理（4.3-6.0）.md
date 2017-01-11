@@ -6,7 +6,18 @@ category: android开发
 
 ---
 
-  
+
+本篇是Android后台杀死系列的第三篇，主要讲解的是Android后台杀死原理：LowMemoryKiller，
+
+LowMemoryKiller是Andorid基于Linux的oomKiller原理所扩展的一个多层次oomKiller，假设让你设计一个LowMemoryKiller，你会如何做，这样一个系统需要什么功能模块呢？
+
+* 进程优先级：先杀谁，后杀谁
+* 进程优先级的动态管理：一个进程的优先级不应该是固定不变的，需要根据其变动而动态变化
+* 杀死的时机，什么时候需要挑一个，或者挑多个进程杀死
+
+以上三个问题可能是一个MemoryKiller模块需要的基本功能，
+
+
 Android系统以Linux内核为基础，所以对于进程的管理自然离不开Linux本身提供的机制。例如：
 
 * 通过fork来创建进行
