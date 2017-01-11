@@ -2,12 +2,12 @@
 layout: post
 title: "Android后台杀死系列之二：ActivityManagerService恢复App现场机制"
 category: Android
+image: http://upload-images.jianshu.io/upload_images/1460468-00df66d0bf4dec82.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 
 ---
 
 
 本篇是Android后台杀死系列的第二篇，主要讲解ActivityMangerService是如何恢复被后台杀死的进程的（基于4.3 ），在开篇[FragmentActivity及PhoneWindow后台杀死处理机制](http://www.jianshu.com/p/00fef8872b68)中，简述了后台杀死所引起的一些常见问题，还有Android系统控件对后台杀死所做的一些兼容，以及onSaveInstance跟onRestoreInstance的作用于执行时机，最后说了如何应对后台杀死，但是对于被后台杀死的进程如何恢复的并没有讲解，本篇不涉及后台杀死，比如LowmemoryKiller机制，只讲述被杀死的进程如何恢复的。假设，一个应用被后台杀死，再次从最近的任务列表唤起App时候，系统是如何处理的呢？有这么几个问题可能需要解决：
-
 
 * App被杀前的场景是如何保存的
 * **系统（AMS）如何知道App被杀死了**
@@ -228,15 +228,11 @@ category: Android
 
 # App被杀前的场景是如何保存的
 
+## 新Activity启动跟旧Activity的保存
+
 其实App现场的保存流程相对是比较简单的，其入口基本就是startActivity的时候，只要是界面的跳转基本都牵扯到当前Activity场景的保存，
 
 
-## 新Activity启动跟旧Activity的保存
- 
-
-# 主动清楚最近的任务
-
-# Activity的恢复流程 顺序
  
  
 Activity的保存，及恢复探讨一下Android后台杀死及恢复的机制。
@@ -1478,10 +1474,7 @@ Android开发的时候经常会遇到这样的问题，App在后台久置之后�
         // Find the first activity that is not finishing.
         ActivityRecord next = topRunningActivityLocked(null);
         
-# onSaveInstanceState()的调用时机，都是在onPause或者onStop之前，Android Honeycomb之前之后，之前onPause，之后onStop，但是对于按返回键的怎么处理呢
-
-	The reason why these slight inconsistencies exist stems from a significant change to the Activity lifecycle that was made in Honeycomb. Prior to Honeycomb, activities were not considered killable until after they had been paused, meaning that onSaveInstanceState() was called immediately before onPause(). Beginning with Honeycomb, however, Activities are considered to be killable only after they have been stopped, meaning that onSaveInstanceState() will now be called before onStop() instead of immediately before onPause(). These differences are summarized in the table below:
-
+ 
 
 # 但是如何判断是否被销毁，如何知道从oncreate还是从onresume开始 
  
