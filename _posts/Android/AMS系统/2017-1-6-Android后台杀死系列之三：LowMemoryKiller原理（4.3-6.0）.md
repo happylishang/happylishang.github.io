@@ -12,13 +12,21 @@ category: Android
 
 本篇是Android后台杀死系列的第三篇，前面两篇已经对后台杀死注意事项，杀死恢复机制做了分析，本篇主要讲解的是Android后台杀死原理：LowMemoryKiller。LowMemoryKiller(低内存杀手)是Andorid基于oomKiller原理所扩展的一个多层次oomKiller，属于内核模块，运行在内核空间，OOMkiller(Out Of Memory Killer)是在无法分配新内存的时候，选择性杀掉进程，到oom的时候，系统可能已经处于亚健康状态。LowMemoryKiller是系统可用内存较低时，选择性杀死进程的策略，相对OOMKiller，更加灵活。在详细分析原理之前不妨自己想一下，假设让你设计一个LowMemoryKiller，你会如何做，这样一个系统需要什么功能模块呢？
 
-* 进程优先级：先杀谁，后杀谁
+* 进程优先级定义：先杀谁，后杀谁
 * 进程优先级的动态管理：一个进程的优先级不应该是固定不变的，需要根据其变动而动态变化
 * 杀死的时机，什么时候需要挑一个，或者挑多个进程杀死
 * 如何杀
 
-以上几个问题便是一个MemoryKiller模块需要的基本功能，Android底层采用的是Linux内核，所以其进程管理都是基于Linux内核，所以LowMemoryKiller放在内核也比较合理，不过这也意味着用户空间对于后台杀死不可见，就像AMS完全不知道一个APP是否被后台杀死，只有在AMS唤醒APP的时候，才知道APP是否被LowMemoryKiller杀死过。
- 
+以上几个问题便是一个MemoryKiller模块需要的基本功能，Android底层采用的是Linux内核，所以其进程管理都是基于Linux内核，所以LowMemoryKiller放在内核也比较合理，不过这也意味着用户空间对于后台杀死不可见，就像AMS完全不知道一个APP是否被后台杀死，只有在AMS唤醒APP的时候，才知道APP是否被LowMemoryKiller杀死过。其实LowmemoryKiller的原理是很清晰的，先看一下整体流程图，再分步分析：
+
+![App操作影响进程优先级](http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+  
+ 可以看到，影响进程被杀的点是AMS去更新内核的进程优先级，并且这个操作是单向的，所以先记住两点 
+
+1. LowMemoryKiller是被动杀死进程
+2. Android应用通过AMS，利用proc文件系统更新进程信息
+
+
 * 通过fork来创建进行
 * 通过信号量来管理进程
 * 通过proc文件系统来查询和调整进程状态等
@@ -63,11 +71,15 @@ Android系统将尽量长时间地保持应用进程，但为了新建进程或�
 # 内核部分 
 # oomKILLer(Linux自带)与Lowmemorykiller（android定制）
 
-# 不同版本Android的对Lowmemorykiller的处理不同
+# 进程的优先级是如何更新的
 
 ![LowMemorykiller更新进程优先级](http://upload-images.jianshu.io/upload_images/1460468-ff1cdc46734ac3e2.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 ![5.0更新](http://upload-images.jianshu.io/upload_images/1460468-97a3a5e8a2a9555f.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+
+由于牵扯到内核，所以这里还是有个用户间跟内核空间的概念， APP中很多操作都会影响本身进程的优先级，比如退到后台、移到前台、因为加载图片分配了很多内存等，这些都会潜在的影响进程的优先级，这里我们用主动finish一个Activity为例子梳理一遍，先看一下4.3的源码，因为5.0 Lolipop之后引入了一个LMKD服务，这个在之前是没有，不过不用担心，这个服务位于用户空间，其作用层次同AMS、WMS类似，属于系统服务，在调用finish关闭掉当前Activity的时候
+
 
 以finish为例
 
