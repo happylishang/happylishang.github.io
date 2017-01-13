@@ -2,6 +2,7 @@
 layout: post
 title: "Android后台杀死系列之三：LowMemoryKiller原理（4.3-6.0）"
 category: Android
+image: http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 
 ---
 
@@ -23,7 +24,7 @@ LowMemoryKiller(低内存杀手)是Andorid基于oomKiller原理所扩展的一�
 
 ![App操作影响进程优先级](http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
   
- 可以看到，影响进程被杀的点是AMS去更新内核的进程优先级，并且这个操作是单向的，所以先记住两点 
+影响进程被杀的点是AMS去更新内核的进程优先级，并且这个操作是单向的，所以先记住两点 
 
 1. LowMemoryKiller是被动杀死进程
 2. Android应用通过AMS，利用proc文件系统更新进程信息
@@ -32,13 +33,9 @@ LowMemoryKiller(低内存杀手)是Andorid基于oomKiller原理所扩展的一�
 # 进程保活
 # 冷热启动
 
-# Android应用进程的概念 
+# Android应用进程优先级的概念 
 
-要杀死低优先级的进程首先得有个进程优先级的概念跟定义，Android中是如何定义应用程序的优先级的呢？Android中都是以组件的方式呈献给用户的，其进程的优先级正是由这些组件 及其运行状态决定的。必要时，系统会首先消除重要性最低的进程，然后是清除重要性稍低一级的进程，依此类推，以回收系统资源。* 通过信号量来管理进程
-* 
-
- 
-进程的重要性，划分5级：
+要杀死低优先级的进程首先得有进程优先级的概念跟定义，Android中是如何定义应用程序的优先级的呢？Android中都是以组件的方式呈献给用户的，其进程的优先级正是由这些组件 及其运行状态决定的。在Android中应用进程划分5级（[Google文档](https://developer.android.com/guide/components/processes-and-threads.html)）：
 
 前台进程(Foreground process)
 可见进程(Visible process)
