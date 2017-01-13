@@ -350,7 +350,7 @@ Android5.0将设置进程优先级的入口封装成了一个独立的服务lmkd
             app.verifiedAdj = ProcessList.INVALID_ADJ;
         }
         
-从上面的不同点1可以看出，5.0之后是通过一个ProcessList类去设置oomAdj，其实这里就是通过socket与LMKD服务进行通信，这里传递给lmkd服务的命令是LMK_PROCPRIO
+从上面的不同点1可以看出，5.0之后是通过ProcessList类去设置oomAdj，其实这里就是通过socket与LMKD服务进行通信，向lmkd服务传递给LMK_PROCPRIO命令去更新进程优先级：
        
     public static final void setOomAdj(int pid, int uid, int amt) {
         if (amt == UNKNOWN_ADJ)
@@ -376,7 +376,7 @@ Android5.0将设置进程优先级的入口封装成了一个独立的服务lmkd
 		        ...
 		}
 
-其实就是openLmkdSocket打开本地socket端口，并将优先级信息发送过去，那么lmkd服务端如何处理的呢，init.rc里配置的服务是在开机时启动的，来看看lmkd服务的main入口
+其实就是openLmkdSocket打开本地socket端口，并将优先级信息发送过去，那么lmkd服务端如何处理的呢，init.rc里配置的服务是在开机时启动的，来看看lmkd服务的入口：main函数
 
 > lmkd.c函数
 
@@ -394,7 +394,7 @@ Android5.0将设置进程优先级的入口封装成了一个独立的服务lmkd
 	    return 0;
 	}
 
-其实就是打开一个端口，并不通过mainloop，监听socket，有需求到来，就解析命令并执行，刚才传入的LMK_PROCPRIO命令对应的操作就是cmd_procprio，用来更新oomAdj，其实其更新新机制还是通过proc文件系统，看下面代码：
+很简单，打开一个端口，并通过mainloop监听socket，如果有请求到来，就解析命令并执行，刚才传入的LMK_PROCPRIO命令对应的操作就是cmd_procprio，用来更新oomAdj，其更新新机制还是通过proc文件系统，不信？看下面代码：
 
 	static void cmd_procprio(int pid, int uid, int oomadj) {
 	    struct proc *procp;
@@ -406,13 +406,15 @@ Android5.0将设置进程优先级的入口封装成了一个独立的服务lmkd
 	   。。。
 	}
 
+简单的流程图如下，同4.3不同的地方
+	
 ![Android5.0之后的LMKD服务](http://upload-images.jianshu.io/upload_images/1460468-75fb0b227f12aeb4.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-以上就分析完了用户空间的操作如何影响到进程的优先级，并且将新的优先级写到内核中。下面看一下LomemoryKiller在什么时候根据优先级杀死进程的：
+以上就分析完了用户空间的操作如何影响到进程的优先级，并且将新的优先级写到内核中。最后看一下LomemoryKiller在什么时候、如何根据优先级杀死进程的：
 
 # LomemoryKiller内核部分：如何杀死
 
-LomemoryKiller属于一个内核驱动呢模块，主要是在系统内存不足的时候扫描进程队列，找到优先级低（也许说性价比更合适）的进程并杀死，以达到释放内存的目的，看一下这个驱动模块的注册入口：
+LomemoryKiller属于一个内核驱动模块，主要功能是：在系统内存不足的时候扫描进程队列，找到低优先级（也许说性价比低更合适）的进程并杀死，以达到释放内存的目的。对于驱动程序，入口是__init函数，先看一下这个驱动模块的入口：
 
 	static int __init lowmem_init(void)
 	{
@@ -420,17 +422,17 @@ LomemoryKiller属于一个内核驱动呢模块，主要是在系统内存不足
 		return 0;
 	}
 	
-可以看到在注册驱动的时候，LomemoryKiller其实就是将自己的lowmem_shrinker入口注册到系统的内存检测模块去，作用就是在内存不足的时候可以被回调，register_shrinker函数是一属于另一个内存管理模块的函数，如果一定要根下去的话，可以看一下它的定义:
+可以看到在init的时候，LomemoryKiller将自己的lowmem_shrinker入口注册到系统的内存检测模块去，作用就是在内存不足的时候可以被回调，register_shrinker函数是一属于另一个内存管理模块的函数，如果一定要根下去的话，可以看一下它的定义，其实就是加到一个回调函数队列中去:
 
-void register_shrinker(struct shrinker *shrinker)
-{
-	shrinker->nr = 0;
-	down_write(&shrinker_rwsem);
-	list_add_tail(&shrinker->list, &shrinker_list);
-	up_write(&shrinker_rwsem);
-}
+	void register_shrinker(struct shrinker *shrinker)
+	{
+		shrinker->nr = 0;
+		down_write(&shrinker_rwsem);
+		list_add_tail(&shrinker->list, &shrinker_list);
+		up_write(&shrinker_rwsem);
+	}
 
-现在来看一下lowmem_shrinker是如何找到低优先级进程，并杀死的，
+最后，看一下，当内存不足触发回调的时候，LomemoryKiller是如何找到低优先级进程，并杀死的：入口函数就是init时候注册的lowmem_shrink函数（4.3源码，后面的都有微调但原理大概类似）：
 	
 	static int lowmem_shrink(int nr_to_scan, gfp_t gfp_mask)
 	{
@@ -474,7 +476,7 @@ void register_shrinker(struct shrinker *shrinker)
 		return rem;
 	}
 
-先看关键点1、其实就是确定当前低内存对应的阈值，关键点2 ，找到该阈值下优先级低，切内存占用高的的进程，将其杀死，其杀死方式很直接，就是通过Linux的中的信号量，发送SIGKILL信号直接将进程杀死。到这就分析完了LomemoryKiller内核部分如何工作，其实很简单，就是被动扫描，找打低优先级的进程，杀死。
+先看关键点1：其实就是确定当前低内存对应的阈值；关键点2 ：找到比该阈值优先级低，切task多的进程，将其杀死。如何杀死的呢？很直接，通过Linux的中的信号量，发送SIGKILL信号直接将进程杀死。到这就分析完了LomemoryKiller内核部分如何工作的。其实很简单，**一句话：被动扫描，找到低优先级的进程，杀死。**
 	
  
 # 总结
