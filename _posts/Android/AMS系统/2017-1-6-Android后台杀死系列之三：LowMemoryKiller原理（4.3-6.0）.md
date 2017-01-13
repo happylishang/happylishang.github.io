@@ -24,11 +24,8 @@ image: http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.pn
 1. LowMemoryKiller是被动杀死进程
 2. Android应用通过AMS，利用proc文件系统更新进程信息
 
-# oomAdj
-# 进程保活
-# 冷热启动
 
-# Android应用进程优先级的概念 
+# Android应用进程优先级及oomAdj的概念 
 
 要杀死低优先级的进程首先得有进程优先级的概念跟定义，Android中是如何定义应用程序的优先级的呢？Android中都是以组件的方式呈献给用户的，其进程的优先级正是由这些组件 及其运行状态决定的。在Android中应用进程划分5级（[Google文档](https://developer.android.com/guide/components/processes-and-threads.html)）：
 
@@ -371,6 +368,7 @@ void register_shrinker(struct shrinker *shrinker)
 	05-05 15:26:13.124 762-10606/? W/ActivityManager: Force removing ActivityRecord{1a378c0 u0 com.ls.tools/.activity.KillBackGroundActivity t759}: app died, no saved state
 	05-05 15:26:13.135 12803-12803/? I/art: Late-enabling -Xcheck:jni
  
+# 进程保活与冷热启动
     
 # 参考文档
 
