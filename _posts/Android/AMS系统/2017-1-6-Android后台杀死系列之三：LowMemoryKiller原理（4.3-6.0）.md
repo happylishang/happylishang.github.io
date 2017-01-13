@@ -22,6 +22,15 @@ image: http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.pn
 1. LowMemoryKiller是被动杀死进程
 2. Android应用通过AMS，利用proc文件系统更新进程信息
 
+# 目录
+
+[Android应用进程优先级及oomAdj](#oomAdj_declear)       
+[Android应用的优先级是如何更新的 ](#update_oomAdj)         
+[LomemoryKiller内核部分：杀死原理](#kill)         
+
+<a name="kill"></a>
+ 
+
 # Android应用进程优先级及oomAdj
 
 Android会尽可能长时间地保持应用存活，但为了新建或运行更重要的进程，可能需要移除旧进程来回收内存，在选择要Kill的进程的时候，系统会根据进程的运行状态作出评估，权衡进程的“重要性“，其权衡的依据主要是四大组件。如果需要缩减内存，系统会首先消除重要性最低的进程，然后是重要性略逊的进程，依此类推，以回收系统资源。在Android中，应用进程划分5级（[摘自Google文档](https://developer.android.com/guide/components/processes-and-threads.html)）：Android中APP的重要性层次一共5级：
@@ -69,99 +78,28 @@ Android会尽可能长时间地保持应用存活，但为了新建或运行更�
 
 通过Google文档，对不同进程的重要程度有了一个直观的认识，下面看一下量化到内存是什么样的呈现形式，这里针对不同的重要程度，做了进一步的细分，定义了重要级别ADJ，并将优先级存储到内核空间的进程结构体中去，供LowmemoryKiller参考：
  
-<table>
-  <thead>
-    <tr>
-      <th>ADJ优先级</th>
-      <th style="text-align: left">优先级</th>
-      <th style="text-align: left">对应场景</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>UNKNOWN_ADJ</td>
-      <td style="text-align: left">16</td>
-      <td style="text-align: left">一般指将要会缓存进程，无法获取确定值</td>
-    </tr>
-    <tr>
-      <td>CACHED_APP_MAX_ADJ</td>
-      <td style="text-align: left">15</td>
-      <td style="text-align: left">不可见进程的adj最大值（不可见进程可能在任何时候被杀死）</td>
-    </tr>
-    <tr>
-      <td>CACHED_APP_MIN_ADJ</td>
-      <td style="text-align: left">9</td>
-      <td style="text-align: left">不可见进程的adj最小值（不可见进程可能在任何时候被杀死）</td>
-    </tr>
-    <tr>
-      <td>SERVICE_B_AD</td>
-      <td style="text-align: left">8</td>
-      <td style="text-align: left">B List中的Service（较老的、使用可能性更小）</td>
-    </tr>
-    <tr>
-      <td>PREVIOUS_APP_ADJ</td>
-      <td style="text-align: left">7</td>
-      <td style="text-align: left">上一个App的进程(比如APP_A跳转APP_B,APP_A不可见的时候，A就是属于PREVIOUS_APP_ADJ)</td>
-    </tr>
-    <tr>
-      <td>HOME_APP_ADJ</td>
-      <td style="text-align: left">6</td>
-      <td style="text-align: left">Home进程</td>
-    </tr>
-    <tr>
-      <td>SERVICE_ADJ</td>
-      <td style="text-align: left">5</td>
-      <td style="text-align: left">服务进程(Service process)</td>
-    </tr>
-    <tr>
-      <td>HEAVY_WEIGHT_APP_ADJ</td>
-      <td style="text-align: left">4</td>
-      <td style="text-align: left">后台的重量级进程，system/rootdir/init.rc文件中设置</td>
-    </tr>
-    <tr>
-      <td>BACKUP_APP_ADJ</td>
-      <td style="text-align: left">3</td>
-      <td style="text-align: left">备份进程（这个不太了解）</td>
-    </tr>
-    <tr>
-      <td>PERCEPTIBLE_APP_ADJ</td>
-      <td style="text-align: left">2</td>
-      <td style="text-align: left">可感知进程，比如后台音乐播放</td>
-    </tr>
-    <tr>
-      <td>VISIBLE_APP_ADJ</td>
-      <td style="text-align: left">1</td>
-      <td style="text-align: left">可见进程(可见，但是没能获取焦点，比如新进程仅有一个悬浮Activity，Visible process)</td>
-    </tr>
-    <tr>
-      <td>FOREGROUND_APP_ADJ</td>
-      <td style="text-align: left">0</td>
-      <td style="text-align: left">前台进程（正在展示是APP，存在交互界面，Foreground process）</td>
-    </tr>
-    <tr>
-      <td>PERSISTENT_SERVICE_ADJ</td>
-      <td style="text-align: left">-11</td>
-      <td style="text-align: left">关联着系统或persistent进程</td>
-    </tr>
-    <tr>
-      <td>PERSISTENT_PROC_ADJ</td>
-      <td style="text-align: left">-12</td>
-      <td style="text-align: left">系统persistent进程，比如telephony</td>
-    </tr>
-    <tr>
-      <td>SYSTEM_ADJ</td>
-      <td style="text-align: left">-16</td>
-      <td style="text-align: left">系统进程</td>
-    </tr>
-    <tr>
-      <td>NATIVE_ADJ</td>
-      <td style="text-align: left">-17</td>
-      <td style="text-align: left">native进程（不被系统管理）</td>
-    </tr>
-  </tbody>
-</table>
+| ADJ优先级     | 优先级          | 对应场景  |
+| ------------- |:-------------:| :-----|
+| UNKNOWN_ADJ     | 16 | 一般指将要会缓存进程，无法获取确定值 |
+| CACHED_APP_MAX_ADJ     | 15      |  不可见进程的adj最大值（不可见进程可能在任何时候被杀死） |
+|  CACHED_APP_MIN_ADJ|     9 |      不可见进程的adj最小值（不可见进程可能在任何时候被杀死）|
+|  SERVICE_B_AD|    8  |    B List中的Service（较老的、使用可能性更小）  |
+| PREVIOUS_APP_ADJ |  7    |     上一个App的进程(比如APP_A跳转APP_B,APP_A不可见的时候，A就是属于PREVIOUS_APP_ADJ) |
+| HOME_APP_ADJ |    6  |     Home进程 |
+| SERVICE_ADJ |   5   |    服务进程(Service process)  |
+| HEAVY_WEIGHT_APP_ADJ |   4   |  后台的重量级进程，system/rootdir/init.rc文件中设置    |
+| BACKUP_APP_ADJ |   3   |   备份进程（这个不太了解）   |
+| PERCEPTIBLE_APP_ADJ |    2  |    可感知进程，比如后台音乐播放<  |
+| >VISIBLE_APP_ADJ |  1    |   可见进程(可见，但是没能获取焦点，比如新进程仅有一个悬浮Activity，Visible process)   |
+| FOREGROUND_APP_ADJ |   0   |     前台进程（正在展示是APP，存在交互界面，Foreground process）  |
+| PERSISTENT_SERVICE_ADJ |   -11   |   关联着系统或persistent进程   |
+| PERSISTENT_PROC_ADJ |  -12    |     系统persistent进程，比如电话 |
+|SYSTEM_ADJ  |   -16   |  系统进程    |
+| NATIVE_ADJ |   -17   |   native进程（不被系统管理   |
 
 **以上介绍的目的只有一点：Android的应用进程是有优先级的，它的优先级跟当前是否存在展示界面，以及是否能被用户感知有关，越是被用户感知的的应用优先级越高（系统进程不考虑）。**
+
+<a name="update_oomAdj"></a>
 
 # Android应用的优先级是如何更新的 
 
@@ -411,6 +349,8 @@ Android5.0将设置进程优先级的入口封装成了一个独立的服务lmkd
 ![Android5.0之后的LMKD服务](http://upload-images.jianshu.io/upload_images/1460468-75fb0b227f12aeb4.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 以上就分析完了用户空间的操作如何影响到进程的优先级，并且将新的优先级写到内核中。最后看一下LomemoryKiller在什么时候、如何根据优先级杀死进程的：
+
+<a name="kill"></a>
 
 # LomemoryKiller内核部分：如何杀死
 
