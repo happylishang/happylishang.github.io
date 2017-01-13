@@ -8,12 +8,7 @@ image: http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.pn
 
 
  
- Android中对于内存的回收，主要依靠Lowmemorykiller来完成，是一种根据阈值级别触发相应力度的内存回收的机制。
-
-
-本篇是Android后台杀死系列的第三篇，前面两篇已经对后台杀死注意事项，杀死恢复机制做了分析，本篇主要讲解的是Android后台杀死原理。相对于后台杀死恢复，LowMemoryKiller在网上还是能找到不少资料的，但是由于Android不同版本在框架层的实现有一些不同，本文引导区分一下，其实最底层都是类似的。
-
-LowMemoryKiller(低内存杀手)是Andorid基于oomKiller原理所扩展的一个多层次oomKiller，属于内核模块，运行在内核空间，OOMkiller(Out Of Memory Killer)是在无法分配新内存的时候，选择性杀掉进程，到oom的时候，系统可能已经处于亚健康状态。LowMemoryKiller是系统可用内存较低时，选择性杀死进程的策略，相对OOMKiller，更加灵活。在详细分析原理之前不妨自己想一下，假设让你设计一个LowMemoryKiller，你会如何做，这样一个系统需要什么功能模块呢？
+本篇是Android后台杀死系列的第三篇，前面两篇已经对后台杀死注意事项，杀死恢复机制做了分析，本篇主要讲解的是Android后台杀死原理。相对于后台杀死恢复，LowMemoryKiller在网上还是能找到不少资料的，但是由于Android不同版本在框架层的实现有一些不同，本文简单区分一下，其实最底层都是类似的。LowMemoryKiller(低内存杀手)是Andorid基于oomKiller原理所扩展的一个多层次oomKiller，OOMkiller(Out Of Memory Killer)是在无法分配新内存的时候，选择性杀掉进程，到oom的时候，系统可能已经处于亚健康状态。而LowMemoryKiller是一种根据内存阈值级别触发内存回收的机制，在系统可用内存较低时，选择性杀死进程的策略，相对OOMKiller，更加灵活。在详细分析原理之前不妨自己想一下，假设让你设计一个LowMemoryKiller，你会如何做，这样一个系统需要什么功能模块呢？
 
 * 进程优先级定义：先杀谁，后杀谁
 * 进程优先级的动态管理：一个进程的优先级不应该是固定不变的，需要根据其变动而动态变化
