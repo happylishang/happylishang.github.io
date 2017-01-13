@@ -6,25 +6,25 @@ image: http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.pn
 
 ---
   
-本篇是Android后台杀死系列的第三篇，前面两篇已经对后台杀死注意事项，杀死恢复机制做了分析，本篇主要讲解的是Android后台杀死原理。相对于后台杀死恢复，LowMemoryKiller在网上还是能找到不少资料的，但是由于Android不同版本在框架层的实现有一些不同，本文简单区分一下，其实最底层都是类似的。LowMemoryKiller(低内存杀手)是Andorid基于oomKiller原理所扩展的一个多层次oomKiller，OOMkiller(Out Of Memory Killer)是在无法分配新内存的时候，选择性杀掉进程，到oom的时候，系统可能已经处于亚健康状态。而LowMemoryKiller是一种根据内存阈值级别触发内存回收的机制，在系统可用内存较低时，选择性杀死进程的策略，相对OOMKiller，更加灵活。在详细分析原理之前不妨自己想一下，假设让你设计一个LowMemoryKiller，你会如何做，这样一个系统需要什么功能模块呢？
+本篇是Android后台杀死系列的第三篇，前面两篇已经对后台杀死注意事项，杀死恢复机制做了分析，本篇主要讲解的是Android后台杀死原理。相对于后台杀死恢复，LowMemoryKiller原理相对简单，并且在网上还是能找到不少资料的，不过，由于Android不同版本在框架层的实现有一些不同，网上的分析也多是针对一个Android版本，本文简单做了以下区分对比。LowMemoryKiller(低内存杀手)是Andorid基于oomKiller原理所扩展的一个多层次oomKiller，OOMkiller(Out Of Memory Killer)是在Linux系统无法分配新内存的时候，选择性杀掉进程，到oom的时候，系统可能已经不太稳定，而LowMemoryKiller是一种根据内存阈值级别触发的内存回收的机制，在系统可用内存较低时，就会选择性杀死进程的策略，相对OOMKiller，更加灵活。在详细分析其原理与运行机制之前，不妨自己想一下，假设让你设计一个LowMemoryKiller，你会如何做，这样一个系统需要什么功能模块呢？
 
-* 进程优先级定义：先杀谁，后杀谁
-* 进程优先级的动态管理：一个进程的优先级不应该是固定不变的，需要根据其变动而动态变化
-* 杀死的时机，什么时候需要挑一个，或者挑多个进程杀死
-* 如何杀
+* 进程优先级定义：只有有了优先级，才能决定先杀谁，后杀谁
+* 进程优先级的动态管理：一个进程的优先级不应该是固定不变的，需要根据其变动而动态变化，比如前台进程切换到后台优先级肯定要降低
+* 进程杀死的时机，什么时候需要挑一个，或者挑多个进程杀死
+* 如何杀死
 
-以上几个问题便是一个MemoryKiller模块需要的基本功能，Android底层采用的是Linux内核，所以其进程管理都是基于Linux内核，所以LowMemoryKiller放在内核也比较合理，不过这也意味着用户空间对于后台杀死不可见，就像AMS完全不知道一个APP是否被后台杀死，只有在AMS唤醒APP的时候，才知道APP是否被LowMemoryKiller杀死过。其实LowmemoryKiller的原理是很清晰的，先看一下整体流程图，再分步分析：
+以上几个问题便是一个MemoryKiller模块需要的基本功能，Android底层采用的是Linux内核，其进程管理都是基于Linux内核，LowMemoryKiller也相应的放在内核模块，这也意味着用户空间对于后台杀死不可见，就像AMS完全不知道一个APP是否被后台杀死，只有在AMS唤醒APP的时候，才知道APP是否被LowMemoryKiller杀死过。其实LowmemoryKiller的原理是很清晰的，先看一下整体流程图，再分步分析：
 
 ![App操作影响进程优先级](http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
   
-影响进程被杀的点是AMS去更新内核的进程优先级，并且这个操作是单向的，所以先记住两点 
+先记住两点 ：
 
 1. LowMemoryKiller是被动杀死进程
 2. Android应用通过AMS，利用proc文件系统更新进程信息
 
 # Android应用进程优先级及oomAdj
 
-Android会尽可能长时间地保持应用存活，但为了新建或运行更重要的进程，可能，需要移除旧进程来回收内存，在选择要Kill的进程的时候，系统会根据进程的运行状态作出评估，权衡进程的“重要性“，其权衡的依据主要是四大组件。如果需要缩减内存，系统会首先消除重要性最低的进程，然后是重要性略逊的进程，依此类推，以回收系统资源。在Android中，应用进程划分5级（[摘自Google文档](https://developer.android.com/guide/components/processes-and-threads.html)）：Android中APP的重要性层次一共5级：
+Android会尽可能长时间地保持应用存活，但为了新建或运行更重要的进程，可能需要移除旧进程来回收内存，在选择要Kill的进程的时候，系统会根据进程的运行状态作出评估，权衡进程的“重要性“，其权衡的依据主要是四大组件。如果需要缩减内存，系统会首先消除重要性最低的进程，然后是重要性略逊的进程，依此类推，以回收系统资源。在Android中，应用进程划分5级（[摘自Google文档](https://developer.android.com/guide/components/processes-and-threads.html)）：Android中APP的重要性层次一共5级：
 
 * 前台进程(Foreground process)
 * 可见进程(Visible process)
@@ -59,17 +59,13 @@ Android会尽可能长时间地保持应用存活，但为了新建或运行更�
 
 > 后台进程
 
-包含目前对用户不可见的 Activity 的进程（已调用 Activity 的 onStop() 方法）。这些进程对用户体验没有直接影响，系统可能随时终止它们，以回收内存供前台进程、可见进程或服务进程使用。 通常会有很多后台进程在运行，因此它们会保存在 LRU （最近最少使用）列表中，以确保包含用户最近查看的 Activity 的进程最后一个被终止。如果某个 Activity 正确实现了生命周期方法，并保存了其当前状态，则终止其进程不会对用户体验产生明显影响，因为当用户导航回该 Activity 时，Activity 会恢复其所有可见状态。 有关保存和恢复状态的信息，请参阅 Activity文档。
+包含目前对用户不可见的 Activity 的进程（已调用 Activity 的 onStop() 方法）。这些进程对用户体验没有直接影响，系统可能随时终止它们，以回收内存供前台进程、可见进程或服务进程使用。 通常会有很多后台进程在运行，因此它们会保存在 LRU （最近最少使用）列表中，以确保包含用户最近查看的 Activity 的进程最后一个被终止。如果某个 Activity 正确实现了生命周期方法，并保存了其当前状态，则终止其进程不会对用户体验产生明显影响，因为当用户导航回该 Activity 时，Activity会恢复其所有可见状态。 有关保存和恢复状态、或者异常杀死恢复可以参考前两篇 文章。
 
 > 空进程
 
-不含任何活动应用组件的进程。保留这种进程的的唯一目的是用作缓存，以缩短下次在其中运行组件所需的启动时间。 为使总体系统资源在进程缓存和底层内核缓存之间保持平衡，系统往往会终止这些进程。
-根据进程中当前活动组件的重要程度，Android 会将进程评定为它可能达到的最高级别。例如，如果某进程托管着服务和可见 Activity，则会将此进程评定为可见进程，而不是服务进程。
+不含任何活动应用组件的进程。保留这种进程的的唯一目的是用作缓存，以缩短下次在其中运行组件所需的启动时间，这就是所谓**热启动 **。为了使系统资源在进程缓存和底层内核缓存之间保持平衡，系统往往会终止这些进程。
 
-此外，一个进程的级别可能会因其他进程对它的依赖而有所提高，即服务于另一进程的进程其级别永远不会低于其所服务的进程。 例如，如果进程 A 中的内容提供程序为进程 B 中的客户端提供服务，或者如果进程 A 中的服务绑定到进程 B 中的组件，则进程 A 始终被视为至少与进程B同样重要。
-
-由于运行服务的进程其级别高于托管后台 Activity 的进程，因此启动长时间运行操作的 Activity 最好为该操作启动服务，而不是简单地创建工作线程，当操作有可能比 Activity 更加持久时尤要如此。例如，正在将图片上传到网站的 Activity 应该启动服务来执行上传，这样一来，即使用户退出 Activity，仍可在后台继续执行上传操作。使用服务可以保证，无论 Activity 发生什么情况，该操作至少具备“服务进程”优先级。 同理，广播接收器也应使用服务，而不是简单地将耗时冗长的操作放入线程中。
-
+根据进程中当前活动组件的重要程度，Android会将进程评定为它可能达到的最高级别。例如，如果某进程托管着服务和可见 Activity，则会将此进程评定为可见进程，而不是服务进程。此外，一个进程的级别可能会因其他进程对它的依赖而有所提高，即服务于另一进程的进程其级别永远不会低于其所服务的进程。 例如，如果进程 A 中的内容提供程序为进程 B 中的客户端提供服务，或者如果进程 A 中的服务绑定到进程 B 中的组件，则进程 A 始终被视为至少与进程B同样重要。
 
 通过Google文档，对不同进程的重要程度有了一个直观的认识，下面看一下量化到内存是什么样的呈现形式，这里针对不同的重要程度，做了进一步的细分，定义了重要级别ADJ，并将优先级存储到内核空间的进程结构体中去，供LowmemoryKiller参考：
  
@@ -165,11 +161,11 @@ Android会尽可能长时间地保持应用存活，但为了新建或运行更�
   </tbody>
 </table>
 
-以上介绍的目的只有一点：Android的应用进程是有优先级的，它的优先级跟当前是否存在展示界面，以及是否能被用户感知有关，越是被用户感知的的应用优先级越高（系统进程不考虑）。
+**以上介绍的目的只有一点：Android的应用进程是有优先级的，它的优先级跟当前是否存在展示界面，以及是否能被用户感知有关，越是被用户感知的的应用优先级越高（系统进程不考虑）。**
 
 # Android应用的优先级是如何更新的 
 
-APP中很多操作都可能会影响本身进程的优先级，比如退到后台、移到前台、因为加载图片分配了很多内存等，都会潜在的影响进程的优先级，我们知道Lowmemorykiller是通过遍历内核的进程结构体队列，选择优先级低的杀死，那么APP操作是如何写入到内核空间的呢，Linxu有用户间跟内核空间的区分，无论是APP还是系统服务，都是运行在用户空间，严格说用户控件的操作是无法直接影响内核空间的，更不用说更改进程的优先级，其实这里是通过了Linux中的一个proc文件体统，proc文件系统可以简单的看多是内核空间映射成用户可以操作的文件系统，当然不是所有进程都有权利操作，通过proc文件系统，用户空间的进程就能够修改内核空间的数据，比如进程的优先级，而在Android中，在Android5.0之前是AMS进程，5.0之后，是一个独立的LMKD服务，LMKD服务位于用户空间，其作用层次同AMS、WMS类似，就是一个普通的系统服务。我们先看一下5.0之前的代码，这里仍然用4.3的源码看一下，模拟一个场景，APP只有一个Activity，我们主动finish掉这个Activity，这个APP就回到了后台，这里要记住，虽然没有可用的Activity，但是APP本身是没哟死掉的，这就是所谓的热启动，先看下大体的流程
+APP中很多操作都可能会影响进程列表的优先级，比如退到后台、移到前台等，都会潜在的影响进程的优先级，我们知道Lowmemorykiller是通过遍历内核的进程结构体队列，选择优先级低的杀死，那么APP操作是如何写入到内核空间的呢？Linxu有用户间跟内核空间的区分，无论是APP还是系统服务，都是运行在用户空间，严格说用户控件的操作是无法直接影响内核空间的，更不用说更改进程的优先级。其实这里是通过了Linux中的一个proc文件体统，proc文件系统可以简单的看多是内核空间映射成用户可以操作的文件系统，当然不是所有进程都有权利操作，通过proc文件系统，用户空间的进程就能够修改内核空间的数据，比如修改进程的优先级，在Android家族，5.0之前的系统是AMS进程直接修改的，5.0之后，是修改优先级的操作被封装成了一个独立的服务-lmkd，lmkd服务位于用户空间，其作用层次同AMS、WMS类似，就是一个普通的系统服务。我们先看一下5.0之前的代码，这里仍然用4.3的源码看一下，模拟一个场景，APP只有一个Activity，我们主动finish掉这个Activity，APP就回到了后台，这里要记住，虽然没有可用的Activity，但是APP本身是没哟死掉的，这就是所谓的热启动，先看下大体的流程：
 
 ![App操作影响进程优先级](http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
@@ -188,7 +184,7 @@ APP中很多操作都可能会影响本身进程的优先级，比如退到后�
         }
     }
     
-在这种场景下首先是先暂停当前resume的Activity，其实也就是自己，
+一开始的流程跟startActivity类似，首先是先暂停当前resume的Activity，其实也就是自己，
     
 	  final boolean finishActivityLocked(ActivityRecord r, int index, int resultCode,
 	            Intent resultData, String reason, boolean immediate, boolean oomAdj) {
@@ -201,7 +197,7 @@ APP中很多操作都可能会影响本身进程的优先级，比如退到后�
 				...
 	    }
 
-pause当前resume的Activity之后，还需要唤醒上一个Activity，如果当前APP没有回退的Activity，就会退到上一个应用或者桌面程序，唤醒流程就不在讲解了，因为在AMS恢复异常杀死APP的那篇已经说过，这里要说的是唤醒之后对这个即将退回后台的APP的操作，这里注意与startActivity不同的地方，看下面代码：
+pause掉当前Activity之后，还需要唤醒上一个Activity，如果当前APP的Activity栈里应经空了，就回退到上一个应用或者桌面程序，唤醒流程就不在讲解了，因为在AMS恢复异常杀死APP的那篇已经说过，这里要说的是唤醒之后对这个即将退回后台的APP的操作，这里注意与startActivity不同的地方，看下面代码：
     
 > ActivityStack    
  
@@ -219,7 +215,8 @@ pause当前resume的Activity之后，还需要唤醒上一个Activity，如果�
          if (!mService.isSleeping()) {
             resumeTopActivityLocked(prev);
         }
-看一下上面的两个关键点1跟2 ，1是同startActivity的completePauseLocked不同的地方，主动finish的prev.finishing是为true的，因此会执行finishCurrentActivityLocked分支，将当前pause的Activity加到mStoppingActivities队列中去，并且唤醒下一个需要到前台的Activity，唤醒后，会继续执行stop：
+        
+看一下上面的两个关键点1跟2，1是同startActivity的completePauseLocked不同的地方，主动finish的prev.finishing是为true的，因此会执行finishCurrentActivityLocked分支，将当前pause的Activity加到mStoppingActivities队列中去，并且唤醒下一个需要走到到前台的Activity，唤醒后，会继续执行stop：
 		   
 		private final ActivityRecord finishCurrentActivityLocked(ActivityRecord r,
 		        int index, int mode, boolean oomAdj) {
@@ -269,6 +266,7 @@ pause当前resume的Activity之后，还需要唤醒上一个Activity，如果�
 	                    mService.updateOomAdjLocked();
 	             	...
 	       }
+	       
 最终会调用AMS的updateOomAdjLocked函数去更新进程优先级，在4.3的源码里面，主要是通过Process类的setOomAdj函数来设置优先级：
            	                  
 > ActivityManagerService
@@ -306,21 +304,22 @@ Process中setOomAdj是一个native方法，原型在android_util_Process.cpp中
 	#endif
 	    return false;
 	}
+	
+可以看到，在native代码里，就是通过proc文件系统修改内核信息，这里就是动态更新进程的优先级oomAdj，以上是针对Android4.3系统的分析，之后会看一下5.0之后的系统是如何实现的。下面是4.3更新oomAdj的流程图，注意红色的执行点：
+
 ![LowMemoryKiller更新进程oomAdj](http://upload-images.jianshu.io/upload_images/1460468-942f1601d0e6fbdc.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 	
-可以看到，就是通过proc文件系统修改内核信息，这里就是动态更新进程的优先级oomAdj，以上是针对Android4.3系统的分析，那么再来看一下5.0之后的系统是如何实现的。
 
-# Android5.0之后的LowMemoryKiller框架层实现：LMKD服务
+# Android5.0之后框架层的实现：LMKD服务
 
-Android5.0将设置进程优先级的入口封装成了一个独立的服务LMKD服务，AMS不再直接访问proc文件系统，而是通过LMKD服务来进行设置，从init.rc文件中看到服务的配置。
+Android5.0将设置进程优先级的入口封装成了一个独立的服务lmkd服务，AMS不再直接访问proc文件系统，而是通过lmkd服务来进行设置，从init.rc文件中看到服务的配置。
 
 	service lmkd /system/bin/lmkd
 	    class core
 	    critical
 	    socket lmkd seqpacket 0660 system system
 	    
-从配置中可以看出，该服务是通过socket与其他进行进程进行通信，再来看一下AMS有什么改变，大部分流程跟之前4.3源码类似，看一下不同地方
-
+从配置中可以看出，该服务是通过socket与其他进行进程进行通信，其实就是AMS通过socket向lmkd服务发送请求，让lmkd去更新进程的优先级，lmkd收到请求后，会通过/proc文件系统去更新内核中的进程优先级。首先看一下5.0中这一块AMS有什么改变，其实大部分流程跟之前4.3源码类似，我们只看一下不同地方
 
 > ActivityManagerService
 
@@ -352,8 +351,7 @@ Android5.0将设置进程优先级的入口封装成了一个独立的服务LMKD
         }
         
 从上面的不同点1可以看出，5.0之后是通过一个ProcessList类去设置oomAdj，其实这里就是通过socket与LMKD服务进行通信，这里传递给lmkd服务的命令是LMK_PROCPRIO
-
-        
+       
     public static final void setOomAdj(int pid, int uid, int amt) {
         if (amt == UNKNOWN_ADJ)
             return;
@@ -483,7 +481,7 @@ void register_shrinker(struct shrinker *shrinker)
 
 通过本篇文章，希望大家能有以下几点认知：
 
-* Android进程是有优先级的的，与进程是否被用户感知有直接关系
+* Android APP进程是有优先级的的，与进程是否被用户感知有直接关系
 * APP切换等活动都可能造成进程优先级的变化，都是利用AMS，并通过proc文件设置到内核的
 * LowmemoryKiller运行在内核，在内存需要缩减的时候，会选择低优先级的进程杀死
 
