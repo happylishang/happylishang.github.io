@@ -17,22 +17,70 @@ categories: Android
 * 强制竖屏怎么处理的
 * 除了重建最上面的Activity还要保证所有可见的Activity都是跟当前配置一致，悬浮的Activity
 
-通过以上几点，可能就会都屏幕旋转有个把控，在开发时候的注意的点也就会相对清晰一些。
+通过以上几点，可能就会都屏幕旋转有个把控，在开发时候的注意的点也就会相对清晰一些。先声明一点，本篇不怎么涉及View的绘制及重绘，仅仅讲解Activity的重加，以及回调执行的机制。至于View重新绘制的逻辑会单独分析。
 
+# 屏幕旋转的应用场景
 
-# 屏幕旋转的时候杀死的流程是怎么样的
+* 布局文件是否替换
+* 是否需呀保存现场数据
+* DIrection变化后，视图的绘制怎么更新的
+
 
 # 屏幕旋转的等级：Activity级别还是设备级别
 
-# 重建的流程是在什么时候，反正杀死了就一定会重建，重建的时机
+Activity通过setRequestedOrientation设置的Activity级别的屏幕方向会对之前的Activity造成什么影响吗？NO，一点影响没有系统的方向没变的。其实屏幕旋转了，就相当于整个坐标系进行了旋转，X变成了Y，绘制的流程没有变，但是参数变了，比如1280X720，就好比变成了720X1280，整个Activity的布局包括顶部状态栏，底部导航栏都要重新绘制。
 
+	    boolean updateConfigurationLocked(Configuration values,
+	            ActivityRecord starting, boolean persistent, boolean initLocale) {
+	       ...
+	       if (values != null) {
+	         ...
+	                for (int i=mLruProcesses.size()-1; i>=0; i--) {
+	                    ProcessRecord app = mLruProcesses.get(i);
+	                    try {
+	                        if (app.thread != null) {
+	                            if (DEBUG_CONFIGURATION) Slog.v(TAG, "Sending to proc "
+	                                    + app.processName + " new config " + mConfiguration);
+	                                // 这里的配置是做什么的，更新每个应用？
+	                            app.thread.scheduleConfigurationChanged(configCopy);
+	                        }
+	                    } catch (Exception e) {
+	                    }
+	                }
+	                ...
+	}                
+
+handleConfigurationChanged
+
+	 final void handleConfigurationChanged(Configuration config, CompatibilityInfo compat) {
+	        int configDiff = 0;
+	        synchronized (mPackages) {
+	           ...
+	          // 更新资源，重启的话，就会用新资源
+	            applyConfigurationToResourcesLocked(config, compat);
+	            ...
+	        if (callbacks != null) {
+	            final int N = callbacks.size();
+	            for (int i=0; i<N; i++) {
+	                // 如何处理回调
+	                performConfigurationChanged(callbacks.get(i), config);
+	            }
+	        }
+	    }
+    
 # 首先重建第一个，以及当前可见的Activity，finish当前之后，负责relauch第二个，有与已经stop，边执行destroy
  
 
-# XML主动设置屏幕方向，WMS处理即将启动的Activity
+# AndroidManifest里设置屏幕方向，系统如何处理启动的Activity，设置方向的，
 
+为什么不会执行config呢，屏幕方向仅仅是Activity的一个属性，属性而已，不会因为这个属性就导致其他一些额外的操作，只有一些非常规的操作才会导致重建。
 
-
+        <activity
+            android:name=".activity.SecondActivity"
+            android:configChanges="orientation|screenSize"
+            android:screenOrientation="landscape"/>
+            
+如何处理，注意区分handlerActivityConfig跟handleConfigurationChanged，前者是针对可见的Activity，但是后者是针对resume的Activity以及启动的Service等，但是不会执行两次。也许某些版本在处理源码的时候，没怎出处理好，就回调了两次，maybe。
 
 # 屏幕旋转之后，AMS如何处理可见Activity
 
@@ -55,7 +103,19 @@ categories: Android
 	               ...
 	          	   mConfiguration = newConfig;
 	              ...
+	               关键点1 
+	              for (int i=mLruProcesses.size()-1; i>=0; i--) {
+                    ProcessRecord app = mLruProcesses.get(i);
+                    try {
+                        if (app.thread != null) {
+                                // 更新每个应用
+                            app.thread.scheduleConfigurationChanged(configCopy);
+                        }
+                    } catch (Exception e) {
+                    }
+                }
 	        }
+	        
 	        <!--这里写的真是任性-->
 	        找到TopActivity
 	        if (changes != 0 && starting == null) {
@@ -64,14 +124,14 @@ categories: Android
 	            // activity to check if its configuration needs to change.
 	            starting = mMainStack.topRunningActivityLocked(null);
 	        }
-	        关键点1 
+	        关键点2 
 	        if (starting != null) {
 	            kept = mMainStack.ensureActivityConfigurationLocked(starting, changes);
 	            // And we need to make sure at this point that all other activities
 	            // are made visible with the correct configuration.
 	            mMainStack.ensureActivitiesVisibleLocked(starting, changes);
 	        }
-	        
+	        关键点 3 
 	        if (values != null && mWindowManager != null) {
 	            mWindowManager.setNewConfiguration(mConfiguration);
 	        }
@@ -79,7 +139,7 @@ categories: Android
 	        return kept;
 	    }
 	    
-主要看一下关键点1，这里首先找到TopActivity，通过mMainStack.ensureActivityConfigurationLocked保证顶层可见Activity配置的正确，之后通过mMainStack.ensureActivitiesVisibleLocked保证所有可见Activity的配置，注意，可见的Activity并不一定是resume的Activity，比如悬浮Activity。首先看一下ActivityStack的ensureActivityConfigurationLocked函数，这个函数主要针对传入的Activity保证其配置跟当前系统配置一致。
+关键点1，这里是针对所有的APP进行一次更新，包括每个APP的Service、Providers等，接着看关键点2，这里首先找到TopActivity，通过mMainStack.ensureActivityConfigurationLocked保证顶层可见Activity配置的正确，之后通过mMainStack.ensureActivitiesVisibleLocked保证所有可见Activity的配置，注意，可见的Activity并不一定是resume的Activity，比如悬浮Activity。首先看一下ActivityStack的ensureActivityConfigurationLocked函数，这个函数主要针对传入的Activity保证其配置跟当前系统配置一致。
 
 > ActivityStack
 	
@@ -286,8 +346,43 @@ categories: Android
 
         return activity;
     }
-
     
+# View是如何重新绘制的
+
+* 坐标系的更换，这里注意判断
+    
+ 
+	    public void setNewConfiguration(Configuration config) {
+	        if (!checkCallingPermission(android.Manifest.permission.MANAGE_APP_TOKENS,
+	                "setNewConfiguration()")) {
+	            throw new SecurityException("Requires MANAGE_APP_TOKENS permission");
+	        }
+	
+	        synchronized(mWindowMap) {
+	            mCurConfiguration = new Configuration(config);
+	            if (mWaitingForConfig) {
+	                mWaitingForConfig = false;
+	                mLastFinishedFreezeSource = "new-config";
+	            }
+	            // 
+	            performLayoutAndPlaceSurfacesLocked();
+	        }
+	    }
+
+
+	    private final void performLayoutAndPlaceSurfacesLocked() {
+	        int loopCount = 6;
+	        do {
+	            mTraversalScheduled = false;
+	            performLayoutAndPlaceSurfacesLockedLoop();
+	            mH.removeMessages(H.DO_TRAVERSAL);
+	            loopCount--;
+	        } while (mTraversalScheduled && loopCount > 0);
+	        mInnerFields.mWallpaperActionPending = false;
+	    }
+	    
+  performLayoutAndPlaceSurfacesLocked是重绘的入口，这里会获取一些屏幕方向，以及尺寸的信息，
+  
 # 参考文档
 
  
