@@ -5,18 +5,18 @@ categories: Android
 
 ---
 
-在屏幕旋转的时候，经常发生一些异常或者重建，比如全屏播放视频在关闭屏幕的时候，等等，本篇文章主要讲解一下几点问题
+手机在旋转屏幕的时候，如果没有做任何限制的话，系统默认的操作是是销毁当前Activity活动界面，并重建新的活动界面，在这种场景下，如果有些重要的数据没保存，或者某些地方处理不当，轻则引起交互体验差，重则造成程序崩溃，比如全屏播放视频时候，如果旋转屏幕，可能希望不要销毁当前Activity，或者就算销毁了也要从当前进度重新播放等。为什么旋转屏幕可能会销毁当前Activity呢，是怎么销毁并重建的呢，本篇文章主要就是分析旋转界面是，AMS如何销毁并重建Activity的。主要有以下几点问题
 
 * 屏幕旋转的监听：系统如何知道屏幕旋转，并通知AMS与WMS的
-* 屏幕旋转后的处理，需要销毁Activity并重建吗
-* 屏幕旋转后端的处理，应对杀死及configchange
+* 屏幕旋转后，AMS如何判断是否需要销毁Activity并重建
+* 屏幕旋转后，如何不让AMS销毁Activity
+* 屏幕旋转后，View的重绘逻辑是怎么触发的
 * 系统上的自动旋转是干嘛的？
 * 强制横屏或者竖屏
-* app本身不会从起，进程不会新建，只会新建Activity
 * Destroy后又新建，这个流程是输入relauch，但是只对可见Activity做，怎么区分，不用区分只需要看之前的配置与当前配置是否一致，如果中间有改回去了，就不必，这是时时的，不会浪费资源去处理
-* 强制竖屏怎么处理的
 * 除了重建最上面的Activity还要保证所有可见的Activity都是跟当前配置一致，悬浮的Activity
 
+首先有一点先记到心里，屏幕旋转并不会导致整个app本身重启，也就是说进程不会新建，最多只会新建Activity。
 通过以上几点，可能就会都屏幕旋转有个把控，在开发时候的注意的点也就会相对清晰一些。先声明一点，本篇不怎么涉及View的绘制及重绘，仅仅讲解Activity的重加，以及回调执行的机制。至于View重新绘制的逻辑会单独分析。
 
 # 屏幕旋转的应用场景
@@ -28,45 +28,13 @@ categories: Android
 
 # 屏幕旋转的等级：Activity级别还是设备级别
 
-Activity通过setRequestedOrientation设置的Activity级别的屏幕方向会对之前的Activity造成什么影响吗？NO，一点影响没有系统的方向没变的。其实屏幕旋转了，就相当于整个坐标系进行了旋转，X变成了Y，绘制的流程没有变，但是参数变了，比如1280X720，就好比变成了720X1280，整个Activity的布局包括顶部状态栏，底部导航栏都要重新绘制。
+通过setRequestedOrientation可以设置Activity级别的屏幕方向，这种情况下，不会对之前的Activity造成任何影响吗，换句话说，当前设置了横屏的Activity 在finish后，上一个Activity仍然走普通的唤醒流程，不存在重建之类的逻辑。屏幕旋转了，就相当于整个坐标系进行了旋转，X变成了Y，绘制的流程没有变，但是参数变了，比如1280X720，就好比变成了720X1280，整个Activity的布局包括顶部状态栏，底部导航栏都要重新绘制。
 
-	    boolean updateConfigurationLocked(Configuration values,
-	            ActivityRecord starting, boolean persistent, boolean initLocale) {
-	       ...
-	       if (values != null) {
-	         ...
-	                for (int i=mLruProcesses.size()-1; i>=0; i--) {
-	                    ProcessRecord app = mLruProcesses.get(i);
-	                    try {
-	                        if (app.thread != null) {
-	                            if (DEBUG_CONFIGURATION) Slog.v(TAG, "Sending to proc "
-	                                    + app.processName + " new config " + mConfiguration);
-	                                // 这里的配置是做什么的，更新每个应用？
-	                            app.thread.scheduleConfigurationChanged(configCopy);
-	                        }
-	                    } catch (Exception e) {
-	                    }
-	                }
-	                ...
-	}                
+           
 
 handleConfigurationChanged
 
-	 final void handleConfigurationChanged(Configuration config, CompatibilityInfo compat) {
-	        int configDiff = 0;
-	        synchronized (mPackages) {
-	           ...
-	          // 更新资源，重启的话，就会用新资源
-	            applyConfigurationToResourcesLocked(config, compat);
-	            ...
-	        if (callbacks != null) {
-	            final int N = callbacks.size();
-	            for (int i=0; i<N; i++) {
-	                // 如何处理回调
-	                performConfigurationChanged(callbacks.get(i), config);
-	            }
-	        }
-	    }
+
     
  
 
@@ -108,7 +76,7 @@ handleConfigurationChanged
                     ProcessRecord app = mLruProcesses.get(i);
                     try {
                         if (app.thread != null) {
-                                // 更新每个应用
+                       // 更新每个应用，包括他内部的Service，providers，还有resumed的Activity
                             app.thread.scheduleConfigurationChanged(configCopy);
                         }
                     } catch (Exception e) {
@@ -141,6 +109,30 @@ handleConfigurationChanged
 	    
 关键点1，这里是针对所有的APP进行一次更新，包括每个APP的Service、Providers等，接着看关键点2，这里首先找到TopActivity，通过mMainStack.ensureActivityConfigurationLocked保证顶层可见Activity配置的正确，之后通过mMainStack.ensureActivitiesVisibleLocked保证所有可见Activity的配置，注意，可见的Activity并不一定是resume的Activity，比如悬浮Activity。首先看一下ActivityStack的ensureActivityConfigurationLocked函数，这个函数主要针对传入的Activity保证其配置跟当前系统配置一致。
 
+先看下ActivityThread如何处理的
+
+> ActivityThread
+
+	 final void handleConfigurationChanged(Configuration config, CompatibilityInfo compat) {
+	        int configDiff = 0;
+	        synchronized (mPackages) {
+	           ...
+	          // 更新资源，重启的话，就会用新资源
+	            applyConfigurationToResourcesLocked(config, compat);
+	            ...
+	            
+			// 这里收集需要处理的控件信息,包括Service resumed的Activity以及providers
+        	ArrayList<ComponentCallbacks2> callbacks = collectComponentCallbacks(false, config);
+
+	        if (callbacks != null) {
+	            final int N = callbacks.size();
+	            for (int i=0; i<N; i++) {
+	                // 如何处理回调
+	                performConfigurationChanged(callbacks.get(i), config);
+	            }
+	        }
+	    }
+	    
 > ActivityStack
 	
 
