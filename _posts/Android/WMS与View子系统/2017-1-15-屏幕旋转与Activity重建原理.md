@@ -68,7 +68,6 @@ handleConfigurationChanged
 	        }
 	    }
     
-# 首先重建第一个，以及当前可见的Activity，finish当前之后，负责relauch第二个，有与已经stop，边执行destroy
  
 
 # AndroidManifest里设置屏幕方向，系统如何处理启动的Activity，设置方向的，
@@ -84,7 +83,8 @@ handleConfigurationChanged
 
 # 屏幕旋转之后，AMS如何处理可见Activity
 
-注意之类说的是可见Activity，并不是全部Activity，也不是只有TopActivity，我们看一下源码中对于Config变化的处理，直接看AMS中对于Activity的处理：
+注意，这里说的是可见Activity，并不是全部Activity，也不是只有TopActivity，首先，如果需要的话，会重建第一个TopActivity，以及当前可见的Activity，finish当前之后，负责relauch第二个，有与已经stop，边执行destroy
+我们看一下源码中对于Config变化的处理，直接看AMS中对于Activity的处理：
 
 
 > ActivityManagerService
@@ -381,7 +381,7 @@ handleConfigurationChanged
 	        mInnerFields.mWallpaperActionPending = false;
 	    }
 	    
-  performLayoutAndPlaceSurfacesLocked是重绘的入口，这里会获取一些屏幕方向，以及尺寸的信息，
+  performLayoutAndPlaceSurfacesLocked是重绘的入口，这里会获取一些屏幕方向，以及尺寸的信息，并且将新界面的试图绘制出来，这里不对WMS扩展来讲。
   
 # 参考文档
 
