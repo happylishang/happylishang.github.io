@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: post
 title: 屏幕旋转与Activity重建原理 
 categories: Android
 
@@ -22,15 +22,16 @@ categories: Android
 
 # 屏幕旋转的时候杀死的流程是怎么样的
 
+# 屏幕旋转的等级：Activity级别还是设备级别
+
 # 重建的流程是在什么时候，反正杀死了就一定会重建，重建的时机
 
-# 第一只负责重建第一个，以及当前可见的Activity
-
-
-# finish当前之后，负责relauch第二个，有与已经stop，边执行destroy
+# 首先重建第一个，以及当前可见的Activity，finish当前之后，负责relauch第二个，有与已经stop，边执行destroy
  
 
-# 主动设置屏幕方向，如何处理当前可见的Activity
+# XML主动设置屏幕方向，WMS处理即将启动的Activity
+
+
 
 
 # 屏幕旋转之后，AMS如何处理可见Activity
