@@ -30,13 +30,18 @@ categories: Android
 
 通过setRequestedOrientation可以设置Activity级别的屏幕方向，这种情况下，不会对之前的Activity造成任何影响吗，换句话说，当前设置了横屏的Activity 在finish后，上一个Activity仍然走普通的唤醒流程，不存在重建之类的逻辑。屏幕旋转了，就相当于整个坐标系进行了旋转，X变成了Y，绘制的流程没有变，但是参数变了，比如1280X720，就好比变成了720X1280，整个Activity的布局包括顶部状态栏，底部导航栏都要重新绘制。
 
-           
-
-handleConfigurationChanged
+ handleConfigurationChanged
 
 
-    
+# Activity主动设置方向会不会导致之前的Activity重建
+
+> 如果是悬浮Activity就会（两次）
+
+finish就恢复吗？注意恢复在销毁之前，恢复的优先级高，也就是说上一个配置的Actvity还未销毁的情况下，前一个已经resume，还要保证配置的正确性，这里怎么保证的
+
+跟踪setRequestedOrientation函数
  
+> 如果是全屏Activity就不会
 
 # AndroidManifest里设置屏幕方向，系统如何处理启动的Activity，设置方向的，
 
@@ -47,7 +52,7 @@ handleConfigurationChanged
             android:configChanges="orientation|screenSize"
             android:screenOrientation="landscape"/>
             
-如何处理，注意区分handlerActivityConfig跟handleConfigurationChanged，前者是针对可见的Activity，但是后者是针对resume的Activity以及启动的Service等，但是不会执行两次。也许某些版本在处理源码的时候，没怎出处理好，就回调了两次，maybe。
+如何处理，注意区分handlerActivityConfig跟handleConfigurationChanged，前者是针对可见的Activity，但是后者是针对resume的Activity以及启动的Service等，但是不会执行两次。也许某些版本在处理源码的时候，没怎出处理好，就回调了两次，maybe。绘制的坐标系在哪定的
 
 # 屏幕旋转之后，AMS如何处理可见Activity
 
@@ -338,6 +343,59 @@ handleConfigurationChanged
 
         return activity;
     }
+    
+ 接着看AMS下半部分的，其实一致往下找，找到第一个全屏的Actvity，就不在处理配置更新的逻辑了，因为不可见，可以留到后面恢复的时候再用
+ 
+  // 区分好starting跟top的区别，starting是正在启动的Activity top是顶层Activity
+
+    final void ensureActivitiesVisibleLocked(ActivityRecord top,
+            ActivityRecord starting, String onlyThisProcess, int configChanges) {
+        ...
+       关键点1 注意这里的注释，如果topActivity不是全屏（fullscreen），必须保证下面可见Activity的配置正确。
+       这里是理解这个函数的核心，后面的逻辑都是在针对activity可见做的逻辑。
+        // If the top activity is not fullscreen, then we need to
+        // make sure any activities under it are now visible.
+        final int count = mHistory.size();
+        int i = count-1;
+        <!--首先找到top-->
+        while (mHistory.get(i) != top) {
+            i--;
+        }
+        ActivityRecord r;
+        // 找一个fullActivity就是true，这里其实有个一个找全屏activity的逻辑
+        // 注意这里包括第一个acitivity，topActivity，也就是入托top全屏，剩下的就不用遍历了
+        boolean behindFullscreen = false;
+        for (; i>=0; i--) {
+            r = mHistory.get(i);
+            ...
+            final boolean doThisProcess = onlyThisProcess == null
+                    || onlyThisProcess.equals(r.processName);
+            
+            // First: if this is not the current activity being started, make
+            // sure it matches the current configuration.
+            if (r != starting && doThisProcess) {
+                ensureActivityConfigurationLocked(r, 0);
+            }
+           ...            
+           configChanges |= r.configChangeFlags;
+			 
+			 关键点2：终止条件找个全屏Activity
+			 
+            if (r.fullscreen) {
+                // At this point, nothing else needs to be shown
+                if (DEBUG_VISBILITY) Slog.v(
+                        TAG, "Stopping: fullscreen at " + r);
+                behindFullscreen = true;
+                i--;
+                break;
+            }
+        }
+        ...剩下的就是处理不可见Activity逻辑
+         
+        }
+    }
+    
+一直找到最上面的 全屏Activity完成重建，因为可能出现悬浮Actvity，也是可见的Activity，为了保证体验，在旋转屏幕的时候，可见的Activity多要根据配置更新，或者旋转，或者重建。
     
 # View是如何重新绘制的
 
