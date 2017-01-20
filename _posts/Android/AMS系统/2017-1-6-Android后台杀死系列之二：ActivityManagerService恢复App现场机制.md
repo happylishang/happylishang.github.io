@@ -18,7 +18,7 @@ image: http://upload-images.jianshu.io/upload_images/1460468-00df66d0bf4dec82.pn
 
 # Android框架层（AMS）如何知道App被杀死了
 
-首先来看第一个问题，系统如何知道Application被杀死了，Android使用了Linux的oomKiller机制，只是简单的做了个变种，采用分等级的LowmemoryKiller，但这个其实是内核层面，LowmemoryKiller杀死进程后，不会像用户空间发送通知，也就是说即使是框架层的ActivityMangerService也无法知道App是否被杀死，但是，只有知道App或者Activity是否被杀死，AMS（ActivityMangerService）才能正确的走唤起流程，那么AMS究竟是在什么时候知道App或者Activity被后台杀死了呢？我们先看一下从最近的任务列表进行唤起的时候，究竟发生了什么。
+首先来看第一个问题，系统如何知道Application被杀死了，Android使用了Linux的oomKiller机制，只是简单的做了个变种，采用分等级的LowmemoryKiller，但这个其实是内核层面，LowmemoryKiller杀死进程后，如何向用户空间发送通知，并告诉框架层的ActivityMangerService呢？只有AMS在知道App或者Activity是否被杀死后，AMS（ActivityMangerService）才能正确的走重建或者唤起流程，比如，APP死了，但是由于存在需要复活的Service，那么这个时候，进程需要重新启动，这个时候怎么处理的，那么AMS究竟是在什么时候知道App或者Activity被后台杀死了呢？我们先看一下从最近的任务列表进行唤起的时候，究竟发生了什么。
 
 ## 从最近的任务列表或者Icon再次唤起App流程
 
@@ -99,10 +99,334 @@ image: http://upload-images.jianshu.io/upload_images/1460468-00df66d0bf4dec82.pn
                     
 可以看出RecentTaskInfo的id是由TaskRecord决定的，如果TaskRecord中numActivities > 0就去TaskRecord的Id，否则就取-1，这里的numActivities其实就是TaskRecode中记录的ActivityRecord的数目，更具体的细节可以自行查看ActivityManagerService及ActivityStack，那么这里就容易解释了，只要是存活的APP，或者被LowmemoryKiller杀死的APP，其AMS的ActivityRecord是完整保存的，这也是恢复的依据。对于RecentActivity获取的数据其实就是AMS中的翻版，它也是不知道将要唤起的APP是否是存活的，只要TaskRecord告诉RecentActivity是存货的，那么久直接走唤起流程。也就是通过ActivityManager的moveTaskToFront唤起App，至于后续的工作，就完全交给AMS来处理。现看一下到这里的流程图：
 
-
 ![从最近的任务列表唤起App的流程](http://upload-images.jianshu.io/upload_images/1460468-e9834e9ea80ad648.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-## 在唤起App的时候AMS侦测App或者Activity是否被异常杀死
+# 重建APP的时机
+
+我们知道AMS与客户端的通信是通过Binder来进行的，并且通信是全双工的，并且互为客户端跟服务器，也就说AMS向客户端发命令的时候，AMS是客户端，反之亦然，Binder是有个讣告的功能的：基于Binder通信的服务端（S）如果挂掉了，客户端（C）是能够收到Binder驱动发送的一份讣告的，可以把Binder驱动看作是第三方不死邮政机构，对于APP被异常杀死的情况下，这份讣告是发送给AMS的。AMS在收到通知后，就会针对APP被异常杀死的情况作出整理。
+
+
+　　1.发送死亡通知：本地对象死亡会出发关闭/dev/binder设备，binder_release会被调用，binder驱动程序会在其中检查Binder本地对象是否死亡，该过程会调用binder_deferred_release 执行。如死亡会在binder_thread_read中检测到BINDER_WORK_DEAD_BINDER的工作项。就会发出死亡通知。
+　　
+Server进程在启动时，会调用函数open来打开设备文件/dev/binder。一方面，在正常情况下，它退出时会调用函数close来关闭设备文件/dev/binder，这时候就会触发函数binder_releasse被调用；另一方面，如果Server进程异常退出，即它没有正常关闭设备文件/dev/binder，那么内核就会负责关闭它，这个时候也会触发函数binder_release被调用。因此，Binder驱动程序就可以在函数binder_release中检查进程退出时，是否有Binder本地对象在里面运行。如果有，就说明它们是死亡了的Binder本地对象了。
+
+attachApplication
+
+	
+	final void appDiedLocked(ProcessRecord app, int pid,
+	            IApplicationThread thread) {
+	
+	        mProcDeaths[0]++;
+	        
+	        BatteryStatsImpl stats = mBatteryStatsService.getActiveStatistics();
+	        synchronized (stats) {
+	            stats.noteProcessDiedLocked(app.info.uid, pid);
+	        }
+	
+	        // Clean up already done if the process has been re-started.
+	        if (app.pid == pid && app.thread != null &&
+	                app.thread.asBinder() == thread.asBinder()) {
+	            if (!app.killedBackground) {
+	                Slog.i(TAG, "Process " + app.processName + " (pid " + pid
+	                        + ") has died.");
+	            }
+	            EventLog.writeEvent(EventLogTags.AM_PROC_DIED, app.userId, app.pid, app.processName);
+	            if (DEBUG_CLEANUP) Slog.v(
+	                TAG, "Dying app: " + app + ", pid: " + pid
+	                + ", thread: " + thread.asBinder());
+	            boolean doLowMem = app.instrumentationClass == null;
+	            handleAppDiedLocked(app, false, true);
+	        // 是不是被后台杀了
+	            if (doLowMem) {
+	                // If there are no longer any background processes running,
+	                // and the app that died was not running instrumentation,
+	                // then tell everyone we are now low on memory.
+	                boolean haveBg = false;
+	                for (int i=mLruProcesses.size()-1; i>=0; i--) {
+	                    ProcessRecord rec = mLruProcesses.get(i);
+	                    if (rec.thread != null && rec.setAdj >= ProcessList.HIDDEN_APP_MIN_ADJ) {
+	                        haveBg = true;
+	                        break;
+	                    }
+	                }
+	                
+	                if (!haveBg) {
+	                    EventLog.writeEvent(EventLogTags.AM_LOW_MEMORY, mLruProcesses.size());
+	                    long now = SystemClock.uptimeMillis();
+	                    for (int i=mLruProcesses.size()-1; i>=0; i--) {
+	                        ProcessRecord rec = mLruProcesses.get(i);
+	                        if (rec != app && rec.thread != null &&
+	                                (rec.lastLowMemory+GC_MIN_INTERVAL) <= now) {
+	                            // The low memory report is overriding any current
+	                            // state for a GC request.  Make sure to do
+	                            // heavy/important/visible/foreground processes first.
+	                            if (rec.setAdj <= ProcessList.HEAVY_WEIGHT_APP_ADJ) {
+	                                rec.lastRequestedGc = 0;
+	                            } else {
+	                                rec.lastRequestedGc = rec.lastLowMemory;
+	                            }
+	                            rec.reportLowMemory = true;
+	                            rec.lastLowMemory = now;
+	                            mProcessesToGc.remove(rec);
+	                            addProcessToGcListLocked(rec);
+	                        }
+	                    }
+	                    mHandler.sendEmptyMessage(REPORT_MEM_USAGE);
+	                    scheduleAppGcsLocked();
+	                }
+	            }
+	        } else if (app.pid != pid) {
+	            // A new process has already been started.
+	            Slog.i(TAG, "Process " + app.processName + " (pid " + pid
+	                    + ") has died and restarted (pid " + app.pid + ").");
+	            EventLog.writeEvent(EventLogTags.AM_PROC_DIED, app.userId, app.pid, app.processName);
+	        } else if (DEBUG_PROCESSES) {
+	            Slog.d(TAG, "Received spurious death notification for thread "
+	                    + thread.asBinder());
+	        }
+	    }
+    
+# 杀了就重建
+
+
+    private final void handleAppDiedLocked(ProcessRecord app,
+            boolean restarting, boolean allowRestart) {
+        cleanUpApplicationRecordLocked(app, restarting, allowRestart, -1);
+        if (!restarting) {
+            mLruProcesses.remove(app);
+        }
+
+        if (mProfileProc == app) {
+            clearProfilerLocked();
+        }
+
+        // Just in case...
+        if (mMainStack.mPausingActivity != null && mMainStack.mPausingActivity.app == app) {
+            if (DEBUG_PAUSE || DEBUG_CLEANUP) Slog.v(TAG,
+                    "App died while pausing: " + mMainStack.mPausingActivity);
+            mMainStack.mPausingActivity = null;
+        }
+        if (mMainStack.mLastPausedActivity != null && mMainStack.mLastPausedActivity.app == app) {
+            mMainStack.mLastPausedActivity = null;
+        }
+
+        // Remove this application's activities from active lists.
+        boolean hasVisibleActivities = mMainStack.removeHistoryRecordsForAppLocked(app);
+
+        app.activities.clear();
+        
+        if (app.instrumentationClass != null) {
+            Slog.w(TAG, "Crash of app " + app.processName
+                  + " running instrumentation " + app.instrumentationClass);
+            Bundle info = new Bundle();
+            info.putString("shortMsg", "Process crashed.");
+            finishInstrumentationLocked(app, Activity.RESULT_CANCELED, info);
+        }
+
+        if (!restarting) {
+            if (!mMainStack.resumeTopActivityLocked(null)) {
+                // If there was nothing to resume, and we are not already
+                // restarting this process, but there is a visible activity that
+                // is hosted by the process...  then make sure all visible
+                // activities are running, taking care of restarting this
+                // process.
+                if (hasVisibleActivities) {
+                    mMainStack.ensureActivitiesVisibleLocked(null, 0);
+                }
+            }
+        }
+    }
+    
+    
+ 下面走的是判断是否需要重建的逻辑
+ 
+  /**
+     * Main code for cleaning up a process when it has gone away.  This is
+     * called both as a result of the process dying, or directly when stopping 
+     * a process when running in single process mode.
+     */
+    
+    // 清除及重建
+
+    private final void cleanUpApplicationRecordLocked(ProcessRecord app,
+            boolean restarting, boolean allowRestart, int index) {
+        if (index >= 0) {
+            mLruProcesses.remove(index);
+        }
+
+        mProcessesToGc.remove(app);
+        
+        // Dismiss any open dialogs.
+        if (app.crashDialog != null && !app.forceCrashReport) {
+            app.crashDialog.dismiss();
+            app.crashDialog = null;
+        }
+        if (app.anrDialog != null) {
+            app.anrDialog.dismiss();
+            app.anrDialog = null;
+        }
+        if (app.waitDialog != null) {
+            app.waitDialog.dismiss();
+            app.waitDialog = null;
+        }
+
+        app.crashing = false;
+        app.notResponding = false;
+        
+        app.resetPackageList();
+        app.unlinkDeathRecipient();
+        app.thread = null;
+        app.forcingToForeground = null;
+        app.foregroundServices = false;
+        app.foregroundActivities = false;
+        app.hasShownUi = false;
+        app.hasAboveClient = false;
+
+        mServices.killServicesLocked(app, allowRestart);
+
+        boolean restart = false;
+
+        // Remove published content providers.
+        if (!app.pubProviders.isEmpty()) {
+            Iterator<ContentProviderRecord> it = app.pubProviders.values().iterator();
+            while (it.hasNext()) {
+                ContentProviderRecord cpr = it.next();
+
+                final boolean always = app.bad || !allowRestart;
+                if (removeDyingProviderLocked(app, cpr, always) || always) {
+                    // We left the provider in the launching list, need to
+                    // restart it.
+                    restart = true;
+                }
+
+                cpr.provider = null;
+                cpr.proc = null;
+            }
+            app.pubProviders.clear();
+        }
+        
+        // Take care of any launching providers waiting for this process.
+        if (checkAppInLaunchingProvidersLocked(app, false)) {
+            restart = true;
+        }
+        
+        // Unregister from connected content providers.
+        if (!app.conProviders.isEmpty()) {
+            for (int i=0; i<app.conProviders.size(); i++) {
+                ContentProviderConnection conn = app.conProviders.get(i);
+                conn.provider.connections.remove(conn);
+            }
+            app.conProviders.clear();
+        }
+
+        // At this point there may be remaining entries in mLaunchingProviders
+        // where we were the only one waiting, so they are no longer of use.
+        // Look for these and clean up if found.
+        // XXX Commented out for now.  Trying to figure out a way to reproduce
+        // the actual situation to identify what is actually going on.
+        if (false) {
+            for (int i=0; i<mLaunchingProviders.size(); i++) {
+                ContentProviderRecord cpr = (ContentProviderRecord)
+                        mLaunchingProviders.get(i);
+                if (cpr.connections.size() <= 0 && !cpr.hasExternalProcessHandles()) {
+                    synchronized (cpr) {
+                        cpr.launchingApp = null;
+                        cpr.notifyAll();
+                    }
+                }
+            }
+        }
+        
+        skipCurrentReceiverLocked(app);
+
+        // Unregister any receivers.
+        if (app.receivers.size() > 0) {
+            Iterator<ReceiverList> it = app.receivers.iterator();
+            while (it.hasNext()) {
+                removeReceiverLocked(it.next());
+            }
+            app.receivers.clear();
+        }
+        
+        // If the app is undergoing backup, tell the backup manager about it
+        if (mBackupTarget != null && app.pid == mBackupTarget.app.pid) {
+            if (DEBUG_BACKUP || DEBUG_CLEANUP) Slog.d(TAG, "App "
+                    + mBackupTarget.appInfo + " died during backup");
+            try {
+                IBackupManager bm = IBackupManager.Stub.asInterface(
+                        ServiceManager.getService(Context.BACKUP_SERVICE));
+                bm.agentDisconnected(app.info.packageName);
+            } catch (RemoteException e) {
+                // can't happen; backup manager is local
+            }
+        }
+
+        for (int i = mPendingProcessChanges.size()-1; i>=0; i--) {
+            ProcessChangeItem item = mPendingProcessChanges.get(i);
+            if (item.pid == app.pid) {
+                mPendingProcessChanges.remove(i);
+                mAvailProcessChanges.add(item);
+            }
+        }
+        mHandler.obtainMessage(DISPATCH_PROCESS_DIED, app.pid, app.info.uid, null).sendToTarget();
+
+        // If the caller is restarting this app, then leave it in its
+        // current lists and let the caller take care of it.
+        if (restarting) {
+            return;
+        }
+
+        if (!app.persistent || app.isolated) {
+            if (DEBUG_PROCESSES || DEBUG_CLEANUP) Slog.v(TAG,
+                    "Removing non-persistent process during cleanup: " + app);
+            mProcessNames.remove(app.processName, app.uid);
+            mIsolatedProcesses.remove(app.uid);
+            if (mHeavyWeightProcess == app) {
+                mHandler.sendMessage(mHandler.obtainMessage(CANCEL_HEAVY_NOTIFICATION_MSG,
+                        mHeavyWeightProcess.userId, 0));
+                mHeavyWeightProcess = null;
+            }
+        } else if (!app.removed) {
+            // This app is persistent, so we need to keep its record around.
+            // If it is not already on the pending app list, add it there
+            // and start a new process for it.
+            if (mPersistentStartingProcesses.indexOf(app) < 0) {
+                mPersistentStartingProcesses.add(app);
+                restart = true;
+            }
+        }
+        if ((DEBUG_PROCESSES || DEBUG_CLEANUP) && mProcessesOnHold.contains(app)) Slog.v(TAG,
+                "Clean-up removing on hold: " + app);
+        mProcessesOnHold.remove(app);
+
+        if (app == mHomeProcess) {
+            mHomeProcess = null;
+        }
+        if (app == mPreviousProcess) {
+            mPreviousProcess = null;
+        }
+        // 重建进程
+        if (restart && !app.isolated) {
+            // We have components that still need to be running in the
+            // process, so re-launch it.
+            mProcessNames.put(app.processName, app.uid, app);
+            startProcessLocked(app, "restart", app.processName);
+        } else if (app.pid > 0 && app.pid != MY_PID) {
+            // Goodbye!
+            synchronized (mPidsSelfLocked) {
+                mPidsSelfLocked.remove(app.pid);
+                mHandler.removeMessages(PROC_START_TIMEOUT_MSG, app);
+            }
+            app.setPid(0);
+        }
+    }
+
+
+但是无论如何，ActivityRecord都是被保留的
+    
+# 在唤起App或者Activity的时候恢复
+
+
 
 接着往下看moveTaskToFrontLocked，这个函数在ActivityStack中，主要管理ActivityRecord栈的，所有start的Activity都在ActivityStack中保留一个ActivityRecord，这个也是AMS管理Activiyt的一个依据，最终moveTaskToFrontLocked会调用resumeTopActivityLocked来唤起Activity，AMS获取即将resume的Activity信息的方式主要是通过ActivityRecord，它并不知道Activity本身是否存活，获取之后，AMS在唤醒Activity的环节才知道App或者Activity被杀死，而这个过程是通过异常来处理的，具体看一下resumeTopActivityLocked源码：
  
@@ -480,7 +804,7 @@ ActivityB如何启动的，本文不关心，只看ActivityA如何保存现场�
 
 到这里ActivityManagerService恢复APP场景的逻辑就应该讲完了。再碎碎念一些问题，可能是一些面试的点。
 
-*  主动清除最近任务跟异常杀死的区别：ActivityStack是否正常清楚
+*  主动清除最近任务跟异常杀死的区别：ActivityStack是否正常清除
 *  恢复的时候，为什么是倒序恢复：因为这是ActivityStack中的HistoryRecord中栈的顺序，严格按照AMS端来
 *  一句话概括Android后台杀死**恢复**原理：Application进程被Kill，但现场被AMS保存，AMS能根据保存恢复Application现场
 
@@ -499,4 +823,6 @@ ActivityB如何启动的，本文不关心，只看ActivityA如何保存现场�
 [Android进程生命周期与ADJ](http://gityuan.com/2015/10/01/process-lifecycle/)       
 [Linux下/proc目录简介](http://blog.csdn.net/zdwzzu2006/article/details/7747977)      
 [startActivity启动过程分析 精](http://gityuan.com/2016/03/12/start-activity/)
-[Activity销毁流程](http://blog.csdn.net/qq_23547831/article/details/51232309)           
+[Activity销毁流程](http://blog.csdn.net/qq_23547831/article/details/51232309) 
+[android binder 进程间通信机制3-Binder 对象生死](http://www.bozhiyue.com/anroid/wenzhang/2016/1026/571932.html)                
+[linux驱动之定时任务timer，队列queue，小任务tasklet机制及用法](http://blog.csdn.net/u013256018/article/details/47803941)
