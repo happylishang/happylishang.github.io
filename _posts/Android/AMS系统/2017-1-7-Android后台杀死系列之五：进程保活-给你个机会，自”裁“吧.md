@@ -7,6 +7,15 @@ category: Android
  
 ![App操作影响进程优先级](http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
+
+# 进程保活
+ 
+# 进程过多杀
+
+# 优先级改变杀
+
+# MAS杀进程
+
 # AMS会杀死进程吗？
 
 答案是肯定的AMS，也会有选择的杀死进程，不过跟当前的内存没太大关系，而是根据当前启动APP的数量，比如空的APP过多，或者后台APP过多，都可能引起后台杀死，比如在4.3上，如果后台的APP超过24个一般就会触发AMS杀进程，要么杀空进程，要么杀靠后的隐藏进程。
@@ -16,7 +25,7 @@ OnTrimMemory:Android系统从4.0开始还提供了onTrimMemory()的回调，当�
 
 # 进程保活 
 
-前面讲到，后台杀死的原理，加入进程进入后台，系统就不管了了，知道内存不够才去回收，当然不是，总要提前警告一次，才能抄家伙，上来就杀，太不讲人情，Android也是如此，先给App一个悔过的机会，让APP瘦身。
+前面讲到，后台杀死的原理，假如进程进入后台，系统就不管了了？知道内存不够才去回收，当然不是，总要提前警告一次，才能抄家伙，上来就杀，太不讲人情，Android也是如此，先给App一个悔过的机会，让APP瘦身。
 
 两个入口：要根据自己的场景判断
 
@@ -31,9 +40,6 @@ OnTrimMemory:Android系统从4.0开始还提供了onTrimMemory()的回调，当�
      }
 
 
-
-
- 
 
 # app.trimMemoryLevel 裁剪APP的时机，
 
@@ -165,7 +171,6 @@ OnTrimMemory:Android系统从4.0开始还提供了onTrimMemory()的回调，当�
                     }
                 } else {
                     // 空进程，没activity
-
                     if (app.curRawAdj == curEmptyAdj || app.curRawAdj == curHiddenAdj) {
                         // This process was assigned as an empty process...  step the
                         // empty level.
@@ -453,6 +458,7 @@ Runtime.getRuntime().gc();
     
  
 void onLowMemory ()
+
 This is called when the overall system is running low on memory, and actively running processes should trim their memory usage. While the exact point at which this will be called is not defined, generally it will happen when all background process have been killed. That is, before reaching the point of killing processes hosting service and foreground UI that we would like to avoid killing.
 
 You should implement this method to release any caches or other unnecessary resources you may be holding on to. The system will perform a garbage collection for you after returning from this method.
@@ -462,6 +468,7 @@ Preferably, you should implement onTrimMemory(int) from ComponentCallbacks2 to i
 
 推荐用trim来解决不同等级的内存缩放
 
+是否给一个自我瘦身的机会，杀鸡儆猴，如果你是那只鸡，那就没办法了！onLowMemory是在杀死所有后台进程的时候，给前台进程回调用的，该杀的都杀了，如果你再不释放资源，并且内存还是不够的话，就别怪连前台进程也杀掉。
 	        
 ###  参考文档
 
