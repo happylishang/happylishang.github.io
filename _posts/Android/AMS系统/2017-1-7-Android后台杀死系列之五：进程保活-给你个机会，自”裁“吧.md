@@ -1,14 +1,23 @@
 ---
 layout: post
-title: "Android后台杀死系列之四：实践篇"
+title: "Android后台杀死系列之五：进程保活-给你个机会，自”裁“吧"
 category: Android
 
 ---
  
-![App操作影响进程优先级](http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+ 
+
+
+# 优先级的计算
+
+1、是否只是改变自身的优先级
+2、是否引起其他有限级的改变
+3、后台的优先级变化，退回后台引起整个列表的变化吗？，还是只是几个
 
 
 # 进程保活
+
+全集中在一个函数中  final void updateOomAdjLocked() ，这个函数先计算优先级，再清理，再瘦身
  
 # 进程过多杀
 
@@ -17,6 +26,111 @@ category: Android
 # MAS杀进程
 
 # AMS会杀死进程吗？
+
+# trimeMemory时机
+
+# 什么时候回到onLowmemory-app.reportLowMemory==true，所有的后台进程，都被干掉的情况下
+
+
+	
+	 final void appDiedLocked(ProcessRecord app, int pid,
+	            IApplicationThread thread) {
+	
+	        mProcDeaths[0]++;
+	        
+	        BatteryStatsImpl stats = mBatteryStatsService.getActiveStatistics();
+	        synchronized (stats) {
+	            stats.noteProcessDiedLocked(app.info.uid, pid);
+	        }
+	
+	        // Clean up already done if the process has been re-started.
+	        // 重启？
+	        if (app.pid == pid && app.thread != null &&
+	                app.thread.asBinder() == thread.asBinder()) {
+	            if (!app.killedBackground) {
+	                Slog.i(TAG, "Process " + app.processName + " (pid " + pid
+	                        + ") has died.");
+	            }
+	            EventLog.writeEvent(EventLogTags.AM_PROC_DIED, app.userId, app.pid, app.processName);
+	            if (DEBUG_CLEANUP) Slog.v(
+	                TAG, "Dying app: " + app + ", pid: " + pid
+	                + ", thread: " + thread.asBinder());
+	            boolean doLowMem = app.instrumentationClass == null;
+	            handleAppDiedLocked(app, false, true);
+	            // 是不是因为内存紧张导致的LowmemoryKiller机制生效，杀死的进程
+	            if (doLowMem) {
+	                // If there are no longer any background processes running,
+	                // and the app that died was not running instrumentation,
+	                // then tell everyone we are now low on memory.
+	
+	                // 通知低内存，大家注意，已经有富农被杀了，打土豪分田地的那哥们出来了，自觉的破财消灾吧
+	
+	                boolean haveBg = false;
+	                for (int i=mLruProcesses.size()-1; i>=0; i--) {
+	                    ProcessRecord rec = mLruProcesses.get(i);
+	                    if (rec.thread != null && rec.setAdj >= ProcessList.HIDDEN_APP_MIN_ADJ) {
+	                        haveBg = true;
+	                        break;
+	                    }
+	                }
+	                // 是不是所有的后台都被杀死了，如果都被杀死了，通知前台的app，快向组织交钱，包名要紧
+	                if (!haveBg) {
+	                    EventLog.writeEvent(EventLogTags.AM_LOW_MEMORY, mLruProcesses.size());
+	                    long now = SystemClock.uptimeMillis();
+	                    for (int i=mLruProcesses.size()-1; i>=0; i--) {
+	                        ProcessRecord rec = mLruProcesses.get(i);
+	                        if (rec != app && rec.thread != null &&
+	                                (rec.lastLowMemory+GC_MIN_INTERVAL) <= now) {
+	                            // The low memory report is overriding any current
+	                            // state for a GC request.  Make sure to do
+	                            // heavy/important/visible/foreground processes first.
+	                            if (rec.setAdj <= ProcessList.HEAVY_WEIGHT_APP_ADJ) {
+	                                rec.lastRequestedGc = 0;
+	                            } else {
+	                                rec.lastRequestedGc = rec.lastLowMemory;
+	                            }
+	                            rec.reportLowMemory = true;
+	                            rec.lastLowMemory = now;
+	                            mProcessesToGc.remove(rec);
+	                            addProcessToGcListLocked(rec);
+	                        }
+	                    }
+	                    // gc 
+	                    mHandler.sendEmptyMessage(REPORT_MEM_USAGE);
+	                    scheduleAppGcsLocked();
+	                }
+	            }
+	        } else if (app.pid != pid) {
+	            // A new process has already been started.
+	            Slog.i(TAG, "Process " + app.processName + " (pid " + pid
+	                    + ") has died and restarted (pid " + app.pid + ").");
+	            EventLog.writeEvent(EventLogTags.AM_PROC_DIED, app.userId, app.pid, app.processName);
+	        } else if (DEBUG_PROCESSES) {
+	            Slog.d(TAG, "Received spurious death notification for thread "
+	                    + thread.asBinder());
+	        }
+	    }
+	
+
+
+    final void performAppGcLocked(ProcessRecord app) {
+        try {
+            app.lastRequestedGc = SystemClock.uptimeMillis();
+            if (app.thread != null) {
+                // app.reportLowMemory app虚拟机的内存是不是不够了？？
+                if (app.reportLowMemory) {
+                    app.reportLowMemory = false;
+                    // 这里才真正的调用APP 的onLowmemory
+                    app.thread.scheduleLowMemory();
+                } else {
+                    app.thread.processInBackground();
+                }
+            }
+        } catch (Exception e) {
+            // whatever.
+        }
+    }
+    
 
 答案是肯定的AMS，也会有选择的杀死进程，不过跟当前的内存没太大关系，而是根据当前启动APP的数量，比如空的APP过多，或者后台APP过多，都可能引起后台杀死，比如在4.3上，如果后台的APP超过24个一般就会触发AMS杀进程，要么杀空进程，要么杀靠后的隐藏进程。
 
@@ -472,5 +586,5 @@ Preferably, you should implement onTrimMemory(int) from ComponentCallbacks2 to i
 	        
 ###  参考文档
 
-[谷歌文档Application](https://developer.android.com/reference/android/app/Application.html#onLowMemory%28%29)精          
-     
+[谷歌文档Application ](https://developer.android.com/reference/android/app/Application.html#onLowMemory%28%29)                 
+[Android四大组件与进程启动的关系](http://gityuan.com/2016/10/09/app-process-create-2/)     
