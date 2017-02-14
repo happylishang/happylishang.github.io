@@ -10,6 +10,20 @@ category: Android
 
 # 优先级的计算
 
+# AMS怎么杀
+
+# 怎么瘦身onTrimeMemory的调用时机跟裁剪等级
+
+* 如何判定不同的level
+* 怎么样在不同level裁剪自身
+
+# 设定优先级，是否成功失败
+
+# 后台杀了全部采取通知前台
+
+# 如何处理保活
+
+
 1、是否只是改变自身的优先级
 2、是否引起其他有限级的改变
 3、后台的优先级变化，退回后台引起整个列表的变化吗？，还是只是几个
@@ -584,7 +598,32 @@ Preferably, you should implement onTrimMemory(int) from ComponentCallbacks2 to i
 
 是否给一个自我瘦身的机会，杀鸡儆猴，如果你是那只鸡，那就没办法了！onLowMemory是在杀死所有后台进程的时候，给前台进程回调用的，该杀的都杀了，如果你再不释放资源，并且内存还是不够的话，就别怪连前台进程也杀掉。
 	        
+	        
+# 根据后台进程的数目确定当前需要裁剪的等级，后台进程越多，说明裁剪等级越低，说明存活的越多，LMK基本没怎么动，越少说明越紧张，也是奇葩的说法，这个时候，
+
+# 也许同当前内存的使用具体情况结合起来比较好，后台进程少，内存充足
+
+* TRIM_MEMORY_RUNNING_MODERATE 表示应用程序正常运行，并且不会被杀掉。但是目前手机的内存已经有点低了，系统可能会开始根据LRU缓存规则来去杀死进程了。
+* TRIM_MEMORY_RUNNING_LOW 表示应用程序正常运行，并且不会被杀掉。但是目前手机的内存已经非常低了，我们应该去释放掉一些不必要的资源以提升系统的性能，同时这也会直接影响到我们应用程序的性能。
+* TRIM_MEMORY_RUNNING_CRITICAL 表示应用程序仍然正常运行，但是系统已经根据LRU缓存规则杀掉了大部分缓存的进程了。这个时候我们应当尽可能地去释放任何不必要的资源，不然的话系统可能会继续杀掉所有缓存中的进程，并且开始杀掉一些本来应当保持运行的进程，比如说后台运行的服务。
+* TRIM_MEMORY_BACKGROUND 表示手机目前内存已经很低了，系统准备开始根据LRU缓存来清理进程。这个时候我们的程序在LRU缓存列表的最近位置，是不太可能被清理掉的，但这时去释放掉一些比较容易恢复的资源能够让手机的内存变得比较充足，从而让我们的程序更长时间地保留在缓存当中，这样当用户返回我们的程序时会感觉非常顺畅，而不是经历了一次重新启动的过程。
+* TRIM_MEMORY_MODERATE 表示手机目前内存已经很低了，并且我们的程序处于LRU缓存列表的中间位置，如果手机内存还得不到进一步释放的话，那么我们的程序就有被系统杀掉的风险了。
+* TRIM_MEMORY_COMPLETE 表示手机目前内存已经很低了，并且我们的程序处于LRU缓存列表的最边缘位置，系统会最优先考虑杀掉我们的应用程序，在这个时候应当尽可能地把一切可以释放的东西都进行释放。
+	        
+# 退回后后台的时候为何用的裁剪等级是UITRIM_MEMORY_UI_HIDDEN
+
+# 单击HOME键，其实还是应用的切换
+
+# 通知前台Runing的app，通知后台app
+
+
+	        
 ###  参考文档
 
 [谷歌文档Application ](https://developer.android.com/reference/android/app/Application.html#onLowMemory%28%29)                 
 [Android四大组件与进程启动的关系](http://gityuan.com/2016/10/09/app-process-create-2/)     
+[Android 7.0 ActivityManagerService(8) 进程管理相关流程分析(2) updateOomAdjLocked](http://blog.csdn.net/gaugamela/article/details/53927724)           
+[Android 7.0 ActivityManagerService(9) 进程管理相关流程分析(3) computeOomAdjLocked 精](http://blog.csdn.net/gaugamela/article/details/54176460)      
+[Android代码内存优化建议-OnTrimMemory优化 精](http://androidperformance.com/2015/07/20/Android-Performance-Memory-onTrimMemory.html)       
+[微信Android客户端后台保活经验分享](http://www.infoq.com/cn/articles/wechat-android-background-keep-alive)      
+[按"Home"键回到桌面的过程](http://book.51cto.com/art/201109/291309.htm)       
