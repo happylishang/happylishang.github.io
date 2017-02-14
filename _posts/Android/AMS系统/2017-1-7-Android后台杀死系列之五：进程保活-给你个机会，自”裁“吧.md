@@ -616,6 +616,8 @@ Preferably, you should implement onTrimMemory(int) from ComponentCallbacks2 to i
 
 # 通知前台Runing的app，通知后台app
 
+# 有Service的时候，看看Service是什么Service，未停止的Service
+
 
 	        
 ###  参考文档
