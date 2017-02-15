@@ -618,6 +618,7 @@ Preferably, you should implement onTrimMemory(int) from ComponentCallbacks2 to i
 
 # 有Service的时候，看看Service是什么Service，未停止的Service
 
+# 正常的情况下，一般都是UI_HIDEN
 
 	        
 ###  参考文档
