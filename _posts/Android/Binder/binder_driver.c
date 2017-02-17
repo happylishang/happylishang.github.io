@@ -258,6 +258,7 @@ enum binder_deferred_state {
 };
 struct binder_proc {
 	struct hlist_node proc_node;
+	// 四棵比较重要的树 
 	struct rb_root threads;
 	struct rb_root nodes;
 	struct rb_root refs_by_desc;
@@ -2078,6 +2079,7 @@ static int binder_thread_read(struct binder_proc *proc,
 	int wait_for_proc_work;
 	
 	// 如果实际读取到的大小等于0，那么将会在返回的数据包中插入BR_NOOP的命令字。
+	// 看自己的进程上，是否有需要处理的事情，如果没有就通知自己即将等待了
 	if (*consumed == 0) {
 		if (put_user(BR_NOOP, (uint32_t __user *)ptr))
 			return -EFAULT;
@@ -2130,7 +2132,7 @@ retry:
 				ret = -EAGAIN;
 		} else
 		 /* 当前task等待在task自己的等待队列中(binder_thread.todo)，永远只有其自己。，只有自己*/
-			ret = wait_event_freezable(thread->wait, binder_has_thread_work(thread));
+		 ret = wait_event_freezable(thread->wait, binder_has_thread_work(thread));
 	}
 	binder_lock(__func__);
 	if (wait_for_proc_work)
@@ -2777,6 +2779,10 @@ err_bad_arg:
 	       proc->pid, vma->vm_start, vma->vm_end, failure_string, ret);
 	return ret;
 }
+
+// 进程中打开一次，其他需要  线程中直接用就可以了
+// binder_proc
+
 static int binder_open(struct inode *nodp, struct file *filp)
 {
 	struct binder_proc *proc;
