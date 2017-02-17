@@ -968,6 +968,9 @@ static int binder_dec_node(struct binder_node *node, int strong, int internal)
 	}
 	return 0;
 }
+
+// 根据32位的uint32_t desc来查找
+
 static struct binder_ref *binder_get_ref(struct binder_proc *proc,
 					 uint32_t desc)
 {
@@ -984,6 +987,9 @@ static struct binder_ref *binder_get_ref(struct binder_proc *proc,
 	}
 	return NULL;
 }
+
+
+// 为何
 static struct binder_ref *binder_get_ref_for_node(struct binder_proc *proc,
 						  struct binder_node *node)
 {
@@ -1001,6 +1007,9 @@ static struct binder_ref *binder_get_ref_for_node(struct binder_proc *proc,
 		else
 			return ref;
 	}
+
+	// binder_ref 可以在两棵树里面，但是，两棵树的查询方式不同，并且通过desc查询，不具备新建功能
+
 	new_ref = kzalloc(sizeof(*ref), GFP_KERNEL);
 	if (new_ref == NULL)
 		return NULL;
@@ -1009,16 +1018,22 @@ static struct binder_ref *binder_get_ref_for_node(struct binder_proc *proc,
 	new_ref->proc = proc;
 	new_ref->node = node;
 	rb_link_node(&new_ref->rb_node_node, parent, p);
+	
+	// 插入到proc->refs_by_node红黑树中去
+
 	rb_insert_color(&new_ref->rb_node_node, &proc->refs_by_node);
+	
 	// 是不是ServiceManager的
 	new_ref->desc = (node == binder_context_mgr_node) ? 0 : 1;
 
+	// 分配Handle句柄，为了插入到refs_by_desc
 	for (n = rb_first(&proc->refs_by_desc); n != NULL; n = rb_next(n)) {
 		ref = rb_entry(n, struct binder_ref, rb_node_desc);
 		if (ref->desc > new_ref->desc)
 			break;
 		new_ref->desc = ref->desc + 1;
 	}
+	// 插入到refs_by_desc红黑树中区
 	p = &proc->refs_by_desc.rb_node;
 	while (*p) {
 		parent = *p;
@@ -1031,7 +1046,10 @@ static struct binder_ref *binder_get_ref_for_node(struct binder_proc *proc,
 			BUG();
 	}
 	rb_link_node(&new_ref->rb_node_desc, parent, p);
+		// 插入到refs_by_desc红黑树中区
 	rb_insert_color(&new_ref->rb_node_desc, &proc->refs_by_desc);
+
+
 	if (node) {
 		hlist_add_head(&new_ref->node_entry, &node->refs);
 		binder_debug(BINDER_DEBUG_INTERNAL_REFS,
@@ -1122,6 +1140,10 @@ static int binder_dec_ref(struct binder_ref *ref, int strong)
 		binder_delete_ref(ref);
 	return 0;
 }
+
+// 将binder_transaction从binder_thread的transaction_stack中出栈
+// 这里主要针对的是出栈目标线程结构体中的栈
+
 static void binder_pop_transaction(struct binder_thread *target_thread,
 				   struct binder_transaction *t)
 {
@@ -1260,12 +1282,22 @@ static void binder_transaction_buffer_release(struct binder_proc *proc,
 		}
 	}
 }
+
+
+
+
+
+
+
+
 // 这个函数只会在binder_thread_write中调用
 // 调用该函数传递下去的参数有：当前task所在进程在binder驱动中对应的binder_proc结构体、
 // 和当前task在binder驱动中对应的binder_thread结构体；struct binder_transaction_data结构体指针，
 // 最后一个参数表示当前发送的是请求还是回复。
 // 这个函数将发送请求和发送回复放在了一个函数，而且包含了数据包中有binder在传输的处理情况，
 // 所以显得很复杂，不太容易看懂，大概有400多行吧！
+
+
 static void binder_transaction(struct binder_proc *proc,
 			       struct binder_thread *thread,
 			       struct binder_transaction_data *tr, int reply)
@@ -1303,6 +1335,7 @@ static void binder_transaction(struct binder_proc *proc,
 		if (in_reply_to->to_thread != thread) {
          // ￥
 		}
+		// 出栈 ，恢复到上面的，这里是出栈自己线程中的栈
 		thread->transaction_stack = in_reply_to->to_parent;
 		// 获取目标线程，这里是在请求发送是写入的
 		target_thread = in_reply_to->from;
@@ -1338,13 +1371,17 @@ static void binder_transaction(struct binder_proc *proc,
 		if (!(tr->flags & TF_ONE_WAY) && thread->transaction_stack) {
 			struct binder_transaction *tmp;
 			// 目前肯定只有自己，因为阻塞，只能有自己
+
 			tmp = thread->transaction_stack;
+
 			if (tmp->to_thread != thread) {
 		    // $
 			}
 
 /*			 这里尝试解释一下 http://blog.csdn.net/universus/article/details/6211589 不知道是不是正确
-			 关于工作线程的启动，Binder驱动还做了一点小小的优化。当进程P1的线程T1向进程P2发送请求时，
+			 关于工作线程的启动，Binder驱动还做了一点小小的优化。
+
+			 当进程P1的线程T1向进程P2发送请求时，
 			 驱动会先查看一下线程T1是否也正在处理来自P2某个线程请求但尚未完成（没有发送回复）。这种情况
 			  通常发生在两个进程都有Binder实体并互相对发时请求时。假如驱动在进程P2中发现了这样的线程，比如说T2
 			 ，就会要求T2来处理T1的这次请求。因为T2既然向T1发送了请求尚未得到返回包，说明T2肯定（或将会）阻塞在读取返
@@ -1353,7 +1390,9 @@ static void binder_transaction(struct binder_proc *proc,
 
 /*			规则1：Client发给Server的请求数据包都提交到Server进程的全局to-do队列。不过有个特例，就
 			是上节谈到的Binder对工作线程启动的优化。经过优化，来自T1的请求不是提交给P2的全局to-do队列，而是送入了T2
-			的私有to-do队列。规则2：对同步请求的返回数据包（由BC_REPLY发送的包）都发送到发起请求的线程的私有to-do队列
+			的私有to-do队列。
+
+			规则2：对同步请求的返回数据包（由BC_REPLY发送的包）都发送到发起请求的线程的私有to-do队列
 			中。如上面的例子，如果进程P1的线程T1发给进程P2的线程T2的是同步请求，那么T2返回的数据包将送进T1的私有to-do队
 			列而不会提交到P1的全局to-do队列。
 			数据包进入接收队列的潜规则也就决定了线程进入等待队列的潜规则，
@@ -1363,7 +1402,9 @@ static void binder_transaction(struct binder_proc *proc,
 			而不是在P1的全局等待队列中排队，否则将得不到T2的返回的数据包。
 
 			只有相互请求，才会在请求的时候发送到某个特定的线程。
+
 */			while (tmp) {
+			// 找到对方正在等待自己进程的线程，如果线程没有在等待自己进程的返回，就不要找了
 				if (tmp->from && tmp->from->proc == target_proc)
 					target_thread = tmp->from;
 				tmp = tmp->from_parent;
@@ -1372,6 +1413,7 @@ static void binder_transaction(struct binder_proc *proc,
 	}
 	// 这里如果目标是线程，那么唤醒的就是线程的等待队列，如果是进程，就唤醒进程等待队列
 	// 其实唤醒的时候，对应是queuen ，
+
 	if (target_thread) {
 		e->to_thread = target_thread->pid;
 		target_list = &target_thread->todo;
@@ -1380,6 +1422,8 @@ static void binder_transaction(struct binder_proc *proc,
 		target_list = &target_proc->todo;
 		target_wait = &target_proc->wait;
 	}
+
+
 	e->to_proc = target_proc->pid;
 	/* TODO: reuse incoming transaction for reply 如何复用incoming transaction*/
 	t = kzalloc(sizeof(*t), GFP_KERNEL);
@@ -1604,6 +1648,7 @@ static void binder_transaction(struct binder_proc *proc,
 if (reply) {
 		BUG_ON(t->buffer->async_transaction != 0);
 		// 这里是出栈操作
+		// 注意这里有出栈 操作
 		binder_pop_transaction(target_thread, in_reply_to);
 
 	} 
@@ -1615,6 +1660,7 @@ if (reply) {
 		// binder_transaction的的上一层任务，由于是堆栈，所以抽象为parent，惹歧义啊！这里是入栈操作
 		t->from_parent = thread->transaction_stack;
 		// 正在处理的事务栈，为何会有事务栈呢？因为在等待返回的过程中，还会有事务插入进去，比如null的reply
+		// 压栈，发送方
 		thread->transaction_stack = t;
   
 	/* 
@@ -1888,6 +1934,7 @@ int binder_thread_write(struct binder_proc *proc, struct binder_thread *thread,
 			binder_debug(BINDER_DEBUG_THREADS,
 				     "binder: %d:%d BC_ENTER_LOOPER\n",
 				     proc->pid, thread->pid);
+
 			if (thread->looper & BINDER_LOOPER_STATE_REGISTERED) {
 				thread->looper |= BINDER_LOOPER_STATE_INVALID;
 				binder_user_error("binder: %d:%d ERROR:"
@@ -2085,13 +2132,18 @@ static int binder_thread_read(struct binder_proc *proc,
 			return -EFAULT;
 		ptr += sizeof(uint32_t);
 	}
+
 retry:
    /* 
    该标志表示当前task是要去等待处理proc中全局的todo还是自己本task的todo队列中的任务。
    两个条件决定这个标志是否为1，当前task的binder_transaction这个链表为NULL, 它记录着
    本task上是否有传输正在进行；第二个条件是当前task的私有任务队列为NULL。
    对于自己，一定是线程，对于目标，不一定是线程，可能是进程
+
    */
+
+	// thread->transaction_stack  是否有请求压栈
+	// 是否是当前线程没有需要处理的事情
 	wait_for_proc_work = thread->transaction_stack == NULL &&
 				list_empty(&thread->todo);
 	if (thread->return_error != BR_OK && ptr < end) {
@@ -2107,7 +2159,7 @@ retry:
 				   !!thread->transaction_stack,
 				   !list_empty(&thread->todo));
 	if (wait_for_proc_work) {
-		// 进程等待
+		// 进程等待, 
 		if (!(thread->looper & (BINDER_LOOPER_STATE_REGISTERED |
 					BINDER_LOOPER_STATE_ENTERED))) {
 			binder_user_error("binder: %d:%d ERROR: Thread waiting "
@@ -2124,6 +2176,10 @@ retry:
 				ret = -EAGAIN;
 		} else
 			// 当前task互斥等待在进程全局的等待队列中。 
+			// 多个线程互斥等待，防止重复处理请求
+			// 何谓排他性的等待？有一些进程都在等待队列中，当唤醒的时候，
+			// 内核是唤醒所有的进程。如果进程设置了排他性等待的标志，
+			// 唤醒所有非排他性的进程和一个排他性进程。线程的排他性，其实都是线程，线程是内核调度的最小单位
 			ret = wait_event_freezable_exclusive(proc->wait, binder_has_proc_work(proc, thread));
 	} else {
 		// 线程等待
@@ -2140,6 +2196,8 @@ retry:
 	thread->looper &= ~BINDER_LOOPER_STATE_WAITING;
 	if (ret)
 		return ret;
+
+
 	while (1) {
 		uint32_t cmd;
 		struct binder_transaction_data tr;
@@ -2161,6 +2219,7 @@ retry:
 		}
 		if (end - ptr < sizeof(tr) + 4)
 			break;
+
 		switch (w->type) {
 		case BINDER_WORK_TRANSACTION: {
 			// 通过binder_work：w反向找到所属的binder_transaction数据结构指针
@@ -2273,6 +2332,7 @@ retry:
 				goto done; /* DEAD_BINDER notifications can cause transactions */
 		} break;
 		}
+		// 如果t为空，不正常，就跳过 
 		if (!t)
 			continue;
 		/* 这里的t所指向的binder_transaction结构体就是前面发送者task建立的binder_transaction数据结构，
@@ -2338,11 +2398,11 @@ retry:
 		ptr += sizeof(tr);
 		trace_binder_transaction_received(t);
 		binder_stat_br(proc, thread, cmd);
- 		// $
-		 // 从todo队列中删除对应的binder_work。
+ 		 
+		 // 从todo队列中删除对应的binder_work。将binder_transaction节点从todo队列摘下来
 		list_del(&t->work.entry);
 		t->buffer->allow_user_free = 1;
-		{//同步，请求数据 接收方
+		 //同步，请求数据 接收方
 		if (cmd == BR_TRANSACTION && !(t->flags & TF_ONE_WAY)) {
 		/* vvvvv
 		这表示了同一个binder_transaction在发送task和接收task中都
@@ -2352,7 +2412,8 @@ retry:
 			t->to_parent = thread->transaction_stack;
 			// 这里给返回的请求端用
 			t->to_thread = thread;
-			// 这句很重要，为了server写返回的时候用的，看看是哪个线程处理的，另外将它设置在栈顶，栈顶的一定先处理，其他的都睡眠
+			// 这句很重要，为了server写返回的时候用的，看看是哪个线程处理的，另外将它设置在栈顶，
+			// 栈顶的一定先处理，其他的都睡眠
 			// t->from已经存在 from_parent也存在，
 			thread->transaction_stack = t;
 		} else {
@@ -2425,6 +2486,8 @@ static void binder_release_work(struct list_head *list)
 		}
 	}
 }
+
+// 如果有多个线程怎么获取的？
 static struct binder_thread *binder_get_thread(struct binder_proc *proc)
 {
 	struct binder_thread *thread = NULL;
@@ -2549,7 +2612,8 @@ static long binder_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	if (ret)
 		goto err_unlocked;
 	binder_lock(__func__);
-	/* 查找当前task对应的binder_thread结构体，如果没找到就新建一个binder_thread，同时将其加入binder_proc的threads的红黑树中。*/
+	 // 查找当前task对应的binder_thread结构体，如果没找到就新建一个binder_thread，
+	// 同时将其加入binder_proc的threads的红黑树中。注意这里获取的是自己进程中的线程
 	thread = binder_get_thread(proc);
     // ￥
 	switch (cmd) {
