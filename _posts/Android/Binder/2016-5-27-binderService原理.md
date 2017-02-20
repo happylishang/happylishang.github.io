@@ -394,6 +394,9 @@ Java层客户端的Binder代理都是BinderProxy，而且他们都是在native�
 	    return object;
 	}
 
+# asInterface 跟asbinder返回一样，只是标下给外部的类型不同
+
+
 接下去是进入AMS的bindService，再调用ActiveServices.java 的bindServiceLocked，它会把IServiceConnection实例存放到ConnectionRecord里面，并执行bringUpServiceLocked，
 
     int bindServiceLocked(IApplicationThread caller, IBinder token,
