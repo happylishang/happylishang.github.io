@@ -297,6 +297,36 @@ Java层的通信是经过封装。in与to 就是个例子
 
 ##### C++与Java Binder的转换
 
+#  注册的android_util_Binder.cpp入口
+
+int_register_android_os_BinderProxy入口[参考文档](http://gityuan.com/2015/11/21/binder-framework/)
+
+
+unflatten_binder 创建BpBinder 并复制到BinderProxy的字段中
+
+==> Parcel.cpp
+
+status_t unflatten_binder(const sp<ProcessState>& proc,
+    const Parcel& in, sp<IBinder>* out)
+{
+    const flat_binder_object* flat = in.readObject(false);
+    if (flat) {
+        switch (flat->type) {
+            case BINDER_TYPE_BINDER:
+                *out = reinterpret_cast<IBinder*>(flat->cookie);
+                return finish_unflatten_binder(NULL, *flat, in);
+            case BINDER_TYPE_HANDLE:
+                //进入该分支【见4.6】
+                *out = proc->getStrongProxyForHandle(flat->handle);
+                //创建BpBinder对象
+                return finish_unflatten_binder(
+                    static_cast<BpBinder*>(out->get()), *flat, in);
+        }
+    }
+    return BAD_TYPE;
+}
+
+
 
 Java层客户端的Binder代理都是BinderProxy，而且他们都是在native层生成的，因此，在上层看不到BinderProxy实例化。BinderProxy位于Binder.java中，
 
@@ -391,7 +421,7 @@ bringUpServiceLocked会调用realStartServiceLocked，调用scheduleCreateServic
         	 requestServiceBindingsLocked(r, execInFg);
       		 sendServiceArgsLocked(r, execInFg, true);
  
-}
+            }
 
 继续往下看requestServiceBindingsLocked再调用ActivityThread的方法scheduleBindService，在ActivityThread.java 中，它发出一个BIND_SERVICE事件，被handleBindService处理，
 
@@ -516,6 +546,6 @@ binderService其实是通过AMS进行中转，如果Service没启动，就启动
 
 # 参考文档：
 
-
-【1】[android4.4组件分析--service组件-bindService源码分析](http://blog.csdn.net/xiashaohua/article/details/40424767)			
-【2】[从源码出发深入理解 Android Service](http://www.woaitqs.cc/android/2016/09/20/android-service-usage.html)
+[android4.4组件分析--service组件-bindService源码分析](http://blog.csdn.net/xiashaohua/article/details/40424767)         
+[从源码出发深入理解 Android Service](http://www.woaitqs.cc/android/2016/09/20/android-service-usage.html)             
+[Android系统进程间通信Binder机制在应用程序框架层的Java接口源代码分析](http://blog.csdn.net/luoshengyang/article/details/6642463)
