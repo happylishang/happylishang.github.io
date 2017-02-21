@@ -7,6 +7,25 @@ tags: [Binder]
 
 ---
 
+
+#  iMyAidlInterface = IMyAidlInterface.Stub.asInterface(iBinder) 
+
+       bindService(intent, new ServiceConnection() {
+           @Override
+           public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+
+               // 这里是主动回调，获取proxy，或者mRemote内含 BinderProxy
+
+               iMyAidlInterface = IMyAidlInterface.Stub.asInterface(iBinder);
+               Person person = new Person();
+               try {
+                   iMyAidlInterface.objectTypes(person);
+               } catch (RemoteException e) {
+                   e.printStackTrace();
+               }
+               Log.v(TAG, "" + person.i + " " + person.j);
+           }
+                    
 # Service是什么 （ 很多东西，能简单几句话描述清楚，就说明你懂了）
 
 是一个可以在后台执行长时间运行操作而不使用用户界面的应用组件。服务可由其他应用组件启动，而且即使用户切换到其他应用，服务仍将在后台继续运行。 此外，组件可以绑定到服务，以与之进行交互，甚至是执行进程间通信 (IPC)。例如，服务可以处理网络事务、播放音乐，执行文件 I/O 或与内容提供程序交互，而所有这一切均可在后台进行。（做个音乐播放器）
@@ -79,6 +98,7 @@ IServiceConnection如何完成在AMS端口的转换
 		没什么，再向下看，不是什么东东都可以向下看的，否则别人会骂的。
 		
 		[cpp] view plain copy 在CODE上查看代码片派生到我的代码片
+		
 		status_t unflatten_binder(const sp<ProcessState>& proc,  
 		    const Parcel& in, sp<IBinder>* out)  
 		{  
@@ -306,25 +326,25 @@ unflatten_binder 创建BpBinder 并复制到BinderProxy的字段中
 
 ==> Parcel.cpp
 
-	status_t unflatten_binder(const sp<ProcessState>& proc,
-	    const Parcel& in, sp<IBinder>* out)
-	{
-	    const flat_binder_object* flat = in.readObject(false);
-	    if (flat) {
-	        switch (flat->type) {
-	            case BINDER_TYPE_BINDER:
-	                *out = reinterpret_cast<IBinder*>(flat->cookie);
-	                return finish_unflatten_binder(NULL, *flat, in);
-	            case BINDER_TYPE_HANDLE:
-	                //进入该分支【见4.6】
-	                *out = proc->getStrongProxyForHandle(flat->handle);
-	                //创建BpBinder对象
-	                return finish_unflatten_binder(
-	                    static_cast<BpBinder*>(out->get()), *flat, in);
-	        }
-	    }
-	    return BAD_TYPE;
-	}
+status_t unflatten_binder(const sp<ProcessState>& proc,
+    const Parcel& in, sp<IBinder>* out)
+{
+    const flat_binder_object* flat = in.readObject(false);
+    if (flat) {
+        switch (flat->type) {
+            case BINDER_TYPE_BINDER:
+                *out = reinterpret_cast<IBinder*>(flat->cookie);
+                return finish_unflatten_binder(NULL, *flat, in);
+            case BINDER_TYPE_HANDLE:
+                //进入该分支【见4.6】
+                *out = proc->getStrongProxyForHandle(flat->handle);
+                //创建BpBinder对象
+                return finish_unflatten_binder(
+                    static_cast<BpBinder*>(out->get()), *flat, in);
+        }
+    }
+    return BAD_TYPE;
+}
 
 
 
@@ -393,6 +413,9 @@ Java层客户端的Binder代理都是BinderProxy，而且他们都是在native�
 	
 	    return object;
 	}
+
+# asInterface 跟asbinder返回一样，只是标下给外部的类型不同
+
 
 接下去是进入AMS的bindService，再调用ActiveServices.java 的bindServiceLocked，它会把IServiceConnection实例存放到ConnectionRecord里面，并执行bringUpServiceLocked，
 
