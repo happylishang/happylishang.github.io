@@ -306,25 +306,25 @@ unflatten_binder 创建BpBinder 并复制到BinderProxy的字段中
 
 ==> Parcel.cpp
 
-status_t unflatten_binder(const sp<ProcessState>& proc,
-    const Parcel& in, sp<IBinder>* out)
-{
-    const flat_binder_object* flat = in.readObject(false);
-    if (flat) {
-        switch (flat->type) {
-            case BINDER_TYPE_BINDER:
-                *out = reinterpret_cast<IBinder*>(flat->cookie);
-                return finish_unflatten_binder(NULL, *flat, in);
-            case BINDER_TYPE_HANDLE:
-                //进入该分支【见4.6】
-                *out = proc->getStrongProxyForHandle(flat->handle);
-                //创建BpBinder对象
-                return finish_unflatten_binder(
-                    static_cast<BpBinder*>(out->get()), *flat, in);
-        }
-    }
-    return BAD_TYPE;
-}
+	status_t unflatten_binder(const sp<ProcessState>& proc,
+	    const Parcel& in, sp<IBinder>* out)
+	{
+	    const flat_binder_object* flat = in.readObject(false);
+	    if (flat) {
+	        switch (flat->type) {
+	            case BINDER_TYPE_BINDER:
+	                *out = reinterpret_cast<IBinder*>(flat->cookie);
+	                return finish_unflatten_binder(NULL, *flat, in);
+	            case BINDER_TYPE_HANDLE:
+	                //进入该分支【见4.6】
+	                *out = proc->getStrongProxyForHandle(flat->handle);
+	                //创建BpBinder对象
+	                return finish_unflatten_binder(
+	                    static_cast<BpBinder*>(out->get()), *flat, in);
+	        }
+	    }
+	    return BAD_TYPE;
+	}
 
 
 
@@ -393,9 +393,6 @@ Java层客户端的Binder代理都是BinderProxy，而且他们都是在native�
 	
 	    return object;
 	}
-
-# asInterface 跟asbinder返回一样，只是标下给外部的类型不同
-
 
 接下去是进入AMS的bindService，再调用ActiveServices.java 的bindServiceLocked，它会把IServiceConnection实例存放到ConnectionRecord里面，并执行bringUpServiceLocked，
 
