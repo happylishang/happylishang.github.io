@@ -206,6 +206,7 @@ struct binder_node {
 	int internal_strong_refs;
 	int local_weak_refs;
 	int local_strong_refs;
+	// 用户空间
 	void __user *ptr;
 	void __user *cookie;
 	unsigned has_strong_ref:1;
@@ -856,6 +857,9 @@ static struct binder_node *binder_get_node(struct binder_proc *proc,
 	}
 	return NULL;
 }
+
+// 这里是干嘛的
+
 static struct binder_node *binder_new_node(struct binder_proc *proc,
 					   void __user *ptr,
 					   void __user *cookie)
@@ -1544,7 +1548,7 @@ static void binder_transaction(struct binder_proc *proc,
 				goto err_binder_get_ref_for_node_failed;
 			}
 			// 在目标进程中为它创建引用，其实类似（在ServiceManager中创建bind_ref其实可以说，Servicemanager拥有全部Service的引用）
-			ref = binder_get_ref_for_node(target_proc, node);
+			ref = (target_proc, node);
  			// ￥
  			// 修改flat_binder_object数据结构的type和handle域，接下来要传给接收方
 			if (fp->type == BINDER_TYPE_BINDER)
@@ -1577,7 +1581,9 @@ static void binder_transaction(struct binder_proc *proc,
 					fp->type = BINDER_TYPE_BINDER;
 				else
 					fp->type = BINDER_TYPE_WEAK_BINDER;
+				// handle与binder 对应的是引用指针
 				fp->binder = ref->node->ptr;
+				// cookie 设置为目标BInder实体的指针
 				fp->cookie = ref->node->cookie;
 				binder_inc_node(ref->node, fp->type == BINDER_TYPE_BINDER, 0, NULL);
 				trace_binder_transaction_ref_to_node(t, ref);
