@@ -647,6 +647,8 @@ err_no_vma:
 	}
 	return -ENOMEM;
 }
+
+// 如何分配内存
 static struct binder_buffer *binder_alloc_buf(struct binder_proc *proc,
 					      size_t data_size,
 					      size_t offsets_size, int is_async)
@@ -658,6 +660,7 @@ static struct binder_buffer *binder_alloc_buf(struct binder_proc *proc,
 	void *has_page_addr;
 	void *end_page_addr;
 	size_t size;
+	// 虚拟内存空间对应的内存
 	if (proc->vma == NULL) {
 		printk(KERN_ERR "binder: %d: binder_alloc_buf, no vma\n",
 		       proc->pid);
@@ -2126,6 +2129,7 @@ static int binder_thread_read(struct binder_proc *proc,
 			      void  __user *buffer, int size,
 			      signed long *consumed, int non_block)
 {
+	// ptr 指针是指向buffer可写空间中，
 	void __user *ptr = buffer + *consumed;
 	void __user *end = buffer + size;
 	int ret = 0;
@@ -2133,6 +2137,7 @@ static int binder_thread_read(struct binder_proc *proc,
 	
 	// 如果实际读取到的大小等于0，那么将会在返回的数据包中插入BR_NOOP的命令字。
 	// 看自己的进程上，是否有需要处理的事情，如果没有就通知自己即将等待了
+	// 命令
 	if (*consumed == 0) {
 		if (put_user(BR_NOOP, (uint32_t __user *)ptr))
 			return -EFAULT;
@@ -2209,6 +2214,7 @@ retry:
 		struct binder_transaction_data tr;
 		struct binder_work *w;
 		struct binder_transaction *t = NULL;
+
 		// 当前task私有todo任务队列里有任务
 		if (!list_empty(&thread->todo))
 			// 取出todo队列中第一个binder_work结构体
@@ -2348,9 +2354,9 @@ retry:
 		if (t->buffer->target_node) {
 			// 下面开始将binder_transaction转换成binder_transaction_data结构了。
 			struct binder_node *target_node = t->buffer->target_node;
-			 // binder实体的用户空间指针
+			 // binder实体的用户空间指针sp
 			tr.target.ptr = target_node->ptr;
-			// binder实体的额外数据
+			// binder实体的额外数据 这里是cookie
 			tr.cookie =  target_node->cookie;
 			t->saved_priority = task_nice(current);
 			if (t->priority < target_node->min_priority &&
@@ -2399,6 +2405,7 @@ retry:
 		if (put_user(cmd, (uint32_t __user *)ptr))
 			return -EFAULT;
 		ptr += sizeof(uint32_t);
+		// 这里已经将数据结构拷贝到用户空间
 		if (copy_to_user(ptr, &tr, sizeof(tr)))
 			return -EFAULT;
 		ptr += sizeof(tr);
@@ -2410,7 +2417,7 @@ retry:
 		t->buffer->allow_user_free = 1;
 		 //同步，请求数据 接收方
 		if (cmd == BR_TRANSACTION && !(t->flags & TF_ONE_WAY)) {
-		/* vvvvv
+		/*  
 		这表示了同一个binder_transaction在发送task和接收task中都
 		有修改的部分。 发送task和接收task的binder_thread.transaction_stack
 		指向的是同一个binder_transcation结构体。
@@ -2431,6 +2438,8 @@ retry:
 		break;
 	}
 done:
+
+// binder线程不够用，就新建binder线程
 	*consumed = ptr - buffer;
 	if (proc->requested_threads + proc->ready_threads == 0 &&
 	    proc->requested_threads_started < proc->max_threads &&
@@ -2771,13 +2780,10 @@ static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 	struct binder_proc *proc = filp->private_data;
 	const char *failure_string;
 	struct binder_buffer *buffer;
+
 	if ((vma->vm_end - vma->vm_start) > SZ_4M)
 		vma->vm_end = vma->vm_start + SZ_4M;
-	binder_debug(BINDER_DEBUG_OPEN_CLOSE,
-		     "binder_mmap: %d %lx-%lx (%ld K) vma %lx pagep %lx\n",
-		     proc->pid, vma->vm_start, vma->vm_end,
-		     (vma->vm_end - vma->vm_start) / SZ_1K, vma->vm_flags,
-		     (unsigned long)pgprot_val(vma->vm_page_prot));
+
 	if (vma->vm_flags & FORBIDDEN_MMAP_FLAGS) {
 		ret = -EPERM;
 		failure_string = "bad vm_flags";
@@ -2790,13 +2796,17 @@ static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 		failure_string = "already mapped";
 		goto err_already_mapped;
 	}
+	// 获取vma->vm_end - vma->vm_start大小的连续内核空间
 	area = get_vm_area(vma->vm_end - vma->vm_start, VM_IOREMAP);
+
 	if (area == NULL) {
 		ret = -ENOMEM;
 		failure_string = "get_vm_area";
 		goto err_get_vm_area_failed;
 	}
+	// 保存kernel态虚拟地址空间的起始地址，以便后面使用：
 	proc->buffer = area->addr;
+	// 偏移地址
 	proc->user_buffer_offset = vma->vm_start - (uintptr_t)proc->buffer;
 	mutex_unlock(&binder_mmap_lock);
 #ifdef CONFIG_CPU_CACHE_VIPT
@@ -2807,12 +2817,14 @@ static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 		}
 	}
 #endif
+	// 分配物理页表项(struct page)
 	proc->pages = kzalloc(sizeof(proc->pages[0]) * ((vma->vm_end - vma->vm_start) / PAGE_SIZE), GFP_KERNEL);
 	if (proc->pages == NULL) {
 		ret = -ENOMEM;
 		failure_string = "alloc page array";
 		goto err_alloc_pages_failed;
 	}
+	// 分配的大小
 	proc->buffer_size = vma->vm_end - vma->vm_start;
 	vma->vm_ops = &binder_vm_ops;
 	vma->vm_private_data = proc;
