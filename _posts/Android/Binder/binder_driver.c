@@ -1412,6 +1412,12 @@ static void binder_transaction(struct binder_proc *proc,
 
 */			while (tmp) {
 			// 找到对方正在等待自己进程的线程，如果线程没有在等待自己进程的返回，就不要找了
+
+			// 判断是不target_proc中，是不是有线程，等待当前线程
+			// thread->transaction_stack，这个时候，
+			// 是binder线程的，不是普通线程 B去请求A服务，
+			// 在A服务的时候，又请求了B，这个时候，A的服务一定要等B处理完，才能再返回B，可以放心用B
+
 				if (tmp->from && tmp->from->proc == target_proc)
 					target_thread = tmp->from;
 				tmp = tmp->from_parent;
@@ -1472,6 +1478,7 @@ static void binder_transaction(struct binder_proc *proc,
 	*/
 	//从target进程的binder内存空间分配所需的内存大小,这也是一次拷贝，完成通信的关键，直接拷贝到目标进程的内核空间
 	//由于用户空间跟内核空间仅仅存在一个偏移地址，所以也算拷贝到用户空间
+
 	t->buffer = binder_alloc_buf(target_proc, tr->data_size,
 		tr->offsets_size, !reply && (t->flags & TF_ONE_WAY));
     //￥
@@ -1509,6 +1516,8 @@ static void binder_transaction(struct binder_proc *proc,
 	//off_end = (void *)offp + tr->offsets_size; 
 	//flat_binder_object结构体偏移数组的结束地址
 	off_end = (void *)offp + tr->offsets_size;
+
+	// offp++ 结构体的++
 	for (; offp < off_end; offp++) {
 		struct flat_binder_object *fp;
    /* *offp是t->buffer中第一个flat_binder_object结构体的位置偏移,相
@@ -1551,7 +1560,7 @@ static void binder_transaction(struct binder_proc *proc,
 				goto err_binder_get_ref_for_node_failed;
 			}
 			// 在目标进程中为它创建引用，其实类似（在ServiceManager中创建bind_ref其实可以说，Servicemanager拥有全部Service的引用）
-			ref = (target_proc, node);
+			ref = binder_get_ref_for_node(target_proc, node);
  			// ￥
  			// 修改flat_binder_object数据结构的type和handle域，接下来要传给接收方
 			if (fp->type == BINDER_TYPE_BINDER)
@@ -2405,7 +2414,7 @@ retry:
 		if (put_user(cmd, (uint32_t __user *)ptr))
 			return -EFAULT;
 		ptr += sizeof(uint32_t);
-		// 这里已经将数据结构拷贝到用户空间
+		// 这里已经将数据结构拷贝到用户空间,此处只是拷贝的数据结构，
 		if (copy_to_user(ptr, &tr, sizeof(tr)))
 			return -EFAULT;
 		ptr += sizeof(tr);
@@ -2422,6 +2431,7 @@ retry:
 		有修改的部分。 发送task和接收task的binder_thread.transaction_stack
 		指向的是同一个binder_transcation结构体。
 		*/
+			// read的时候入栈，自己的栈，自己维护
 			t->to_parent = thread->transaction_stack;
 			// 这里给返回的请求端用
 			t->to_thread = thread;
@@ -2659,7 +2669,7 @@ static long binder_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				goto err;
 			}
 		}
-		//> 0表示本次ioctl想接收数据
+		//> 0表示本次ioctl想接收数据，基本上写完都要等待一个COMPLETE,看自己写入成功，之后便会退出
 		if (bwr.read_size > 0) {
 			// binder驱动接收读数据函数，这里会阻塞，然后被唤醒
 			ret = binder_thread_read(proc, thread, (void __user *)bwr.read_buffer, bwr.read_size, &bwr.read_consumed, filp->f_flags & O_NONBLOCK);
