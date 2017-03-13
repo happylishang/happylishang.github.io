@@ -227,7 +227,7 @@ IServiceConnection如何完成在AMS端口的转换
     
   
 	            
-#####     ActivityThread::scheduleBindService()函數其实是注册的服务的地方 其实是注册到AMS中，binderService是跟AMS交互而非ServiceManager
+##### ActivityThread::scheduleBindService()函數其实是注册的服务的地方 其实是注册到AMS中，binderService是跟AMS交互而非ServiceManager
 
 
     private void handleBindService(BindServiceData data) {
@@ -557,7 +557,7 @@ bringUpServiceLocked会调用realStartServiceLocked，调用scheduleCreateServic
 
 binderService其实是通过AMS进行中转，如果Service没启动，就启动Service，之后进行Publish将新进程的Bidner的代理转发给各个端口，谁需要发给谁，具体流程如下图：
 
-<img src="http://happylishang.github.io/images/android/binder/binderService.png" height=250 width=600/>
+![] (http://happylishang.github.io/images/android/binder/binderService.png)
 
 * 1、Activity调用bindService函数通知ActivityManagerService，要启动Service这个服务
 * 2、ActivityManagerService创建Servicerecord，并且ApplicationThreadProxy回调，在MainActivity所在的进程内部把Service启动起来，并且调用它的onCreate函数； 
@@ -572,3 +572,4 @@ binderService其实是通过AMS进行中转，如果Service没启动，就启动
 [android4.4组件分析--service组件-bindService源码分析](http://blog.csdn.net/xiashaohua/article/details/40424767)         
 [从源码出发深入理解 Android Service](http://www.woaitqs.cc/android/2016/09/20/android-service-usage.html)             
 [Android系统进程间通信Binder机制在应用程序框架层的Java接口源代码分析](http://blog.csdn.net/luoshengyang/article/details/6642463)
+
