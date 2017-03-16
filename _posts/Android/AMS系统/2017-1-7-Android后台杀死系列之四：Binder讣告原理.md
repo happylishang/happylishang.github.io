@@ -113,6 +113,21 @@ Server进程在启动时，会调用函数open来打开设备文件/dev/binder�
 
 # 死亡通知的发送
 
+
+			if (ref->death) {
+					death++;
+					if (list_empty(&ref->death->work.entry)) {
+						ref->death->work.type = BINDER_WORK_DEAD_BINDER;
+						list_add_tail(&ref->death->work.entry, &ref->proc->todo);
+						// 插入到binder_ref请求进程的binder线程等待队列？？？？？ 天然支持binder通信吗？
+						// 什么时候，需要死亡回调，自己也是binder服务？
+						wake_up_interruptible(&ref->proc->wait);
+					} else
+						BUG();
+				}
+				
+似乎只有那些相互为Binder服务的进程才需要，也就是说，Client也是服务
+				
 ### 参考文档
 
 [Android Binder 分析——死亡通知（DeathRecipient）](http://light3moon.com/2015/01/28/Android%20Binder%20%E5%88%86%E6%9E%90%E2%80%94%E2%80%94%E6%AD%BB%E4%BA%A1%E9%80%9A%E7%9F%A5[DeathRecipient])
