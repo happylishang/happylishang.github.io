@@ -20,6 +20,52 @@ Server进程在启动时，会调用函数open来打开设备文件/dev/binder�
 
 因此，Binder驱动程序就可以在函数binder_release中检查进程退出时，是否有Binder本地对象在里面运行。如果有，就说明它们是死亡了的Binder本地对象了。
 
+在bindService的时候，是系统框架帮我们封装好了回调，但是native服务一般都是需要自己写的，IBinder.DeathRecipient
+
+        public void doConnected(ComponentName name, IBinder service) {
+            ServiceDispatcher.ConnectionInfo old;
+            ServiceDispatcher.ConnectionInfo info;
+
+            synchronized (this) {     
+                if (service != null) {
+
+                    mDied = false;
+                    info = new ConnectionInfo();
+                    info.binder = service;
+                    info.deathMonitor = new DeathMonitor(name, service);
+                    try {
+                        service.linkToDeath(info.deathMonitor, 0);
+                        mActiveConnections.put(name, info);
+                    } 
+                } 
+        }
+
+看关键点点1 可以看出，当Client bindService结束后，会通过BinderProxy的linkToDeath注册死亡回调，进而去调用Native函数：
+
+
+	status_t BpBinder::linkToDeath(
+	    const sp<DeathRecipient>& recipient, void* cookie, uint32_t flags){
+	    <!--关键点1-->              
+	                IPCThreadState* self = IPCThreadState::self();
+	                self->requestDeathNotification(mHandle, this);
+	                self->flushCommands();
+
+	}
+
+看关键点1，其实是调用IPCThreadState的requestDeathNotification(mHandle, this)，之后发送BC_REQUEST_DEATH_NOTIFICATION请求到内核驱动：
+
+	status_t IPCThreadState::requestDeathNotification(int32_t handle, BpBinder* proxy)
+	{
+	    mOut.writeInt32(BC_REQUEST_DEATH_NOTIFICATION);
+	    mOut.writeInt32((int32_t)handle);
+	    mOut.writeInt32((int32_t)proxy);
+	    return NO_ERROR;
+	}
+
+有一点很关键：**在binder驱动中，binder_node节点会记录所有binder_ref**，当binder_node所在的进程挂掉后，驱动就能根据这个全局binder_ref列表找到所有Client的binder_ref，并对于设置了死亡回调的Client发送“讣告”。
+
+![binder讣告原理.jpg](http://upload-images.jianshu.io/upload_images/1460468-d01abc307b4e32d7.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
 
 ### 参考文档
 
