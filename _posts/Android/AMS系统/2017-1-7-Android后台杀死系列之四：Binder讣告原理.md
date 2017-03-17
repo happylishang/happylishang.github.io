@@ -2,6 +2,8 @@
 layout: post
 title: "Android后台杀死系列之四：Binder讣告原理"
 category: Android
+image: http://upload-images.jianshu.io/upload_images/1460468-d01abc307b4e32d7.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
+
 
 ---
  
