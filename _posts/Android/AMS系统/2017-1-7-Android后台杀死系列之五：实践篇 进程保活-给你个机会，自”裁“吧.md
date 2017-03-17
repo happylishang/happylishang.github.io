@@ -1,26 +1,26 @@
 ---
 layout: post
-title: "Android后台杀死系列之五：实践篇 进程保活-给你个机会，自”裁“吧"
+title: "Android后台杀死系列之五：实践篇 进程保活-自”裁“或者耍流氓"
 category: Android
 image: http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 
 ---
  
-![App操作影响进程优先级](http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
  
-之前有三篇后台杀死的分析，那么研究后台杀究竟有什么用呢，没用你研究它干嘛，既然有杀死，就有保活。这篇文章主要探讨一下进程的保活，Android本身设计的时候是非常善良的，它希望进程在不可见或者其他一些场景下APP要懂得主动释放，可是Android低估了”贪婪“，尤其是很多国产APP，只希望索取来提高自己的性能，不管其他APP或者系统的死活，导致了很严重的资源浪费，这也是Android被iOS诟病的最大原因。本文的保活手段也分两种：遵纪守法的进程保活与流氓手段换来的进程保活。
  
-
-
 这里针对异常杀死的一些需求
 
 1、**异常杀死后，再次打开完全重启（有个网友问的）** 如何判定是后台杀死
 2、进程保活
 
 
-# 针对LMKD所做的后台杀死保活
+![App操作影响进程优先级](http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+ 
+研究后台杀究竟有什么用呢，没用你研究它干嘛，既然有杀死，就有保活。本篇文章主要探讨一下进程的保活，Android本身设计的时候是非常善良的，它希望进程在不可见或者其他一些场景下APP要懂得主动释放，可是Android低估了”贪婪“，尤其是很多国产APP，只希望索取来提高自己的性能，不管其他APP或者系统的死活，导致了很严重的资源浪费，这也是Android被iOS诟病的最大原因。本文的保活手段也分两种：遵纪守法的进程保活与流氓手段换来的进程保活。
 
-前面的三篇文章分析过Android后台杀死机制，LMKD后台杀死服务会在内存不足的时候，LowmemoryKiller会在内核中扫描所有的用户进程，找到不是太重要的进程杀死，如果优先级一样，就会优先杀死占内存多的进程。当然LowmemoryKiller会在不同的内存级别杀死不同的进程，
+# 针对LowmemoryKiller所做的进程保活
+
+LowmemoryKiller会在内存不足的时候扫描所有的用户进程，找到不是太重要的进程杀死，至于LowmemoryKiller杀进程够不够狠，要看当前的内存使用情况，内存越少，下手越狠。在内核中，LowmemoryKiller.c定义了几种内存回收等级如下：（也许不同的版本会有些不同）
 
 	static short lowmem_adj[6] = {
 		0,
@@ -38,23 +38,84 @@ image: http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.pn
 	};
 	static int lowmem_minfree_size = 4;
 		
-lowmem_adj中各项数值代表阈值的警戒级数，lowmem_minfree代表对应级数的剩余内存。两者一一对应，当系统的可用内存小于6MB时，警戒级数为0；当系统可用内存小于8M而大于6M时，警戒级数为1；当可用内存小于64M大于16MB时，警戒级数为12。LowmemoryKiller的规则就是根据当前系统的可用内存多少来获取当前的警戒级数，如果进程的oom_adj大于警戒级数并且最大，进程将会被杀死， **具有相同omm_adj的进程，则杀死占用内存较多的**。omm_adj越小，代表进程越重要。一些前台的进程，oom_adj会比较小，而后台的服务，omm_adj会比较大，所以当内存不足的时候，Low memory killer必然先杀掉的是后台服务而不是前台的进程。对于LowmemoryKiller的杀死，这里有一句话很重要，就是： **具有相同omm_adj的进程，则杀死占用内存较多的**，因此，如果我们的APP进入后台，就尽量释放不必要的资源，以降低自己被杀的风险。那么如何释放呢？onTrimeMemory是个不错的时机。
+lowmem_adj中各项数值代表阈值的警戒级数，lowmem_minfree代表对应级数的剩余内存，两者一一对应，比如当系统的可用内存小于6MB时，警戒级数为0；当系统可用内存小于8M而大于6M时，警戒级数为1；当可用内存小于64M大于16MB时，警戒级数为12。LowmemoryKiller就是根据当前系统的可用内存多少来获取当前的警戒级数，如果进程的oom_adj大于警戒级数并且占内存最大，将会被优先杀死， **具有相同omm_adj的进程，则杀死占用内存较多的**。omm_adj越小，代表进程越重要。一些前台的进程，oom_adj会比较小，而后台的服务，omm_adj会比较大，所以当内存不足的时候，Lowmemorykiller先杀掉的是后台服务而不是前台的进程。对于LowmemoryKiller的杀死，这里有一句话很重要，就是： **具有相同omm_adj的进程，则杀死占用内存较多的**，因此，如果我们的APP进入后台，就尽量释放不必要的资源，以降低自己被杀的风险。那么如何释放呢？onTrimeMemory是个不错的时机，而onLowmemory可能是最后的稻草，下面复习一下，LowmemoryKiller如何杀进程的，简单看一下实现源码（4.3）：（其他版本原理大同小异）
 
-# 相同oom_adj的情况下，利用onTrimeMemory合理的裁剪内存，降低被杀风险
+	static int lowmem_shrink(int nr_to_scan, gfp_t gfp_mask)
+	{
+		...		
+		<!--关键点1 获取free内存状况-->
+		int other_free = global_page_state(NR_FREE_PAGES);
+		int other_file = global_page_state(NR_FILE_PAGES);
+		<!--关键点2 找到min_adj -->
+		for(i = 0; i < array_size; i++) {
+			if (other_free < lowmem_minfree[i] &&
+			    other_file < lowmem_minfree[i]) {
+				min_adj = lowmem_adj[i];
+				break;
+			}
+		}
+	  <!--关键点3 找到p->oomkilladj>min_adj并且oomkilladj最大，内存最大的进程-->
+		for_each_process(p) {
+			// 找到第一个大于等于min_adj的，也就是优先级比阈值低的
+			if (p->oomkilladj < min_adj || !p->mm)
+				continue;
+			// 找到tasksize这个是什么呢
+			tasksize = get_mm_rss(p->mm);
+			if (tasksize <= 0)
+				continue;
+			if (selected) {
+			// 找到优先级最低，并且内存占用大的
+				if (p->oomkilladj < selected->oomkilladj)
+					continue;
+				if (p->oomkilladj == selected->oomkilladj &&
+				    tasksize <= selected_tasksize)
+					continue;
+			}
+			selected = p;
+			selected_tasksize = tasksize;
+			lowmem_print(2, "select %d (%s), adj %d, size %d, to kill\n",
+			             p->pid, p->comm, p->oomkilladj, tasksize);
+		}
+		if(selected != NULL) {...
+			force_sig(SIGKILL, selected);
+		}
+		return rem;
+	}
 
-onTrimeMemory是API level 14的一个回调接口，不过目前APP的适配基本是在14之上的，onTrimeMemory支持不同的裁剪等级 ，比如，点击HOME建返回后台，APP的oom_adj发生变化，其重要程度改变，一般会回调onTrimeMemory，这个时候的裁剪等级一般是TRIM_MEMORY_UI_HIDDEN，因此在onTrimeMemory会调用，我们可以将UI相关的，占用内存交大的资源给释放掉，比如图片缓存等等，以降低被杀的风险。
+这里先看一下关键点1，这里是内核获取当前的free内存状况，并且根据当前空闲内存计算出当前后台杀死的等级（关键点2），之后LowmemoryKiller会遍历所有的进程，找到优先级低并且内存占用较大的进程，如果这个进程的p->oomkilladj>min_adj，就表示这个进程可以杀死，LowmemoryKiller就会送过发送SIGKILL信号杀死就进程，注意，**lmkd会先找优先级低的进程，如果多个进程优先级相同，就优先杀死内存占用高的进程，这样就为我们提供了两种进程包活手段**：
 
-* 如何判定不同的level
-* 怎么样在不同level裁剪自身
+* 1、提高进程的优先级，其实就是减小进程的p->oomkilladj（越小越重要）
+* 2、降低APP的内存占用量，在oom_adj相同的时候，会优先干掉内存消耗大的进程
 
-OnTrimMemory是Android在4.0之后加入的一个回调，任何实现了ComponentCallbacks2接口的类都可以重写实现这个回调方法．OnTrimMemory的主要作用就是指导应用程序在不同的情况下进行自身的内存释放，以避免被系统直接杀掉，提高应用程序的用户体验.
+不过大多数情况下，Android对于进程优先级的管理都是比较合理，即使某些场景需要特殊手段提高优先级，Android也是给了参考方案的，比如音频播放，UI隐藏的时候，需要将Sevice进程设置成特定的优先级防止被后台杀死，比如一些备份的进程也需要一些特殊处理，但是这些都是在Android允许的范围内的，所以绝大多数情况下，Android是不建议APP自己提高优先级的，因为这会与Android自身的的进程管理相悖，**换句话说就是耍流氓**。这里先讨论第二种情况，通过合理的释放内存降低被杀的风险，地主不想被杀，只能交公粮，自裁保身，不过这里也要看自裁的时机，什么时候瘦身比较划算，O(∩_∩)O哈哈~！这里就牵扯到有一个onTrimeMemory函数，该函数是一个系统回调函数，主要是Android系统经过综合评估，给APP一个内存裁剪的等级，比如当内存还算充足，APP退回后台时候，会收到TRIM_MEMORY_UI_HIDDEN等级的裁剪，就是告诉APP，释放一些UI资源，比如大量图片内存，一些引入图片浏览缓存的场景，可能就更加需要释放UI资源，下面来看下onTrimeMemory的回调时机及APP应该做出相应处理。
 
-Android系统会根据不同等级的内存使用情况，调用这个函数，并传入对应的等级：
+## onTrimeMemory的回调时机及内存裁剪等级
 
-TRIM_MEMORY_UI_HIDDEN 表示应用程序的所有UI界面被隐藏了，即用户点击了Home键或者Back键导致应用的UI界面不可见．这时候应该释放一些资源．
-TRIM_MEMORY_UI_HIDDEN这个等级比较常用，和下面六个的关系不是很强，所以单独说．
+OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是通知应用程序在不同的场景下进行自我瘦身，释放内存，降低被后台杀死的风险，提高用户体验，由于目前APP的适配基本是在14之上，所以不必考虑兼容问题。onTrimeMemory支持不同裁剪等级，比如，APP通过HOME建进入后台时，其优先级（oom_adj）就发生变化，从未触发onTrimeMemory回调，这个时候系统给出的裁剪等级一般是TRIM_MEMORY_UI_HIDDEN，意思是，UI已经隐藏，UI相关的、占用内存大的资源就可以释放了，比如大量的图片缓存等，当然，还会有其他很多场景对应不同的裁剪等级。因此，需要弄清楚两个问题：
 
-下面三个等级是当我们的应用程序真正在前台运行时的回调：
+* 1、不同的裁剪等级是如何生成的，其意义是什么
+* 2、APP如何根据不同的裁剪等级释放内存资源，（自裁的程度）
+
+先看下ComponentCallbacks2中定义的不同裁剪等级的意义：这里一共定义了4+3共7个裁剪等级，为什么说是4+3呢？因为有4个是针对后台进程的，还有3个是针对前台（RUNNING）进程的，目标对象不同，具体看下分析
+
+|裁剪等级|数值|目标进程|
+| ------------- |:-------------:| -----:|
+| TRIM_MEMORY_COMPLETE | 80 |后台进程 |
+| TRIM_MEMORY_MODERATE | 60 |后台进程 |
+|  TRIM_MEMORY_BACKGROUND | 40 |后台进程 |
+| TRIM_MEMORY_UI_HIDDEN | 20 | 后台进程|
+|  TRIM_MEMORY_RUNNING_CRITICAL | 15 | 前台RUNNING进程|
+| TRIM_MEMORY_RUNNING_LOW | 10 | 前台RUNNING进程|
+| TRIM_MEMORY_RUNNING_MODERATE |5 | 前台RUNNING进程|
+
+其意义如下：
+
+* TRIM_MEMORY_UI_HIDDEN 表示应用程序的所有UI界面不可见，一般是用户点击了Home键或者Back键，导致应用的UI界面不可见，这时应该释放一些UI相关资源，TRIM_MEMORY_UI_HIDDEN是使用频率最高的裁剪等级。
+* TRIM_MEMORY_BACKGROUND 表示手机目前内存已经很低了，系统准备开始根据LRU缓存来清理进程。这个时候我们的程序在LRU缓存列表的最近位置，是不太可能被清理掉的，但这时去释放掉一些比较容易恢复的资源能够让手机的内存变得比较充足，从而让我们的程序更长时间地保留在缓存当中，这样当用户返回我们的程序时会感觉非常顺畅，而不是经历了一次重新启动的过程。
+* TRIM_MEMORY_MODERATE 表示手机目前内存已经很低了，并且我们的程序处于LRU缓存列表的中间位置，如果手机内存还得不到进一步释放的话，那么我们的程序就有被系统杀掉的风险了。
+* TRIM_MEMORY_COMPLETE 表示手机目前内存已经很低了，并且我们的程序处于LRU缓存列表的最边缘位置，系统会最优先考虑杀掉我们的应用程序，在这个时候应当尽可能地把一切可以释放的东西都进行释放。
+
+以下三个等级面向前台运行应用
 
 * TRIM_MEMORY_RUNNING_MODERATE 表示应用程序正常运行，并且不会被杀掉。但是目前手机的内存已经有点低了，系统可能会开始根据LRU缓存规则来去杀死进程了。
 * TRIM_MEMORY_RUNNING_LOW 表示应用程序正常运行，并且不会被杀掉。但是目前手机的内存已经非常低了，我们应该去释放掉一些不必要的资源以提升系统的性能，同时这也会直接影响到我们应用程序的性能。
@@ -62,9 +123,7 @@ TRIM_MEMORY_UI_HIDDEN这个等级比较常用，和下面六个的关系不是�
 
 当应用程序是缓存的，则会收到以下几种类型的回调：
 
-* TRIM_MEMORY_BACKGROUND 表示手机目前内存已经很低了，系统准备开始根据LRU缓存来清理进程。这个时候我们的程序在LRU缓存列表的最近位置，是不太可能被清理掉的，但这时去释放掉一些比较容易恢复的资源能够让手机的内存变得比较充足，从而让我们的程序更长时间地保留在缓存当中，这样当用户返回我们的程序时会感觉非常顺畅，而不是经历了一次重新启动的过程。
-* TRIM_MEMORY_MODERATE 表示手机目前内存已经很低了，并且我们的程序处于LRU缓存列表的中间位置，如果手机内存还得不到进一步释放的话，那么我们的程序就有被系统杀掉的风险了。
-* TRIM_MEMORY_COMPLETE 表示手机目前内存已经很低了，并且我们的程序处于LRU缓存列表的最边缘位置，系统会最优先考虑杀掉我们的应用程序，在这个时候应当尽可能地把一切可以释放的东西都进行释放。
+
 
 # 也许同当前内存的使用具体情况结合起来比较好，后台进程少，内存充足
 
