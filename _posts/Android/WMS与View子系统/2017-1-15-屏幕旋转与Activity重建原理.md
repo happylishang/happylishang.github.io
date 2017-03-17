@@ -2,6 +2,7 @@
 layout: post
 title: 屏幕旋转与Activity重建原理 
 categories: Android
+iamge: http://upload-images.jianshu.io/upload_images/1460468-9e553667f4a41a8d.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 
 ---
 
