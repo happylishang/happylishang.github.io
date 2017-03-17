@@ -7,40 +7,44 @@ image: http://upload-images.jianshu.io/upload_images/1460468-d01abc307b4e32d7.jp
 
 ---
  
-Binder是一个类似于C/S架构的通信框架，有时候客户端可能想知道服务端的状态，比如服务端如果挂了，客户端希望能及时的被通知到，而不是等到再起请求服务端的时候才知道。Binder实现了一套”死亡讣告”的功能，即：服务端挂了，或者正常退出，Binder驱动会向客户端发送一份讣告，告诉客户端Binder服务挂了。那么这个“讣告”究竟是如何实现的呢？其作用又是什么呢？其实“讣告”真正的入口只有一个：**在释放binder设备的时候发送讣告**，**在操作系统中，无论进程是正常退出还是异常退出，进程所申请的所有资源都会被回收，包括打开的一些设备文件，如Binder字符设备等。在释放的时候，就会调用相应的release函数 **。Binder“讣告”有点采用了类似观察者模式，因此，首先需要将Observer注册到目标对象中，其实就是将Client注册到Binder驱动。
+Binder是一个类似于C/S架构的通信框架，有时候客户端可能想知道服务端的状态，比如服务端如果挂了，客户端希望能及时的被通知到，而不是等到再起请求服务端的时候才知道，这种场景其实在互为C/S的时候最常用，比如AMS与APP，当APP端进程异常退出的时候，AMS希望能及时知道，不仅仅是清理APP端在AMS中的一些信息，比如ActivityRecord，ServiceRecord等，有时候可能还需要及时恢复一些自启动的Service。Binder实现了一套”死亡讣告”的功能，即：服务端挂了，或者正常退出，Binder驱动会向客户端发送一份讣告，告诉客户端Binder服务挂了。
 
-# 注册入口
+这个“讣告”究竟是如何实现的呢？其作用又是什么呢？对于Android而言，Binder“讣告”有点采用了类似观察者模式，因此，首先需要将Observer注册到目标对象中，其实就是将Client注册到Binder驱动，将来Binder服务挂掉时候，就能通过驱动去发送。Binder“讣告”发送的入口只有一个：**在释放binder设备的时候**，在在操作系统中，无论进程是正常退出还是异常退出，进程所申请的所有资源都会被回收，包括打开的一些设备文件，如Binder字符设备等。在释放的时候，就会调用相应的release函数，“讣告”也就是在这个时候去发送的。因此Binder讣告其实就仅仅包括两部分：注册与通知。
 
-发送死亡通知：本地对象死亡会出发关闭/dev/binder设备，binder_release会被调用，binder驱动程序会在其中检查Binder本地对象是否死亡，该过程会调用binder_deferred_release 执行。如死亡会在binder_thread_read中检测到BINDER_WORK_DEAD_BINDER的工作项。就会发出死亡通知。
+# Binder"讣告"的注册入口
 
-Server进程在启动时，会调用函数open来打开设备文件/dev/binder。
+这里拿bindService为例子进行分析，其他场景类似，bindService会首先请求AMS去启动Service，Server端进程在启动时，会调用函数open来打开设备文件/dev/binder，同时将Binder服务实体回传给AMS，AMS再将Binder实体的引用句柄通过Binder通信传递给Client，也就是在AMS回传给Client的时候，会向Binder驱动注册。其实这也比较好理解，**获得了服务端的代理，就应该关心服务端的死活** 。当AMS利用IServiceConnection这条binder通信线路为Client回传Binder服务实体的时候，InnerConnection就会间接的将死亡回调注册到内核：
 
-* 一方面，在正常情况下，它退出时会调用函数close来关闭设备文件/dev/binder，这时候就会触发函数binder_releasse被调用；
-* 另一方面，如果Server进程异常退出，即它没有正常关闭设备文件/dev/binder，那么内核就会负责关闭它，这个时候也会触发函数binder_release被调用。
 
-因此，Binder驱动程序就可以在函数binder_release中检查进程退出时，是否有Binder本地对象在里面运行。如果有，就说明它们是死亡了的Binder本地对象了。
+        private static class InnerConnection extends IServiceConnection.Stub {
+            final WeakReference<LoadedApk.ServiceDispatcher> mDispatcher;
 
-在bindService的时候，是系统框架帮我们封装好了回调，但是native服务一般都是需要自己写的，IBinder.DeathRecipient
-
-        public void doConnected(ComponentName name, IBinder service) {
-            ServiceDispatcher.ConnectionInfo old;
-            ServiceDispatcher.ConnectionInfo info;
-
-            synchronized (this) {     
-                if (service != null) {
-
-                    mDied = false;
-                    info = new ConnectionInfo();
-                    info.binder = service;
-                    info.deathMonitor = new DeathMonitor(name, service);
-                    try {
-                        service.linkToDeath(info.deathMonitor, 0);
-                        mActiveConnections.put(name, info);
-                    } 
-                } 
+            public void connected(ComponentName name, IBinder service) throws RemoteException {
+                LoadedApk.ServiceDispatcher sd = mDispatcher.get();
+                if (sd != null) {
+                    sd.connected(name, service);
+                }
+            }
         }
+        
+ServiceDispatcher函数进一步调用 doConnected
+    
+    public void doConnected(ComponentName name, IBinder service) {
+        ServiceDispatcher.ConnectionInfo old;
+        ServiceDispatcher.ConnectionInfo info;
+        synchronized (this) {     
+            if (service != null) {
+                mDied = false;
+                info = new ConnectionInfo();
+                info.binder = service;
+                info.deathMonitor = new DeathMonitor(name, service);
+                try {
+                <!-- 关键点点1-->
+                    service.linkToDeath(info.deathMonitor, 0);
+                } 
+    }
 
-看关键点点1 可以看出，当Client bindService结束后，会通过BinderProxy的linkToDeath注册死亡回调，进而去调用Native函数：
+看关键点点1 ，这里的IBinder service其实是AMS回传的服务代理BinderProxy，linkToDeath是一个Native函数，会进一步调用BpBinde的linkToDeath：
 
 	status_t BpBinder::linkToDeath(
 	    const sp<DeathRecipient>& recipient, void* cookie, uint32_t flags){
@@ -51,7 +55,7 @@ Server进程在启动时，会调用函数open来打开设备文件/dev/binder�
 
 	}
 
-看关键点1，其实是调用IPCThreadState的requestDeathNotification(mHandle, this)，之后发送BC_REQUEST_DEATH_NOTIFICATION请求到内核驱动：
+最终调用IPCThreadState的requestDeathNotification(mHandle, this)向内核发送BC_REQUEST_DEATH_NOTIFICATION请求：
 
 	status_t IPCThreadState::requestDeathNotification(int32_t handle, BpBinder* proxy)
 	{
@@ -61,7 +65,7 @@ Server进程在启动时，会调用函数open来打开设备文件/dev/binder�
 	    return NO_ERROR;
 	}
 
-之后会进入内核
+最后来看一下在内核中，是怎么登记注册的：
 
 	int
 	binder_thread_write(struct binder_proc *proc, struct binder_thread *thread,
@@ -109,11 +113,13 @@ Server进程在启动时，会调用函数open来打开设备文件/dev/binder�
 			
 ![binder讣告原理.jpg](http://upload-images.jianshu.io/upload_images/1460468-d01abc307b4e32d7.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-如此，就死亡回调就被注册到binder内核驱动。之后，等到进程结束释放binder，就会触发死亡回调。
+如此，死亡回调入口就被注册到binder内核驱动，之后，等到进程结束要释放binder的时候，就会触发死亡回调。
 
 ![死亡讣告的注册.png](http://upload-images.jianshu.io/upload_images/1460468-36506aff731ad964.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 # 死亡通知的发送
+
+在调用binder_realease函数来释放相应资源的时候，最终会调用binder_deferred_release函数。该函数会遍历该binder_proc内所有的binder_node节点，并向注册了死亡回调的Client发送讣告，
 
 	static void binder_deferred_release(struct binder_proc *proc)
 		{         ....
@@ -129,40 +135,25 @@ Server进程在启动时，会调用函数open来打开设备文件/dev/binder�
 			...
 	 }
 				
-似乎只有那些相互为Binder服务的进程才需要，也就是说，Client也是服务
+死亡讣告被直接发送到Client端的binder进程todo队列上，这里似乎也只对于互为C/S通信的场景有用，当Client的binder线程被唤醒后，就会针对“讣告”做一些清理及善后工作：
 
 	static int
 	binder_thread_read(struct binder_proc *proc, struct binder_thread *thread,
 		void  __user *buffer, int size, signed long *consumed, int non_block)
-	{
-		case BINDER_WORK_DEAD_BINDER:
-				case BINDER_WORK_DEAD_BINDER_AND_CLEAR:
-				case BINDER_WORK_CLEAR_DEATH_NOTIFICATION: {
-					struct binder_ref_death *death = container_of(w, struct binder_ref_death, work);
-					uint32_t cmd;
-					if (w->type == BINDER_WORK_CLEAR_DEATH_NOTIFICATION)
-						cmd = BR_CLEAR_DEATH_NOTIFICATION_DONE;
-					else
-						cmd = BR_DEAD_BINDER;
-					if (put_user(cmd, (uint32_t __user *)ptr))
-						return -EFAULT;
-					ptr += sizeof(uint32_t);
-					if (put_user(death->cookie, (void * __user *)ptr))
-						return -EFAULT;
-					ptr += sizeof(void *);
-		
-					if (w->type == BINDER_WORK_CLEAR_DEATH_NOTIFICATION) {
-						list_del(&w->entry);
-						kfree(death);
-						binder_stats.obj_deleted[BINDER_STAT_DEATH]++;
-					} else
-						list_move(&w->entry, &proc->delivered_death);
-					if (cmd == BR_DEAD_BINDER)
-						goto done; /* DEAD_BINDER notifications can cause transactions */
-				} break;
-				}
+		{
+			case BINDER_WORK_DEAD_BINDER:
+					case BINDER_WORK_DEAD_BINDER_AND_CLEAR:
+					case BINDER_WORK_CLEAR_DEATH_NOTIFICATION: {
+						struct binder_ref_death *death = container_of(w, struct binder_ref_death, work);
+						uint32_t cmd;
+						if (w->type == BINDER_WORK_CLEAR_DEATH_NOTIFICATION)
+							cmd = BR_CLEAR_DEATH_NOTIFICATION_DONE;
+						else
+							cmd = BR_DEAD_BINDER;
+						...
+	 }
 
-可以看到，就是插入到Client进程的主等待队列，如果Client存在Binder线程，就会执行，当然，如果不存在，则在下次请求服务的时候会发现binder_node进程已死，可以预先处理了。
+这里会向用户空间写入一个BR_DEAD_BINDER命令，并返回talkWithDriver函数，返回后，IPCThreadState会继续执行executeCommand，
 	
 	status_t IPCThreadState::executeCommand(int32_t cmd)
 	{
@@ -175,8 +166,9 @@ Server进程在启动时，会调用函数open来打开设备文件/dev/binder�
 	            mOut.writeInt32(BC_DEAD_BINDER_DONE);
 	            mOut.writeInt32((int32_t)proxy);
 	        } break;
-
-看关键点1，Obituary直译过来就是讣告，就是利用BpBinder发送讣告的意思，通知结束后，再发送给Binder驱动。
+  }
+  
+看关键点1，Obituary直译过来就是讣告，其实就是利用BpBinder发送讣告，待讣告处理结束后，再向Binder驱动发送确认通知。
 
 	void BpBinder::sendObituary()
 	{
@@ -215,7 +207,7 @@ Server进程在启动时，会调用函数open来打开设备文件/dev/binder�
 	    recipient->binderDied(this);
 	}
 	
-进而调用上层DeathRecipient的回调，做一些清理之类的逻辑。
+进而调用上层DeathRecipient的回调，做一些清理之类的逻辑。以AMS为例，其binderDied函数就挺复杂，包括了一些数据的清理，甚至还有进程的重建等，不做讨论。
 
 ![死亡讣告的发送.png](http://upload-images.jianshu.io/upload_images/1460468-ea8da541d7339d22.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 	        						
