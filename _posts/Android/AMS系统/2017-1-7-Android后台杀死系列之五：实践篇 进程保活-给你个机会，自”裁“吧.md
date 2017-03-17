@@ -2,18 +2,15 @@
 layout: post
 title: "Android后台杀死系列之五：实践篇 进程保活-给你个机会，自”裁“吧"
 category: Android
+image: http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 
 ---
  
- 这篇文章主要探讨一下进程的保活，先声明，我们是在Android本身设计的理念下保活，不采用其他的黑科技，流氓手段，真被杀，也是没办法，系统需要
+![App操作影响进程优先级](http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
  
+之前有三篇后台杀死的分析，那么研究后台杀究竟有什么用呢，没用你研究它干嘛，既然有杀死，就有保活。这篇文章主要探讨一下进程的保活，Android本身设计的时候是非常善良的，它希望进程在不可见或者其他一些场景下APP要懂得主动释放，可是Android低估了”贪婪“，尤其是很多国产APP，只希望索取来提高自己的性能，不管其他APP或者系统的死活，导致了很严重的资源浪费，这也是Android被iOS诟病的最大原因。本文的保活手段也分两种：遵纪守法的进程保活与流氓手段换来的进程保活。
  
- 。
- 
- 
- ![App操作影响进程优先级](http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-前面写了三篇分析，那么究竟要怎么用呢，没用你研究它干嘛，在第一篇注意事项的时候，只是为了防止一些异常之类的做了一些处理
 
 这里针对异常杀死的一些需求
 
