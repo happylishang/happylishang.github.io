@@ -17,33 +17,30 @@ image: http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.pn
 1、异常杀死后，再次打开完全重启（有个网友问的）
 2、进程保活
 3、
-  
-# 进程保活 
-
-进程包活可能是APP开发比较关心的地方，  
 
 
 #  针对LMKD所做的后台杀死保活
 
 前面的文章分析过LMKD后台杀死机制，简而言之就是在内存不足的时候，LowmemoryKiller会在内核中扫描所有的用户进程，找到不是太重要的进程杀死，如果优先级一样，就会优先杀死占内存多的进程。当然LowmemoryKiller会在不同的内存级别杀死不同的进程，
 
-		static uint32_t lowmem_debug_level = 1;
-		static short lowmem_adj[6] = {
-			0,
-			1,
-			6,
-			12,
-		};
-		static int lowmem_adj_size = 4;
-		static int lowmem_minfree[6] = {
-			3 * 512,	/* 6MB */
-			2 * 1024,	/* 8MB */
-			4 * 1024,	/* 16MB */
-			16 * 1024,	/* 64MB */
-		};
-		static int lowmem_minfree_size = 4;
+ 
+	static short lowmem_adj[6] = {
+		0,
+		1,
+		6,
+		12,
+	};
+	static int lowmem_adj_size = 4;
+	
+	static int lowmem_minfree[6] = {
+		3 * 512,	/* 6MB */
+		2 * 1024,	/* 8MB */
+		4 * 1024,	/* 16MB */
+		16 * 1024,	/* 64MB */
+	};
+	static int lowmem_minfree_size = 4;
 		
-lowmem_adj中各项数值代表阈值的警戒级数，lowmem_minfree代表对应级数的剩余内存。两者一一对应，当系统的可用内存小于6MB时，警戒级数为0；当系统可用内存小于8M而大于6M时，警戒级数为1；当可用内存小于64M大于16MB时，警戒级数为12。LowmemoryKiller的规则就是根据当前系统的可用内存多少来获取当前的警戒级数，如果进程的oom_adj大于警戒级数并且最大，进程将会被杀死， **具有相同omm_adj的进程，则杀死占用内存较多的**。omm_adj越小，代表进程越重要。一些前台的进程，oom_adj会比较小，而后台的服务，omm_adj会比较大，所以当内存不足的时候，Low memory killer必然先杀掉的是后台服务而不是前台的进程。对于LowmemoryKiller的杀死，这里有一句话很重要，就是： **具有相同omm_adj的进程，则杀死占用内存较多的**，因此，如果我们的APP进入后台，就尽量释放不必要的资源，以降低自己被杀的风险。那么如何释放呢？onTrimeMemory是个不错的时机，
+lowmem_adj中各项数值代表阈值的警戒级数，lowmem_minfree代表对应级数的剩余内存。两者一一对应，当系统的可用内存小于6MB时，警戒级数为0；当系统可用内存小于8M而大于6M时，警戒级数为1；当可用内存小于64M大于16MB时，警戒级数为12。LowmemoryKiller的规则就是根据当前系统的可用内存多少来获取当前的警戒级数，如果进程的oom_adj大于警戒级数并且最大，进程将会被杀死， **具有相同omm_adj的进程，则杀死占用内存较多的**。omm_adj越小，代表进程越重要。一些前台的进程，oom_adj会比较小，而后台的服务，omm_adj会比较大，所以当内存不足的时候，Low memory killer必然先杀掉的是后台服务而不是前台的进程。对于LowmemoryKiller的杀死，这里有一句话很重要，就是： **具有相同omm_adj的进程，则杀死占用内存较多的**，因此，如果我们的APP进入后台，就尽量释放不必要的资源，以降低自己被杀的风险。那么如何释放呢？onTrimeMemory是个不错的时机。
 
 # 相同oom_adj的情况下，利用onTrimeMemory合理的裁剪内存，降低被杀风险
 
