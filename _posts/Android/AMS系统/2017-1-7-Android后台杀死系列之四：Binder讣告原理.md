@@ -40,7 +40,6 @@ Server进程在启动时，会调用函数open来打开设备文件/dev/binder�
 
 看关键点点1 可以看出，当Client bindService结束后，会通过BinderProxy的linkToDeath注册死亡回调，进而去调用Native函数：
 
-
 	status_t BpBinder::linkToDeath(
 	    const sp<DeathRecipient>& recipient, void* cookie, uint32_t flags){
 	    <!--关键点1-->              
@@ -66,7 +65,6 @@ Server进程在启动时，会调用函数open来打开设备文件/dev/binder�
 	binder_thread_write(struct binder_proc *proc, struct binder_thread *thread,
 			    void __user *buffer, int size, signed long *consumed)
 	{
-	
 	...
 	case BC_REQUEST_DEATH_NOTIFICATION:
 			case BC_CLEAR_DEATH_NOTIFICATION: {
@@ -89,7 +87,7 @@ Server进程在启动时，会调用函数open来打开设备文件/dev/binder�
 						}
 					}
 				} 
-		}
+	 }
 
 看关键点1 ，其实就是为Client新建binder_ref_death对象，并赋值给binder_ref。**在binder驱动中，binder_node节点会记录所有binder_ref**，当binder_node所在的进程挂掉后，驱动就能根据这个全局binder_ref列表找到所有Client的binder_ref，并对于设置了死亡回调的Client发送“讣告”，这是因为在binder_get_ref_for_node向Client插入binder_ref的时候，也会插入binder_node的binder_ref列表。
 
@@ -111,9 +109,12 @@ Server进程在启动时，会调用函数open来打开设备文件/dev/binder�
 
 如此，就死亡回调就被注册到binder内核驱动。之后，等到进程结束释放binder，就会触发死亡回调。
 
+![死亡讣告的注册.png](http://upload-images.jianshu.io/upload_images/1460468-36506aff731ad964.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
 # 死亡通知的发送
 
-
+	static void binder_deferred_release(struct binder_proc *proc)
+		{         ....
 			if (ref->death) {
 					death++;
 					if (list_empty(&ref->death->work.entry)) {
@@ -122,12 +123,100 @@ Server进程在启动时，会调用函数open来打开设备文件/dev/binder�
 						// 插入到binder_ref请求进程的binder线程等待队列？？？？？ 天然支持binder通信吗？
 						// 什么时候，需要死亡回调，自己也是binder服务？
 						wake_up_interruptible(&ref->proc->wait);
-					} else
-						BUG();
-				}
+					} 				
+			...
+	 }
 				
 似乎只有那些相互为Binder服务的进程才需要，也就是说，Client也是服务
-				
+
+	static int
+	binder_thread_read(struct binder_proc *proc, struct binder_thread *thread,
+		void  __user *buffer, int size, signed long *consumed, int non_block)
+	{
+		case BINDER_WORK_DEAD_BINDER:
+				case BINDER_WORK_DEAD_BINDER_AND_CLEAR:
+				case BINDER_WORK_CLEAR_DEATH_NOTIFICATION: {
+					struct binder_ref_death *death = container_of(w, struct binder_ref_death, work);
+					uint32_t cmd;
+					if (w->type == BINDER_WORK_CLEAR_DEATH_NOTIFICATION)
+						cmd = BR_CLEAR_DEATH_NOTIFICATION_DONE;
+					else
+						cmd = BR_DEAD_BINDER;
+					if (put_user(cmd, (uint32_t __user *)ptr))
+						return -EFAULT;
+					ptr += sizeof(uint32_t);
+					if (put_user(death->cookie, (void * __user *)ptr))
+						return -EFAULT;
+					ptr += sizeof(void *);
+		
+					if (w->type == BINDER_WORK_CLEAR_DEATH_NOTIFICATION) {
+						list_del(&w->entry);
+						kfree(death);
+						binder_stats.obj_deleted[BINDER_STAT_DEATH]++;
+					} else
+						list_move(&w->entry, &proc->delivered_death);
+					if (cmd == BR_DEAD_BINDER)
+						goto done; /* DEAD_BINDER notifications can cause transactions */
+				} break;
+				}
+
+可以看到，就是插入到Client进程的主等待队列，如果Client存在Binder线程，就会执行，当然，如果不存在，则在下次请求服务的时候会发现binder_node进程已死，可以预先处理了。
+	
+	status_t IPCThreadState::executeCommand(int32_t cmd)
+	{
+	    // 死亡讣告
+	    case BR_DEAD_BINDER:
+	        {
+	            BpBinder *proxy = (BpBinder*)mIn.readInt32();
+	            <!--关键点1 -->
+	            proxy->sendObituary();
+	            mOut.writeInt32(BC_DEAD_BINDER_DONE);
+	            mOut.writeInt32((int32_t)proxy);
+	        } break;
+
+看关键点1，Obituary直译过来就是讣告，就是利用BpBinder发送讣告的意思，通知结束后，再发送给Binder驱动。
+
+	void BpBinder::sendObituary()
+	{
+	    ALOGV("Sending obituary for proxy %p handle %d, mObitsSent=%s\n",
+	        this, mHandle, mObitsSent ? "true" : "false");
+	    mAlive = 0;
+	    if (mObitsSent) return;
+	    mLock.lock();
+	    Vector<Obituary>* obits = mObituaries;
+	    if(obits != NULL) {
+	    <!--关键点1-->
+	        IPCThreadState* self = IPCThreadState::self();
+	        self->clearDeathNotification(mHandle, this);
+	        self->flushCommands();
+	        mObituaries = NULL;
+	    }
+	    mObitsSent = 1;
+	    mLock.unlock();
+	    if (obits != NULL) {
+	        const size_t N = obits->size();
+	        for (size_t i=0; i<N; i++) {
+	            reportOneDeath(obits->itemAt(i));
+	        }
+	        delete obits;
+	    }
+	}
+
+看关键点1，这里跟注册相对应，将自己从观察者列表中清除，之后再上报
+
+	void BpBinder::reportOneDeath(const Obituary& obit)
+	{
+	    sp<DeathRecipient> recipient = obit.recipient.promote();
+	    ALOGV("Reporting death to recipient: %p\n", recipient.get());
+	    if (recipient == NULL) return;
+	
+	    recipient->binderDied(this);
+	}
+	
+进而调用上层DeathRecipient的回调，做一些清理之类的逻辑。
+
+![死亡讣告的发送.png](http://upload-images.jianshu.io/upload_images/1460468-ea8da541d7339d22.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+	        						
 ### 参考文档
 
 [Android Binder 分析——死亡通知（DeathRecipient）](http://light3moon.com/2015/01/28/Android%20Binder%20%E5%88%86%E6%9E%90%E2%80%94%E2%80%94%E6%AD%BB%E4%BA%A1%E9%80%9A%E7%9F%A5[DeathRecipient])
