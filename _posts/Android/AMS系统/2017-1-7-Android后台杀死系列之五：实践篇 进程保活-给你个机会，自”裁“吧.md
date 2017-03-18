@@ -6,16 +6,6 @@ image: http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.pn
 
 ---
  
- 
- 
-这里针对异常杀死的一些需求
-
-1、**异常杀死后，再次打开完全重启（有个网友问的）** 如何判定是后台杀死
-2、进程保活
-
-
-![App操作影响进程优先级](http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
- 
 研究后台杀究竟有什么用呢，没用你研究它干嘛，既然有杀死，就有保活。本篇文章主要探讨一下进程的保活，Android本身设计的时候是非常善良的，它希望进程在不可见或者其他一些场景下APP要懂得主动释放，可是Android低估了”贪婪“，尤其是很多国产APP，只希望索取来提高自己的性能，不管其他APP或者系统的死活，导致了很严重的资源浪费，这也是Android被iOS诟病的最大原因。本文的保活手段也分两种：遵纪守法的进程保活与流氓手段换来的进程保活。
 
 # 针对LowmemoryKiller所做的进程保活
@@ -110,36 +100,21 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
 
 其意义如下：
 
+* TRIM_MEMORY_UI_HIDDEN 当前应用程序的所有UI界面不可见，一般是用户点击了Home键或者Back键，导致应用的UI界面不可见，这时应该释放一些UI相关资源，TRIM_MEMORY_UI_HIDDEN是使用频率最高的裁剪等级。官方文档：the process had been showing a user interface, and is no longer doing so.  Large allocations with the UI should be released at this point to allow memory to be better managed
 
-* TRIM_MEMORY_UI_HIDDEN 表示应用程序的所有UI界面不可见，一般是用户点击了Home键或者Back键，导致应用的UI界面不可见，这时应该释放一些UI相关资源，TRIM_MEMORY_UI_HIDDEN是使用频率最高的裁剪等级。官方文档：the process had been showing a user interface, and is no longer doing so.  Large allocations with the UI should be released at this point to allow memory to be better managed
+* TRIM_MEMORY_BACKGROUND 当前手机目前内存吃紧（**后台进程数量少**），系统开始根据LRU缓存来清理进程，而该程序位于LRU缓存列表的头部位置，不太可能被清理掉的，但释放掉一些比较容易恢复的资源能够提高手机运行效率，同时也能保证恢复速度。官方文档：the process has gone on to the LRU list.  This is a good opportunity to clean up resources that can efficiently and quickly be re-built if the user returns to the app
 
-* TRIM_MEMORY_BACKGROUND 表示手机目前内存已经很低了，系统准备开始根据LRU缓存来清理进程。这个时候我们的程序在LRU缓存列表的最近位置，是不太可能被清理掉的，但这时去释放掉一些比较容易恢复的资源能够让手机的内存变得比较充足，从而让我们的程序更长时间地保留在缓存当中，这样当用户返回我们的程序时会感觉非常顺畅，而不是经历了一次重新启动的过程。官方文档：the process has gone on to the LRU list.  This is a good opportunity to clean up resources that can efficiently and quickly be re-built if the user returns to the app
+* TRIM_MEMORY_MODERATE  当前手机目前内存吃紧（**后台进程数量少**），系统开始根据LRU缓存来清理进程，而该程序位于LRU缓存列表的中间位置，应该多释放一些内存提高运行效率。官方文档：the process is around the middle of the background LRU list; freeing memory can help the system keep other processes running later in the list for better overall performance.
 
-* TRIM_MEMORY_MODERATE 表示手机目前内存已经很低了，并且我们的程序处于LRU缓存列表的中间位置，如果手机内存还得不到进一步释放的话，那么我们的程序就有被系统杀掉的风险了。the process is around the middle of the background LRU list; freeing memory can help the system keep other processes running later in the list for better overall performance.
+* TRIM_MEMORY_COMPLETE  当前手机目前内存吃紧 （**后台进程数量少**），系统开始根据LRU缓存来清理进程，而该程序位于LRU缓存列表的最边缘位置，系统会先杀掉该进程，应尽释放一切可以释放的内存。官方文档：the process is nearing the end  of the background LRU list, and if more memory isn't found soon it will be killed.
 
+以下三个等级针对前台运行应用
 
-* TRIM_MEMORY_COMPLETE 表示手机目前内存已经很低了，并且我们的程序处于LRU缓存列表的最边缘位置，系统会最优先考虑杀掉我们的应用程序，在这个时候应当尽可能地把一切可以释放的东西都进行释放。
+* TRIM_MEMORY_RUNNING_MODERATE 表示该进程是前台或可见进程，正常运行，一般不会被杀掉，但是目前手机有些吃紧（**后台及空进程存量不多**），系统已经开始清理内存，有必要的话，可以释放一些内存。官方文档：the process is not an expendable background process, but the device is running moderately low on memory. Your running process may want to release some unneeded resources for use elsewhere。
+* TRIM_MEMORY_RUNNING_LOW 表示该进程是前台或可见进程，正常运行，一般不会被杀掉，但是目前手机比较吃紧（**后台及空进程被全干掉了一大波**），应该去释放掉一些不必要的资源以提升系统性能。 官方文档：the process is not an expendable background process, but the device is running low on memory.  Your running process should free up unneeded resources to allow that  memory to be used elsewhere.
+* TRIM_MEMORY_RUNNING_CRITICAL 表示该进程是前台或可见进程，但是目前手机比较内存十分吃紧（**后台及空进程基本被全干掉了**），这时应当尽可能地去释放任何不必要的资源，否则，系统可能会杀掉所有缓存中的进程，并且杀一些本来应当保持运行的进程。官方文档：the process is not an expendable background process, but the device is running extremely low on memory   and is about to not be able to keep any background processes running.  Your running process should free up as many non-critical resources as it  can to allow that memory to be used elsewhere.  The next thing that will happen after this is {@link #onLowMemory()} called to report that  nothing at all can be kept in the background, a situation that can start to notably impact the user.
 
-以下三个等级面向前台运行应用
-
-* TRIM_MEMORY_RUNNING_MODERATE 表示应用程序正常运行，并且不会被杀掉。但是目前手机的内存已经有点低了，系统可能会开始根据LRU缓存规则来去杀死进程了。
-* TRIM_MEMORY_RUNNING_LOW 表示应用程序正常运行，并且不会被杀掉。但是目前手机的内存已经非常低了，我们应该去释放掉一些不必要的资源以提升系统的性能，同时这也会直接影响到我们应用程序的性能。
-* TRIM_MEMORY_RUNNING_CRITICAL 表示应用程序仍然正常运行，但是系统已经根据LRU缓存规则杀掉了大部分缓存的进程了。这个时候我们应当尽可能地去释放任何不必要的资源，不然的话系统可能会继续杀掉所有缓存中的进程，并且开始杀掉一些本来应当保持运行的进程，比如说后台运行的服务。
-
-当应用程序是缓存的，则会收到以下几种类型的回调：
-
-
-
-# 也许同当前内存的使用具体情况结合起来比较好，后台进程少，内存充足
-
-* TRIM_MEMORY_RUNNING_MODERATE 表示应用程序正常运行，并且不会被杀掉。但是目前手机的内存已经有点低了，系统可能会开始根据LRU缓存规则来去杀死进程了。
-* TRIM_MEMORY_RUNNING_LOW 表示应用程序正常运行，并且不会被杀掉。但是目前手机的内存已经非常低了，我们应该去释放掉一些不必要的资源以提升系统的性能，同时这也会直接影响到我们应用程序的性能。
-* TRIM_MEMORY_RUNNING_CRITICAL 表示应用程序仍然正常运行，但是系统已经根据LRU缓存规则杀掉了大部分缓存的进程了。这个时候我们应当尽可能地去释放任何不必要的资源，不然的话系统可能会继续杀掉所有缓存中的进程，并且开始杀掉一些本来应当保持运行的进程，比如说后台运行的服务。
-* TRIM_MEMORY_BACKGROUND 表示手机目前内存已经很低了，系统准备开始根据LRU缓存来清理进程。这个时候我们的程序在LRU缓存列表的最近位置，是不太可能被清理掉的，但这时去释放掉一些比较容易恢复的资源能够让手机的内存变得比较充足，从而让我们的程序更长时间地保留在缓存当中，这样当用户返回我们的程序时会感觉非常顺畅，而不是经历了一次重新启动的过程。
-* TRIM_MEMORY_MODERATE 表示手机目前内存已经很低了，并且我们的程序处于LRU缓存列表的中间位置，如果手机内存还得不到进一步释放的话，那么我们的程序就有被系统杀掉的风险了。
-* TRIM_MEMORY_COMPLETE 表示手机目前内存已经很低了，并且我们的程序处于LRU缓存列表的最边缘位置，系统会最优先考虑杀掉我们的应用程序，在这个时候应当尽可能地把一切可以释放的东西都进行释放。
-
-
+以上只是抽象的说明了一下Android既定参数的意义，下面看一下onTrimeMemory的实现原理，这里采用6.0的代码分析，因为6.0这块的代码经过了重构，比之前4.3的代码清晰很多：
 
 # onTrimeMemory的回调时机
 
@@ -157,7 +132,6 @@ updateOomAdjLocked，并且裁剪等级发生了改变，
 # app.trimMemoryLevel 裁剪APP的时机，
 
 其实在每次updateOomAdjLocked更新优先级的时候，都会对一些后台的进程，还有空进程发出警告，告诉他们去裁剪内存，以尽可能的避免内存不足造成被异常杀死，其实AMS也会杀死进程开动太多的话
-
 
     final void updateOomAdjLocked() {
         final ActivityRecord TOP_ACT = resumedAppLocked();
@@ -1274,7 +1248,16 @@ OnTrimMemory:Android系统从4.0开始还提供了onTrimMemory()的回调，当�
 
 # 如何合理的保活，其实除了根据TRIM参数，还要根据当前的内存占用情况，没达到限制，不一定会杀后台，设定的阈值
 
-	        
+ 
+ 
+# 这里针对异常杀死的一些需求
+
+1、**异常杀死后，再次打开完全重启（有个网友问的）** 如何判定是后台杀死
+2、进程保活
+
+
+![App操作影响进程优先级](http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+ 	        
 ###  参考文档
 
 [谷歌文档Application ](https://developer.android.com/reference/android/app/Application.html#onLowMemory%28%29)                 
