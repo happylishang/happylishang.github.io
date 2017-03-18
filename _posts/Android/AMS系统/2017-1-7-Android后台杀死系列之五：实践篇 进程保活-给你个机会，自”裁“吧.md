@@ -116,51 +116,36 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
 
 * TRIM_MEMORY_RUNNING_CRITICAL 表示该进程是前台或可见进程，但是目前手机比较内存十分吃紧（**后台及空进程基本被全干掉了**），这时应当尽可能地去释放任何不必要的资源，否则，系统可能会杀掉所有缓存中的进程，并且杀一些本来应当保持运行的进程。官方文档：the process is not an expendable background process, but the device is running extremely low on memory   and is about to not be able to keep any background processes running.  Your running process should free up as many non-critical resources as it  can to allow that memory to be used elsewhere.  The next thing that will happen after this is called to report that  nothing at all can be kept in the background, a situation that can start to notably impact the user.
 
-以上只是抽象的说明了一下Android既定参数的意义，下面看一下onTrimeMemory回调的时机及原理，这里采用6.0的代码分析，因为6.0这块的代码经过了重构，比之前4.3的代码清晰很多：当用户的操作导致APP优先级发生变化，就会调用updateOomAdjLocked去更新进程的优先级，在更新优先级的时候，会扫描一遍LRU进程列表， 重新计算进程的oom_adj，并且参考当前系统状况去通知进程裁剪内存（这里只是针对Android Java层APP），这次操作一般发生在打开新的Activity界面、退回后台、应用跳转切换等等，updateOomAdjLocked精简后端代码如下：
+以上只是抽象的说明了一下Android既定参数的意义，下面看一下onTrimeMemory回调的时机及原理，这里采用6.0的代码分析，因为6.0这块的代码经过了重构，比之前4.3的代码清晰很多：当用户的操作导致APP优先级发生变化，就会调用updateOomAdjLocked去更新进程的优先级，在更新优先级的时候，会扫描一遍LRU进程列表， 重新计算进程的oom_adj，并且参考当前系统状况去通知进程裁剪内存（这里只是针对Android Java层APP），这次操作一般发生在打开新的Activity界面、退回后台、应用跳转切换等等，updateOomAdjLocked代码大概600多行，比较长，尽量精简后如下：
 
     final void updateOomAdjLocked() {
         final ActivityRecord TOP_ACT = resumedAppLocked();
         <!--关键点1 找到TOP——APP，最顶层显示的APP-->
         final ProcessRecord TOP_APP = TOP_ACT != null ? TOP_ACT.app : null;
         final long oldTime = SystemClock.uptimeMillis() - ProcessList.MAX_EMPTY_TIME;
-     
         mAdjSeq++;
         mNewNumServiceProcs = 0;
-
         final int emptyProcessLimit;
         final int hiddenProcessLimit;
-
-        // 默认是24个最大
+        <!--关键点2 找到TOP——APP，最顶层显示的APP-->
+        // 初始化一些进程数量的限制：
         if (mProcessLimit <= 0) {
             emptyProcessLimit = hiddenProcessLimit = 0;
         } else if (mProcessLimit == 1) {
             emptyProcessLimit = 1;
             hiddenProcessLimit = 0;
         } else {
-            // 16个空APP进程
-            emptyProcessLimit = (mProcessLimit*2)/3;
-            // 8个后台进程
-            hiddenProcessLimit = mProcessLimit - emptyProcessLimit;
+        	// 空进程跟后台非空缓存继承的比例
+            emptyProcessLimit = ProcessList.computeEmptyProcessLimit(mProcessLimit);
+            cachedProcessLimit = mProcessLimit - emptyProcessLimit;
         }
-
-        // Let's determine how many processes we have running vs.
-        // how many slots we have for background processes; we may want
-        // to put multiple processes in a slot of there are enough of
-        // them.
-        int numSlots = (ProcessList.HIDDEN_APP_MAX_ADJ
-                - ProcessList.HIDDEN_APP_MIN_ADJ + 1) / 2;
-        // 后台 前台 空
-        int numEmptyProcs = mLruProcesses.size()-mNumNonHiddenProcs-mNumHiddenProcs;
-        if (numEmptyProcs > hiddenProcessLimit) {
-            // If there are more empty processes than our limit on hidden
-            // processes, then use the hidden process limit for the factor.
-            // This ensures that the really old empty processes get pushed
-            // down to the bottom, so if we are running low on memory we will
-            // have a better chance at keeping around more hidden processes
-            // instead of a gazillion empty processes.
-            // 保存尽量多的后台非空APP
-            numEmptyProcs = hiddenProcessLimit;
-        }
+ 
+        
+        <!--关键点3 确定下进程槽 3个槽->
+        int numSlots = (ProcessList.HIDDEN_APP_MAX_ADJ - ProcessList.HIDDEN_APP_MIN_ADJ + 1) / 2;
+        // 后台进程/前台进程/空进程
+        int numEmptyProcs = N - mNumNonCachedProcs - mNumCachedHiddenProcs;
+        
         int emptyFactor = numEmptyProcs/numSlots;
         if (emptyFactor < 1) emptyFactor = 1;
         int hiddenFactor = (mNumHiddenProcs > 0 ? mNumHiddenProcs : 1)/numSlots;
@@ -170,13 +155,8 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
         int numHidden = 0;
         int numEmpty = 0;
         int numTrimming = 0;
-
         mNumNonHiddenProcs = 0;
         mNumHiddenProcs = 0;
-
-        // 评估优先级 oomADJ
-        // First update the OOM adjustment for each of the
-        // application processes based on their current state.
         int i = mLruProcesses.size();
         // 优先级
         int curHiddenAdj = ProcessList.HIDDEN_APP_MIN_ADJ;
@@ -186,279 +166,248 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
         int curEmptyAdj = ProcessList.HIDDEN_APP_MIN_ADJ;
         // 有意思
         int nextEmptyAdj = curEmptyAdj+2;
+     
 
-        int curClientHiddenAdj = curEmptyAdj;
-        // 计算优先级，倒着计算
-        while (i > 0) {
-            i--;
-            ProcessRecord app = mLruProcesses.get(i);
-            //Slog.i(TAG, "OOM " + app + ": cur hidden=" + curHiddenAdj);
-            updateOomAdjLocked(app, curHiddenAdj, curClientHiddenAdj, curEmptyAdj, TOP_APP, true);
-           // 还未被杀死
-            if (!app.killedBackground) {
-                // 有Activity
-                if (app.curRawAdj == curHiddenAdj && app.hasActivities) {
-                    // This process was assigned as a hidden process...  step the
-                    // hidden level.
-                    mNumHiddenProcs++;
-                    if (curHiddenAdj != nextHiddenAdj) {
-                        stepHidden++;
-                        if (stepHidden >= hiddenFactor) {
-                            stepHidden = 0;
-                            curHiddenAdj = nextHiddenAdj;
-                            nextHiddenAdj += 2;
-                            if (nextHiddenAdj > ProcessList.HIDDEN_APP_MAX_ADJ) {
-                                nextHiddenAdj = ProcessList.HIDDEN_APP_MAX_ADJ;
-                            }
-                            if (curClientHiddenAdj <= curHiddenAdj) {
-                                curClientHiddenAdj = curHiddenAdj + 1;
-                                if (curClientHiddenAdj > ProcessList.HIDDEN_APP_MAX_ADJ) {
-                                    curClientHiddenAdj = ProcessList.HIDDEN_APP_MAX_ADJ;
-                                }
-                            }
-                        }
-                    }
-                    // hiden的进程，开始杀进程，过多了开始杀，如果超过了，可以杀死
-                    numHidden++;
-                    if (numHidden > hiddenProcessLimit) {
-                        Slog.i(TAG, "No longer want " + app.processName
-                                + " (pid " + app.pid + "): hidden #" + numHidden);
-                        EventLog.writeEvent(EventLogTags.AM_KILL, app.userId, app.pid,
-                                app.processName, app.setAdj, "too many background");
-                        app.killedBackground = true;
-                        Process.killProcessQuiet(app.pid);
-                    }
-                } else if (app.curRawAdj == curHiddenAdj && app.hasClientActivities) {
-                    // This process has a client that has activities.  We will have
-                    // given it the current hidden adj; here we will just leave it
-                    // without stepping the hidden adj.
-                    curClientHiddenAdj++;
-                    if (curClientHiddenAdj > ProcessList.HIDDEN_APP_MAX_ADJ) {
-                        curClientHiddenAdj = ProcessList.HIDDEN_APP_MAX_ADJ;
-                    }
-                } else {
-                    // 空进程，没activity
-                    if (app.curRawAdj == curEmptyAdj || app.curRawAdj == curHiddenAdj) {
-                        // This process was assigned as an empty process...  step the
-                        // empty level.
-                        if (curEmptyAdj != nextEmptyAdj) {
-                            stepEmpty++;
-                            if (stepEmpty >= emptyFactor) {
-                                stepEmpty = 0;
-                                curEmptyAdj = nextEmptyAdj;
-                                nextEmptyAdj += 2;
-                                if (nextEmptyAdj > ProcessList.HIDDEN_APP_MAX_ADJ) {
-                                    nextEmptyAdj = ProcessList.HIDDEN_APP_MAX_ADJ;
-                                }
-                            }
-                        }
-                    } else if (app.curRawAdj < ProcessList.HIDDEN_APP_MIN_ADJ) {
-                        mNumNonHiddenProcs++;
-                    }
-                    // 空进程可以杀死，计算的优先级是不是更低
-                    if (app.curAdj >= ProcessList.HIDDEN_APP_MIN_ADJ
-                            && !app.hasClientActivities) {
-                        // 如果超过限制的numEmpty，也开始杀空进程，超过三个，并且lastActivityTime时间久了
-                        if (numEmpty > ProcessList.TRIM_EMPTY_APPS
-                                && app.lastActivityTime < oldTime) {
-                            Slog.i(TAG, "No longer want " + app.processName
-                                    + " (pid " + app.pid + "): empty for "
-                                    + ((oldTime+ProcessList.MAX_EMPTY_TIME-app.lastActivityTime)
-                                            / 1000) + "s");
-                            EventLog.writeEvent(EventLogTags.AM_KILL, app.userId, app.pid,
-                                    app.processName, app.setAdj, "old background process");
-                            app.killedBackground = true;
-                            Process.killProcessQuiet(app.pid);
-                        } else {
-                           // 如果超过限制的numEmpty，也开始杀空进程
-                            numEmpty++;
-                            if (numEmpty > emptyProcessLimit) {
-                                Slog.i(TAG, "No longer want " + app.processName
-                                        + " (pid " + app.pid + "): empty #" + numEmpty);
-                                EventLog.writeEvent(EventLogTags.AM_KILL, app.userId, app.pid,
-                                        app.processName, app.setAdj, "too many background");
-                                app.killedBackground = true;
-                                Process.killProcessQuiet(app.pid);
-                            }
-                        }
-                    }
-                }
-                if (app.isolated && app.services.size() <= 0) {
-                    // If this is an isolated process, and there are no
-                    // services running in it, then the process is no longer
-                    // needed.  We agressively kill these because we can by
-                    // definition not re-use the same process again, and it is
-                    // good to avoid having whatever code was running in them
-                    // left sitting around after no longer needed.
-                    Slog.i(TAG, "Isolated process " + app.processName
-                            + " (pid " + app.pid + ") no longer needed");
-                    EventLog.writeEvent(EventLogTags.AM_KILL, app.userId, app.pid,
-                            app.processName, app.setAdj, "isolated not needed");
-                    app.killedBackground = true;
-                    Process.killProcessQuiet(app.pid);
-                }
+	    for (int i=N-1; i>=0; i--) {
+	            ProcessRecord app = mLruProcesses.get(i);
+	            if (!app.killedByAm && app.thread != null) {
+	                app.procStateChanged = false;
+	                <!--关键点4 计算进程的优先级或者缓存进程的优先级->   
+	                // computeOomAdjLocked计算进程优先级，但是对于后台进程和empty进程computeOomAdjLocked无效，这部分优先级是AMS自己根据LRU原则分配的
+	                computeOomAdjLocked(app, ProcessList.UNKNOWN_ADJ, TOP_APP, true, now);
+	                //还未最终确认，有些进程的优先级，比如只有后台activity或者没有activity的进程，
+	              <!--关键点5 计算进程的优先级或者缓存进程的优先级->   
+	                if (app.curAdj >= ProcessList.UNKNOWN_ADJ) {
+	                    switch (app.curProcState) {
+	                        case ActivityManager.PROCESS_STATE_CACHED_ACTIVITY:
+	                        case ActivityManager.PROCESS_STATE_CACHED_ACTIVITY_CLIENT:
+	                            app.curRawAdj = curCachedAdj;
+										<!--关键点6 根据LRU为后台进程分配优先级-->
+	                            if (curCachedAdj != nextCachedAdj) {
+	                                stepCached++;
+	                                if (stepCached >= cachedFactor) {
+	                                    stepCached = 0;
+	                                    curCachedAdj = nextCachedAdj;
+	                                    nextCachedAdj += 2;
+	                                    if (nextCachedAdj > ProcessList.CACHED_APP_MAX_ADJ) {
+	                                        nextCachedAdj = ProcessList.CACHED_APP_MAX_ADJ;
+	                                    }
+	                                }
+	                            }
+	                            break;
+	                        default:
+                        									     	<!--关键点7 根据LRU为后台进程分配优先级-->
+	                            app.curRawAdj = curEmptyAdj;
+	                            app.curAdj = app.modifyRawOomAdj(curEmptyAdj);
+	                            if (curEmptyAdj != nextEmptyAdj) {
+	                                stepEmpty++;
+	                                if (stepEmpty >= emptyFactor) {
+	                                    stepEmpty = 0;
+	                                    curEmptyAdj = nextEmptyAdj;
+	                                    nextEmptyAdj += 2;
+	                                    if (nextEmptyAdj > ProcessList.CACHED_APP_MAX_ADJ) {
+	                                        nextEmptyAdj = ProcessList.CACHED_APP_MAX_ADJ;
+	                                    }
+	                                }
+	                            }
+	                            break;
+	                    }
+	                }
+				    <!--关键点8 设置优先级-->
+	                applyOomAdjLocked(app, true, now, nowElapsed);
 
-                // 裁剪的numTrimming
-                if (app.nonStoppingAdj >= ProcessList.HOME_APP_ADJ
-                        && app.nonStoppingAdj != ProcessList.SERVICE_B_ADJ
-                        && !app.killedBackground) {
-                    numTrimming++;
-                }
-            }
-        }
+					 <!--关键点9 根据缓存进程的数由AMS选择性杀进程，后台进程太多-->
+	                switch (app.curProcState) {
+	                    case ActivityManager.PROCESS_STATE_CACHED_ACTIVITY:
+	                    case ActivityManager.PROCESS_STATE_CACHED_ACTIVITY_CLIENT:
+	                        mNumCachedHiddenProcs++;
+	                        numCached++;
+	                        if (numCached > cachedProcessLimit) {
+	                            app.kill("cached #" + numCached, true);
+	                        }
+	                        break;
+	                    case ActivityManager.PROCESS_STATE_CACHED_EMPTY:
+	                        if (numEmpty > ProcessList.TRIM_EMPTY_APPS
+	                                && app.lastActivityTime < oldTime) {
+	                            app.kill("empty for "
+	                                    + ((oldTime + ProcessList.MAX_EMPTY_TIME - app.lastActivityTime)
+	                                    / 1000) + "s", true);
+	                        } else {
+	                            numEmpty++;
+	                            if (numEmpty > emptyProcessLimit) {
+	                                app.kill("empty #" + numEmpty, true);
+	                            }
+	                        }
+	                        break;
+	                    default:
+	                        mNumNonCachedProcs++;
+	                        break;
+	                }
+					 <!--关键点10 计算需要裁剪进程的数目-->
+	                if (app.curProcState >= ActivityManager.PROCESS_STATE_HOME
+	                        && !app.killedByAm) {
+	                		// 比home高的都需要裁剪，不包括那些等级高的进程
+	                    numTrimming++;
+	                }
+	            }
+	        }
 
+ 
+	        final int numCachedAndEmpty = numCached + numEmpty;
+	        int memFactor;
+			 <!--关键点11 根据后台进程数目确定当前系统的内存使用状况 ，确立内存裁剪等级（内存因子）memFactor，android的理念是准许存在一定数量的后台进程，并且只有内存不够的时候，才会缩减后台进程-->
+	        if (numCached <= ProcessList.TRIM_CACHED_APPS
+	                && numEmpty <= ProcessList.TRIM_EMPTY_APPS) {
+	 	     	// 等级高低 ，杀的越厉害，越少，需要约紧急的时候才杀
+	            if (numCachedAndEmpty <= ProcessList.TRIM_CRITICAL_THRESHOLD) {//3
+	                memFactor = ProcessStats.ADJ_MEM_FACTOR_CRITICAL;
+	            } else if (numCachedAndEmpty <= ProcessList.TRIM_LOW_THRESHOLD) { //5
+	                memFactor = ProcessStats.ADJ_MEM_FACTOR_LOW;
+	            } else {
+	                memFactor = ProcessStats.ADJ_MEM_FACTOR_MODERATE;
+	            }
+	        } else {
+	        	// 后台进程数量足够说明内存充足
+	            memFactor = ProcessStats.ADJ_MEM_FACTOR_NORMAL;
+	        }
+	
+	        <!--关键点12 根据内存裁剪等级裁剪内存 Android认为后台进程不足的时候，内存也不足-->
+	        if (memFactor != ProcessStats.ADJ_MEM_FACTOR_NORMAL) {
+	            if (mLowRamStartTime == 0) {
+	                mLowRamStartTime = now;
+	            }
+	            int step = 0;
+	            int fgTrimLevel;
+	         // 内存不足的时候，也要通知前台或可见进程进行缩减
+	            switch (memFactor) {
+	                case ProcessStats.ADJ_MEM_FACTOR_CRITICAL:
+	                    fgTrimLevel = ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL;
+	                    break;
+	                case ProcessStats.ADJ_MEM_FACTOR_LOW:
+	                    fgTrimLevel = ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW;
+	                    break;
+	                default:
+	                    fgTrimLevel = ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE;
+	                    break;
+	            }
+	            int factor = numTrimming/3;
+	            int minFactor = 2;
+	            if (mHomeProcess != null) minFactor++;
+	            if (mPreviousProcess != null) minFactor++;
+	            if (factor < minFactor) factor = minFactor;
+	            int curLevel = ComponentCallbacks2.TRIM_MEMORY_COMPLETE;
+	            <!--裁剪后台进程-->
+	            for (int i=N-1; i>=0; i--) {
+	                ProcessRecord app = mLruProcesses.get(i);
+	                if (allChanged || app.procStateChanged) {
+	                    setProcessTrackerStateLocked(app, trackerMemFactor, now);
+	                    app.procStateChanged = false;
+	                }
+	                
+	       			//  PROCESS_STATE_HOME = 12;  
+	       			//PROCESS_STATE_LAST_ACTIVITY = 13; 退到后台的就会用
+	                // 优先级比较低，回收等级比较高ComponentCallbacks2.TRIM_MEMORY_COMPLETE
+	                //  当curProcState > 12且没有被am杀掉的情况；上面的update的时候，在kill的时候，是会设置app.killedByAm的
+	                //裁剪的话，如果 >= ActivityManager.PROCESS_STATE_HOME，老的裁剪等级较高，不重要，越新鲜的进程，裁剪等级越低
+	
+	                if (app.curProcState >= ActivityManager.PROCESS_STATE_HOME
+	                        && !app.killedByAm) {
+	                	// 先清理陈旧的 ，最陈旧的那个遭殃
+	                    // 最后一个？？
+	                    if (app.trimMemoryLevel < curLevel && app.thread != null) {
+	                        try {
+	                            app.thread.scheduleTrimMemory(curLevel);
+	                        } catch (RemoteException e) {
+	                        }
+	                    }
+	                    app.trimMemoryLevel = curLevel;
+	                    step++; 
+	                    // 反正一共就三个槽，将来再次刷新的 时候，要看看是不是从一个槽里面移动到另一个槽，
+	                    // 没有移动，就不需要再次裁剪，等级没变
+	                    if (step >= factor) {
+	                        step = 0;
+	                        switch (curLevel) {
+	                            case ComponentCallbacks2.TRIM_MEMORY_COMPLETE:
+	                                curLevel = ComponentCallbacks2.TRIM_MEMORY_MODERATE;
+	                                break;
+	                            case ComponentCallbacks2.TRIM_MEMORY_MODERATE:
+	                                curLevel = ComponentCallbacks2.TRIM_MEMORY_BACKGROUND;
+	                                break;
+	                        }
+	                    }
+	                } else if (app.curProcState == ActivityManager.PROCESS_STATE_HEAVY_WEIGHT) {
+	                    if (app.trimMemoryLevel < ComponentCallbacks2.TRIM_MEMORY_BACKGROUND
+	                            && app.thread != null) {
+	                        try {
+	                            if (DEBUG_SWITCH || DEBUG_OOM_ADJ) Slog.v(TAG_OOM_ADJ,
+	                                    "Trimming memory of heavy-weight " + app.processName
+	                                    + " to " + ComponentCallbacks2.TRIM_MEMORY_BACKGROUND);
+	                            app.thread.scheduleTrimMemory(
+	                                    ComponentCallbacks2.TRIM_MEMORY_BACKGROUND);
+	                        } catch (RemoteException e) {
+	                        }
+	                    }
+	                    app.trimMemoryLevel = ComponentCallbacks2.TRIM_MEMORY_BACKGROUND;
+	                } else {
+	                    if ((app.curProcState >= ActivityManager.PROCESS_STATE_IMPORTANT_BACKGROUND
+	                            || app.systemNoUi) && app.pendingUiClean) {
+	                        // 释放UI
+	                        final int level = ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN;
+	                        if (app.trimMemoryLevel < level && app.thread != null) {
+	                            try {
+	                                app.thread.scheduleTrimMemory(level);
+	                            } catch (RemoteException e) {
+	                            }
+	                        }
+	                        app.pendingUiClean = false;
+	                    }
+						// 启动的时候会回调一遍，如果有必要，启动APP的时候，app.trimMemoryLevel=0
+	                    if (app.trimMemoryLevel < fgTrimLevel && app.thread != null) {
+	                        try {
+	                            app.thread.scheduleTrimMemory(fgTrimLevel);
+	                        } catch (RemoteException e) {
+	                        }
+	                    }
+	                    app.trimMemoryLevel = fgTrimLevel;
+	                }
+	            }
+	        } else {
+	            if (mLowRamStartTime != 0) {
+	                mLowRamTimeSinceLastIdle += now - mLowRamStartTime;
+	                mLowRamStartTime = 0;
+	            }
+	            for (int i=N-1; i>=0; i--) {
+	                ProcessRecord app = mLruProcesses.get(i);
 
-        mNumServiceProcs = mNewNumServiceProcs;
+	                // 在resume的时候，都是设置成true，所以退回后台的时候app.pendingUiClean==true是满足的，
+	                // 因此缩减一次，但是不会再次走这里的分支缩减即使优先级变化，但是已经缩减过
+	                // 除非走上面的后台流程，那个时候这个进程的等级已经很低了，
+	                if ((app.curProcState >= ActivityManager.PROCESS_STATE_IMPORTANT_BACKGROUND
+	                        || app.systemNoUi) && app.pendingUiClean) {
+	                    if (app.trimMemoryLevel < ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
+	                            && app.thread != null) {
+	                        try {
+	                            if (DEBUG_SWITCH || DEBUG_OOM_ADJ) Slog.v(TAG_OOM_ADJ,
+	                                    "Trimming memory of ui hidden " + app.processName
+	                                    + " to " + ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN);
+	                            app.thread.scheduleTrimMemory(
+	                                    ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN);
+	                        } catch (RemoteException e) {
+	                        }
+	                    }
+	                    // clean一次就弄成false
+	                    app.pendingUiClean = false;
+	                }
+	                // 基本算没怎么裁剪
+	                app.trimMemoryLevel = 0;
+	            }
+	        }
+	
+	  	    }
 
-        // Now determine the memory trimming level of background processes.
-        // Unfortunately we need to start at the back of the list to do this
-        // properly.  We only do this if the number of background apps we
-        // are managing to keep around is less than half the maximum we desire;
-        // if we are keeping a good number around, we'll let them use whatever
-        // memory they want.
-
-        // 裁剪内存，杀死的时候，内核的Lowmemorykiller会自动计算
-        // 决定后台进程裁剪等级，尽量让存活的app保持在最大量的一半，如果本来就少于一半，就不太用关心
-
-        if (numHidden <= ProcessList.TRIM_HIDDEN_APPS
-                && numEmpty <= ProcessList.TRIM_EMPTY_APPS) {
-            final int numHiddenAndEmpty = numHidden + numEmpty;
-            final int N = mLruProcesses.size();
-            int factor = numTrimming/3;
-            int minFactor = 2;
-            if (mHomeProcess != null) minFactor++;
-            if (mPreviousProcess != null) minFactor++;
-            if (factor < minFactor) factor = minFactor;
-            // step干嘛用的
-            int step = 0;
-            int fgTrimLevel;
-            // 看看总数的有多少隐藏APP，决定一下修建的level，裁剪的等级，裁剪的等级，跟后台数量的关系
-            // 进程越多，优先级就越高，越紧急，你们看着办，不办，就杀你们
-
-            if (numHiddenAndEmpty <= ProcessList.TRIM_CRITICAL_THRESHOLD) {
-                fgTrimLevel = ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL;
-            } else if (numHiddenAndEmpty <= ProcessList.TRIM_LOW_THRESHOLD) {
-                fgTrimLevel = ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW;
-            } else {
-                fgTrimLevel = ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE;
-            }
-            // 预先给个level什么意思 ，好像curLevel跟当前APP数量有关系，数量少的时候才会参考
-
-            int curLevel = ComponentCallbacks2.TRIM_MEMORY_COMPLETE;//使劲释放
-
-            
-            // 这里正序的裁剪
-            for (i=0; i<N; i++) {
-                ProcessRecord app = mLruProcesses.get(i);
-                if (app.nonStoppingAdj >= ProcessList.HOME_APP_ADJ
-                        && app.nonStoppingAdj != ProcessList.SERVICE_B_ADJ
-                        && !app.killedBackground) {
-                    // 什么时候裁剪内存？
-                    // 什么时候发出内存低的信号
-                    if (app.trimMemoryLevel < curLevel && app.thread != null) {
-                        try {
-                            app.thread.scheduleTrimMemory(curLevel);
-                        } catch (RemoteException e) {
-                        }
-                        if (false) {
-                            // For now we won't do this; our memory trimming seems
-                            // to be good enough at this point that destroying
-                            // activities causes more harm than good.
-                            if (curLevel >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE
-                                    && app != mHomeProcess && app != mPreviousProcess) {
-                                // Need to do this on its own message because the stack may not
-                                // be in a consistent state at this point.
-                                // For these apps we will also finish their activities
-                                // to help them free memory.
-                                mMainStack.scheduleDestroyActivities(app, false, "trim");
-                            }
-                        }
-                    }
-                    // 是否被裁剪过，被裁剪过，就设置一个等级
-                    // 这里裁剪是干嘛的 // 先调节到最大
-                    app.trimMemoryLevel = curLevel; 
-                    step++;
-                    if (step >= factor) {
-                        step = 0;
-                        switch (curLevel) {
-                            case ComponentCallbacks2.TRIM_MEMORY_COMPLETE:
-                                curLevel = ComponentCallbacks2.TRIM_MEMORY_MODERATE;
-                                break;
-                            case ComponentCallbacks2.TRIM_MEMORY_MODERATE:
-                                curLevel = ComponentCallbacks2.TRIM_MEMORY_BACKGROUND;
-                                break;
-                        }
-                    }
-                } else if (app.nonStoppingAdj == ProcessList.HEAVY_WEIGHT_APP_ADJ) {
-                    if (app.trimMemoryLevel < ComponentCallbacks2.TRIM_MEMORY_BACKGROUND
-                            && app.thread != null) {
-                        try {
-                            app.thread.scheduleTrimMemory(
-                                    ComponentCallbacks2.TRIM_MEMORY_BACKGROUND);
-                        } catch (RemoteException e) {
-                        }
-                    }
-                    app.trimMemoryLevel = ComponentCallbacks2.TRIM_MEMORY_BACKGROUND;
-                } else {
-                    if ((app.nonStoppingAdj > ProcessList.VISIBLE_APP_ADJ || app.systemNoUi)
-                            && app.pendingUiClean) {
-                        // If this application is now in the background and it
-                        // had done UI, then give it the special trim level to
-                        // have it free UI resources.
-                        final int level = ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN;
-                        if (app.trimMemoryLevel < level && app.thread != null) {
-                            try {
-                                app.thread.scheduleTrimMemory(level);
-                            } catch (RemoteException e) {
-                            }
-                        }
-                        app.pendingUiClean = false;
-                    }
-                    if (app.trimMemoryLevel < fgTrimLevel && app.thread != null) {
-                        try {
-                            app.thread.scheduleTrimMemory(fgTrimLevel);
-                        } catch (RemoteException e) {
-                        }
-                    }
-                    app.trimMemoryLevel = fgTrimLevel;
-                }
-            }
-        } else {
-            // 如果超过一定数量，都会调用
-            final int N = mLruProcesses.size();
-            for (i=0; i<N; i++) {
-                ProcessRecord app = mLruProcesses.get(i);
-                if ((app.nonStoppingAdj > ProcessList.VISIBLE_APP_ADJ || app.systemNoUi)
-                        && app.pendingUiClean) {
-                    if (app.trimMemoryLevel < ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
-                            && app.thread != null) {
-                        try {
-                            //裁剪的等级TRIM_MEMORY_UI_HIDDEN，多了都裁剪
-                            app.thread.scheduleTrimMemory(
-                                    ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN);
-                        } catch (RemoteException e) {
-                        }
-                    }
-                    app.pendingUiClean = false;
-                }
-                app.trimMemoryLevel = 0;
-            }
-        }
-
-        // 这个是调试模式的时候，不保留活动的入口
-
-        if (mAlwaysFinishActivities) {
-            // Need to do this on its own message because the stack may not
-            // be in a consistent state at this point.
-            mMainStack.scheduleDestroyActivities(null, false, "always-finish");
-        }
-    }
-    
-
-
-	 final void updateOomAdjLocked() 
+ 
 	  
-	 app.thread.scheduleTrimMemory(curLevel);
+ app.thread.scheduleTrimMemory(curLevel);
 
 并不是所有的都要裁剪，4.3系统上，后台APP存在Activity即不存在存活Activity的都不多于三个，就不用裁剪
 
