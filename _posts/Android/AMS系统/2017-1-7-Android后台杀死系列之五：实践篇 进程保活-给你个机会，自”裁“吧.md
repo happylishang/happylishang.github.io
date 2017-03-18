@@ -430,7 +430,7 @@ OnLowMemory()和OnTrimMemory()的比较
  
 这种做法是相对温和点的，因为Android官方曾给过类似的方案，比如音乐播放时后，通过设置前台服务的方式来保活。这里就为流氓进程提供了入口，不过显示一个常住服务会在通知栏上有个运行状态的图标，会被用户感知到。但是Android恰恰还有个漏洞可以把该图标移出，真不知道是不是Google故意的。这里可以参考微信的保活方案：**双Service强制前台进程保活**。
 
-startForeground(ID， new Notification())，可以将Service变成前台服务，其所在进程就算退到后台，其先级会变成VISIBLE_APP_ADJ，一般不会被杀掉,Android的有个漏洞，如果两个Service通过同样的ID设置为前台进程的话，如果其一通过stopForeground取消了前台显示，就会导致仍有一个前台显示，但是不在状态栏显示通知，这样就可以不被用户感知的耍流氓。这种手段是比较常用的流氓手段。优先级提高后，AMS的killBackgroundProcesses已经不能把进程杀死了，killBackgroundProcesses只会杀死oom_adj大于ProcessList.SERVICE_ADJ的进程，但是通过这种方式，后台APP的优先级已经提高到了ProcessList.VISIBLE_APP_ADJ，可谓流氓至极，如果再占据着内存不释放，那就是泼皮无赖了。具体做法如下，这种进程成可以用在推送服务中：
+startForeground(ID， new Notification())，可以将Service变成前台服务，其所在进程就算退到后台，其先级会变成VISIBLE_APP_ADJ，一般不会被杀掉,Android的有个漏洞，如果两个Service通过同样的ID设置为前台进程的话，如果其一通过stopForeground取消了前台显示，就会导致仍有一个前台显示，但是不在状态栏显示通知，这样就可以不被用户感知的耍流氓。这种手段是比较常用的流氓手段。优先级提高后，AMS的killBackgroundProcesses已经不能把进程杀死了，killBackgroundProcesses只会杀死oom_adj大于ProcessList.SERVICE_ADJ的进程，但是通过这种方式，后台APP的优先级已经提高到了ProcessList.VISIBLE_APP_ADJ，可谓流氓至极，如果再占据着内存不释放，那就是泼皮无赖了。具体做法如下：
 
 	public class RogueBackGroundService extends Service {
 	
@@ -481,7 +481,6 @@ startForeground(ID， new Notification())，可以将Service变成前台服务�
 	        public void onDestroy() {
 	            stopForeground(true);//这里不写也没问题，好像会自动停止
 	            super.onDestroy();
-	            LogUtils.v("onDestroy");
 	        }
 	    }
 	}
