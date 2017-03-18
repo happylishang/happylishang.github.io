@@ -111,39 +111,19 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
 以下三个等级针对前台运行应用
 
 * TRIM_MEMORY_RUNNING_MODERATE 表示该进程是前台或可见进程，正常运行，一般不会被杀掉，但是目前手机有些吃紧（**后台及空进程存量不多**），系统已经开始清理内存，有必要的话，可以释放一些内存。官方文档：the process is not an expendable background process, but the device is running moderately low on memory. Your running process may want to release some unneeded resources for use elsewhere。
+
 * TRIM_MEMORY_RUNNING_LOW 表示该进程是前台或可见进程，正常运行，一般不会被杀掉，但是目前手机比较吃紧（**后台及空进程被全干掉了一大波**），应该去释放掉一些不必要的资源以提升系统性能。 官方文档：the process is not an expendable background process, but the device is running low on memory.  Your running process should free up unneeded resources to allow that  memory to be used elsewhere.
-* TRIM_MEMORY_RUNNING_CRITICAL 表示该进程是前台或可见进程，但是目前手机比较内存十分吃紧（**后台及空进程基本被全干掉了**），这时应当尽可能地去释放任何不必要的资源，否则，系统可能会杀掉所有缓存中的进程，并且杀一些本来应当保持运行的进程。官方文档：the process is not an expendable background process, but the device is running extremely low on memory   and is about to not be able to keep any background processes running.  Your running process should free up as many non-critical resources as it  can to allow that memory to be used elsewhere.  The next thing that will happen after this is {@link #onLowMemory()} called to report that  nothing at all can be kept in the background, a situation that can start to notably impact the user.
 
-以上只是抽象的说明了一下Android既定参数的意义，下面看一下onTrimeMemory的实现原理，这里采用6.0的代码分析，因为6.0这块的代码经过了重构，比之前4.3的代码清晰很多：
+* TRIM_MEMORY_RUNNING_CRITICAL 表示该进程是前台或可见进程，但是目前手机比较内存十分吃紧（**后台及空进程基本被全干掉了**），这时应当尽可能地去释放任何不必要的资源，否则，系统可能会杀掉所有缓存中的进程，并且杀一些本来应当保持运行的进程。官方文档：the process is not an expendable background process, but the device is running extremely low on memory   and is about to not be able to keep any background processes running.  Your running process should free up as many non-critical resources as it  can to allow that memory to be used elsewhere.  The next thing that will happen after this is called to report that  nothing at all can be kept in the background, a situation that can start to notably impact the user.
 
-# onTrimeMemory的回调时机
-
-updateOomAdjLocked，并且裁剪等级发生了改变，
-
-## 从前台退到后台 
-
-## 关闭所有Activity
-
-## 打开其他APP
-
-之类其实也要区分后台进程及空进程的数量，如果数量过少，说明内存不足，裁剪等级就高，这个时候，不仅仅裁剪后台进程的内存，还要裁剪前台运行进程的内存，如果后台进程（包括空进程）数量多，说明内存充足，裁剪等级就低，这个时候，只是针对后台进程进行裁剪。
-
-
-# app.trimMemoryLevel 裁剪APP的时机，
-
-其实在每次updateOomAdjLocked更新优先级的时候，都会对一些后台的进程，还有空进程发出警告，告诉他们去裁剪内存，以尽可能的避免内存不足造成被异常杀死，其实AMS也会杀死进程开动太多的话
+以上只是抽象的说明了一下Android既定参数的意义，下面看一下onTrimeMemory回调的时机及原理，这里采用6.0的代码分析，因为6.0这块的代码经过了重构，比之前4.3的代码清晰很多：当用户的操作导致APP优先级发生变化，就会调用updateOomAdjLocked去更新进程的优先级，在更新优先级的时候，会扫描一遍LRU进程列表， 重新计算进程的oom_adj，并且参考当前系统状况去通知进程裁剪内存（这里只是针对Android Java层APP），这次操作一般发生在打开新的Activity界面、退回后台、应用跳转切换等等，updateOomAdjLocked精简后端代码如下：
 
     final void updateOomAdjLocked() {
         final ActivityRecord TOP_ACT = resumedAppLocked();
+        <!--关键点1 找到TOP——APP，最顶层显示的APP-->
         final ProcessRecord TOP_APP = TOP_ACT != null ? TOP_ACT.app : null;
         final long oldTime = SystemClock.uptimeMillis() - ProcessList.MAX_EMPTY_TIME;
-
-        if (false) {
-            RuntimeException e = new RuntimeException();
-            e.fillInStackTrace();
-            Slog.i(TAG, "updateOomAdj: top=" + TOP_ACT, e);
-        }
-
+     
         mAdjSeq++;
         mNewNumServiceProcs = 0;
 
