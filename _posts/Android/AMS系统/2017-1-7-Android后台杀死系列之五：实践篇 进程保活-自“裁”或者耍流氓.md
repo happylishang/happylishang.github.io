@@ -12,7 +12,7 @@ image: http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.pn
 
 * 正常守法的进程保活：内存裁剪（好学生APP要使用）
 * 流氓的进程保活，提高优先级（好学生APP别用）
-* 流氓的进程保活，双进程相互唤醒（binder讣告原理）（好学生APP别用）
+* 流氓的进程保活，双Service进程相互唤醒（binder讣告原理）（好学生APP别用）
 
 # 针对LowmemoryKiller所做的进程保活
 
@@ -575,11 +575,15 @@ startForeground(ID， new Notification())，可以将Service变成前台服务�
     startService(new Intent(MainActivity.this, PairServiceA.class));
 
 这个方案一般都没问题，因为Binder讣告是系统中Binder框架自带的，除非一次性全部杀死所有父子进程，这个没测试过。
-
-  
  
-![App操作影响进程优先级](http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
- 	        
+ ![App操作影响进程优先级](http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+ 
+# 总结 
+
+**所有流氓手段的进程保活，都是下策**，建议不要使用，本文只是分析实验用。当APP退回后台，优先级变低，就应该适时释放内存，以提高系统流畅度，依赖流氓手段提高优先级，还不释放内存，保持不死的，都是作死。
+
+**仅供参考，欢迎指正 	**        
+
 ###  参考文档
 
 [谷歌文档Application ](https://developer.android.com/reference/android/app/Application.html#onLowMemory%28%29)                 
