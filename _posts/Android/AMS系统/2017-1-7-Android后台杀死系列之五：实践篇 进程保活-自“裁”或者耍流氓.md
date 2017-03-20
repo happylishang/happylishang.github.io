@@ -8,6 +8,13 @@ image: http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.pn
  
 研究后台杀究竟有什么用呢，没用你研究它干嘛，既然有杀死，就有保活。本篇文章主要探讨一下进程的保活，Android本身设计的时候是非常善良的，它希望进程在不可见或者其他一些场景下APP要懂得主动释放，可是Android低估了”贪婪“，尤其是很多国产APP，只希望索取来提高自己的性能，不管其他APP或者系统的死活，导致了很严重的资源浪费，这也是Android被iOS诟病的最大原因。本文的保活手段也分两种：遵纪守法的进程保活与流氓手段换来的进程保活。
 
+**个人声明：我是坚决反对流氓进程保活的 我是坚决反对流氓进程保活的 我是坚决反对流氓进程保活的 **
+
+* 正常守法的进程保活：内存裁剪（好学生APP要使用）
+* 流氓的进程保活，提高优先级（好学生APP别用）
+* 流氓的进程保活，双进程相互唤醒（binder讣告原理）（好学生APP别用）
+
+
 # 针对LowmemoryKiller所做的进程保活
 
 LowmemoryKiller会在内存不足的时候扫描所有的用户进程，找到不是太重要的进程杀死，至于LowmemoryKiller杀进程够不够狠，要看当前的内存使用情况，内存越少，下手越狠。在内核中，LowmemoryKiller.c定义了几种内存回收等级如下：（也许不同的版本会有些不同）
@@ -395,148 +402,7 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
 	 }
 
  
-	  
- app.thread.scheduleTrimMemory(curLevel);
- 
-   
-OnLowMemory()和OnTrimMemory()的比较
-
-* OnLowMemory被回调时，已经没有后台进程；而onTrimMemory被回调时，还有后台进程。
-* OnLowMemory是在最后一个后台进程被杀时调用，一般情况是low memory killer 杀进程后触发；而OnTrimMemory的触发更频繁， 每次计算进程优先级时，只要满足条件，都会触发。
-* 通过一键清理后，OnLowMemory不会被触发，而OnTrimMemory会被触发一次。
-
-
-
-# 通过“流氓”手段提高oom_adj，降低被杀风险，化身流氓进程
-
-进程优先级的计算Android是有自己的一条准则的，某些特殊场景的需要额外处理进程的oom_adj Android也是给了参考方案的。但是，那对于流氓来说，并没有任何约束效力。 "流氓"仍然能够参照oom_adj（优先级）的计算规则，利用其漏洞，提高进程的oom_adj，以降低被杀的风险。如果单单降低被杀风险还好，就怕那种即不想死，又想占用资源的APP，累积下去就会导致系统内存不足，导致整个系统卡顿。
-
-优先级的计算逻辑比较复杂，这里只简述非缓存进程，因为一旦沦为缓存进程，其优先级就只能依靠LRU来计算，不可控。而流氓是不会让自己沦为缓存进程的，非缓存进程是以下进程中的一种，并且，优先级越高（数值越小），越不易被杀死：
-
-| ADJ优先级     | 优先级          | 进程类型 |
-| ------------- |:-------------:| :-----|
-| SERVICE_ADJ |   5   |    服务进程(Service process)  |
-| HEAVY_WEIGHT_APP_ADJ |   4   |  后台的重量级进程，system/rootdir/init.rc文件中设置    |
-| BACKUP_APP_ADJ |   3   |   备份进程（这个不太了解）   |
-| PERCEPTIBLE_APP_ADJ |    2  |    可感知进程，比如后台音乐播放  |
-| VISIBLE_APP_ADJ |  1    |   可见进程(可见，但是没能获取焦点，比如新进程仅有一个悬浮Activity，其后面的进程就是Visible process)   |
-| FOREGROUND_APP_ADJ |   0   |     前台进程（正在展示是APP，存在交互界面，Foreground process）  |
-
-*  第一种提高到FOREGROUND_APP_ADJ
-
-我们从低到高看：如何让进程编程FOREGROUND_APP_ADJ进程，也就是前台进程，这个没有别的办法，只有TOP activity进程才能是算前台进程。正常的交互逻辑下，这个是无法实现的，锁屏的时候倒是可以启动一个Activity，但是需要屏幕点亮的时候再隐藏，容易被用户感知，得不偿失，所以基本是无解,所以之前传说的QQ通过一个像素来保活的应该不是这种方案，而通过WindowManager往主屏幕添加View的方式也并未阻止进程被杀，到底是否通过一像素实现进程包活，个人还未得到解答，希望能有人解惑。
- 
-* 第二种，提高到VISIBLE_APP_ADJ或者PERCEPTIBLE_APP_ADJ（不同版本等级可能不同）
- 
-这种做法是相对温和点的，因为Android官方曾给过类似的方案，比如音乐播放时后，通过设置前台服务的方式来保活。这里就为流氓进程提供了入口，不过显示一个常住服务会在通知栏上有个运行状态的图标，会被用户感知到。但是Android恰恰还有个漏洞可以把该图标移出，真不知道是不是Google故意的。这里可以参考微信的保活方案：**双Service强制前台进程保活**。
-
-startForeground(ID， new Notification())，可以将Service变成前台服务，其所在进程就算退到后台，其先级会变成VISIBLE_APP_ADJ，一般不会被杀掉,Android的有个漏洞，如果两个Service通过同样的ID设置为前台进程的话，如果其一通过stopForeground取消了前台显示，就会导致仍有一个前台显示，但是不在状态栏显示通知，这样就可以不被用户感知的耍流氓。这种手段是比较常用的流氓手段。优先级提高后，AMS的killBackgroundProcesses已经不能把进程杀死了，killBackgroundProcesses只会杀死oom_adj大于ProcessList.SERVICE_ADJ的进程，但是通过这种方式，后台APP的优先级已经提高到了ProcessList.VISIBLE_APP_ADJ，可谓流氓至极，如果再占据着内存不释放，那就是泼皮无赖了。具体做法如下：
-
-	public class RogueBackGroundService extends Service {
-	
-	    private static int ROGUE_ID = 1;
-	
-	    @Nullable
-	    @Override
-	    public IBinder onBind(Intent intent) {
-	        return null;
-	    }
-	
-	    @Override
-	    public int onStartCommand(Intent intent, int flags, int startId) {
-	        return START_STICKY;
-	    }
-	
-	    @Override
-	    public void onCreate() {
-	        super.onCreate();
-	        Intent intent = new Intent(this, RogueIntentService.class);
-	        startService(intent);
-	        startForeground(ROGUE_ID, new Notification());
-	    }
-	
-	    public static class RogueIntentService extends IntentService {
-	
-	        //流氓相互唤醒Service
-	        public RogueIntentService(String name) {
-	            super(name);
-	        }
-	
-	        public RogueIntentService() {
-	            super("RogueIntentService");
-	        }
-	
-	        @Override
-	        protected void onHandleIntent(Intent intent) {
-	
-	        }
-	
-	        @Override
-	        public void onCreate() {
-	            super.onCreate();
-	            startForeground(ROGUE_ID, new Notification());
-	        }
-	
-	        @Override
-	        public void onDestroy() {
-	            stopForeground(true);//这里不写也没问题，好像会自动停止
-	            super.onDestroy();
-	        }
-	    }
-	}
-
-
-# 对于多进程的APP
-
-        <activity
-            android:name=".activity.MainActivity"
-            android:label="@string/app_name"
-            android:theme="@style/AppTheme.NoActionBar">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-        </activity>
-
-        <service android:name=".service.RogueBackGroundService"
-            />
-        <service android:name=".service.RogueBackGroundService$RogueIntentService"/>
-
-        <activity
-            android:name=".activity.ViewPagerFragmentAdapterActivity"
-            android:process=":ViewPagerFragmentAdapterActivity"/>
-            
-只有当前显示Activity的进程优先级是0
-
-# AMS怎么杀 AMS会杀死进程吗？
-
-* APP在后台
-* APP在前台
-* APP在杀死的时候，怎么回调
-* 进程过多杀
-
-AMS如果后台进程的数量过多，AMS会杀死一些后台进程。
-
-
-# 设定优先级，是否成功失败
-
-
-# 如何处理保活
-
-1、是否只是改变自身的优先级
-2、是否引起其他有限级的改变
-3、后台的优先级变化，退回后台引起整个列表的变化吗？，还是只是几个
-
-
-# 进程保活
-
-全集中在一个函数中  final void updateOomAdjLocked() ，这个函数先计算优先级，再清理，再瘦身
-
-# 优先级改变杀
- 
-
-# 进程保活 
+# 进程保活的具体做法：不一定准确，可根据自己内存当前的状况，综合考虑
 
 前面讲到，后台杀死的原理，假如进程进入后台，系统就不管了了？知道内存不够才去回收，当然不是，总要提前警告一次，才能抄家伙，上来就杀，太不讲人情，Android也是如此，先给App一个悔过的机会，让APP瘦身。
 
@@ -552,8 +418,14 @@ AMS如果后台进程的数量过多，AMS会杀死一些后台进程。
         super.onLowMemory();
      }
 
-    
- 
+       
+OnLowMemory()和OnTrimMemory()的比较
+
+* OnLowMemory被回调时，已经没有后台进程；而onTrimMemory被回调时，还有后台进程。
+* OnLowMemory是在最后一个后台进程被杀时调用，一般情况是low memory killer 杀进程后触发；而OnTrimMemory的触发更频繁， 每次计算进程优先级时，只要满足条件，都会触发。
+* 通过一键清理后，OnLowMemory不会被触发，而OnTrimMemory会被触发一次。
+
+  
 # onLowMemory的执行时机，杀干净了后台进程，通知前台
 
 void onLowMemory ()
@@ -593,7 +465,7 @@ Runtime.getRuntime().gc();
 	        
 	        
 
-# 什么时候回到onLowmemory    -app.reportLowMemory==true，所有的后台进程，都被干掉的情况下
+# 什么时候回到onLowmemory  -app.reportLowMemory==true，所有的后台进程，都被干掉的情况下
 	
 	 final void appDiedLocked(ProcessRecord app, int pid,
 	            IApplicationThread thread) {
@@ -699,32 +571,174 @@ OnTrimMemory:Android系统从4.0开始还提供了onTrimMemory()的回调，当�
 
 
 
-## QQ通过添加一个像素
+# 通过“流氓”手段提高oom_adj，降低被杀风险，化身流氓进程
 
-试验了下，并未成功，优先级并未改变，该被杀还是被杀
+进程优先级的计算Android是有自己的一条准则的，某些特殊场景的需要额外处理进程的oom_adj Android也是给了参考方案的。但是，那对于流氓来说，并没有任何约束效力。 "流氓"仍然能够参照oom_adj（优先级）的计算规则，利用其漏洞，提高进程的oom_adj，以降低被杀的风险。如果单单降低被杀风险还好，就怕那种即不想死，又想占用资源的APP，累积下去就会导致系统内存不足，导致整个系统卡顿。
 
+优先级的计算逻辑比较复杂，这里只简述非缓存进程，因为一旦沦为缓存进程，其优先级就只能依靠LRU来计算，不可控。而流氓是不会让自己沦为缓存进程的，非缓存进程是以下进程中的一种，并且，优先级越高（数值越小），越不易被杀死：
 
-## 进程独立，（不同等级的进程可以干掉不重要的）
-	        
-# 退回后后台的时候为何用的裁剪等级是UITRIM_MEMORY_UI_HIDDEN
+| ADJ优先级     | 优先级          | 进程类型 |
+| ------------- |:-------------:| :-----|
+| SERVICE_ADJ |   5   |    服务进程(Service process)  |
+| HEAVY_WEIGHT_APP_ADJ |   4   |  后台的重量级进程，system/rootdir/init.rc文件中设置    |
+| BACKUP_APP_ADJ |   3   |   备份进程（这个不太了解）   |
+| PERCEPTIBLE_APP_ADJ |    2  |    可感知进程，比如后台音乐播放 ，通过startForeground设置的进程 |
+| VISIBLE_APP_ADJ |  1    |   可见进程(可见，但是没能获取焦点，比如新进程仅有一个悬浮Activity，其后面的进程就是Visible process)   |
+| FOREGROUND_APP_ADJ |   0   |     前台进程（正在展示是APP，存在交互界面，Foreground process）  |
 
-# 单击HOME键，其实还是应用的切换
+*  第一种提高到FOREGROUND_APP_ADJ
 
-# 通知前台Runing的app，通知后台app
-
-# 有Service的时候，看看Service是什么Service，未停止的Service
-
-# 正常的情况下，一般都是UI_HIDEN，如何裁剪呢，一般回到后台，我们可以将UI释放掉，减少内存的占用，因为同样大小的Oom_adj，LMK先杀内存占用大的。
-
-# 如何合理的保活，其实除了根据TRIM参数，还要根据当前的内存占用情况，没达到限制，不一定会杀后台，设定的阈值
-
+我们从低到高看：如何让进程编程FOREGROUND_APP_ADJ进程，也就是前台进程，这个没有别的办法，只有TOP activity进程才能是算前台进程。正常的交互逻辑下，这个是无法实现的，锁屏的时候倒是可以启动一个Activity，但是需要屏幕点亮的时候再隐藏，容易被用户感知，得不偿失，所以基本是无解,所以之前传说的QQ通过一个像素来保活的应该不是这种方案，而通过WindowManager往主屏幕添加View的方式也并未阻止进程被杀，到底是否通过一像素实现进程包活，个人还未得到解答，希望能有人解惑。
  
+* 第二种，提高到VISIBLE_APP_ADJ或者PERCEPTIBLE_APP_ADJ（不同版本等级可能不同 “4.3 = PERCEPTIBLE_APP_ADJ” 而 “> 5.0 = VISIBLE_APP_ADJ”）
+
+先看一下源码中对两种优先级的定义，VISIBLE_APP_ADJ是含有可见但是非交互Activity的进程，PERCEPTIBLE_APP_ADJ是用户可感知的进程，如后台音乐播放等
+ 
+	    // This is a process only hosting components that are perceptible to the
+	    // user, and we really want to avoid killing them, but they are not
+	    // immediately visible. An example is background music playback.
+	    static final int PERCEPTIBLE_APP_ADJ = 2;
+	
+	    // This is a process only hosting activities that are visible to the
+	    // user, so we'd prefer they don't disappear.
+	    static final int VISIBLE_APP_ADJ = 1;
+    
+这种做法是相对温和点的，Android官方曾给过类似的方案，比如音乐播放时后，通过设置前台服务的方式来保活，这里就为流氓进程提供了入口，不过显示一个常住服务会在通知栏上有个运行状态的图标，会被用户感知到。但是Android恰恰还有个漏洞可以把该图标移除，真不知道是不是Google故意的。这里可以参考微信的保活方案：**双Service强制前台进程保活**。
+
+startForeground(ID， new Notification())，可以将Service变成前台服务，所在进程就算退到后台，优先级只会降到PERCEPTIBLE_APP_ADJ或者VISIBLE_APP_ADJ，一般不会被杀掉,Android的有个漏洞，如果两个Service通过同样的ID设置为前台进程，而其一通过stopForeground取消了前台显示，结果是保留一个前台服务，但不在状态栏显示通知，这样就不会被用户感知到耍流氓，这种手段是比较常用的流氓手段。优先级提高后，AMS的killBackgroundProcesses已经不能把进程杀死了，它只会杀死oom_adj大于ProcessList.SERVICE_ADJ的进程，而最近的任务列表也只会清空Activity，无法杀掉进程。 因为后台APP的优先级已经提高到了PERCEPTIBLE_APP_ADJ或ProcessList.VISIBLE_APP_ADJ，可谓流氓至极，如果再占据着内存不释放，那就是泼皮无赖了，**这里有个遗留疑问：startForeground看源码只会提升到PERCEPTIBLE_APP_ADJ，但是在5.0之后的版本提升到了VISIBLE_APP_ADJ，这里看源码，没找到原因，希望有人能解惑**。具体做法如下：
+
+	public class RogueBackGroundService extends Service {
+	
+	    private static int ROGUE_ID = 1;
+	    @Nullable
+	    @Override
+	    public IBinder onBind(Intent intent) {
+	        return null;
+	    }
+	
+	    @Override
+	    public int onStartCommand(Intent intent, int flags, int startId) {
+	        return START_STICKY;
+	    }
+	
+	    @Override
+	    public void onCreate() {
+	        super.onCreate();
+	        Intent intent = new Intent(this, RogueIntentService.class);
+	        startService(intent);
+	        startForeground(ROGUE_ID, new Notification());
+	    }
+	    public static class RogueIntentService extends IntentService {
+	
+	        //流氓相互唤醒Service
+	        public RogueIntentService(String name) {
+	            super(name);
+	        }
+	
+	        public RogueIntentService() {
+	            super("RogueIntentService");
+	        }
+	
+	        @Override
+	        protected void onHandleIntent(Intent intent) {
+	
+	        }
+	        @Override
+	        public void onCreate() {
+	            super.onCreate();
+	            startForeground(ROGUE_ID, new Notification());
+	        }	
+	       @Override
+	        public void onDestroy() {
+	            stopForeground(true);//这里不写也没问题，好像会自动停止
+	            super.onDestroy();
+	        }
+	    }
+	}
+	
+# 双Service守护进程保活（这个也很流氓，不过如果不提高优先级（允许被杀），也算稍微良心）
+
+前文我们分析过**Android Binder的讣告机制**：如果Service Binder实体的进程挂掉，系统会向Client发送讣告，而这个讣告系统就给进程保活一个可钻的空子。可以通过两个进程中启动两个binder服务，并且互为C/S，一旦一个进程挂掉，另一个进程就会收到讣告，在收到讣告的时候，唤起被杀进程。逻辑如下下：
+
+![双服务保活.jpg](http://upload-images.jianshu.io/upload_images/1460468-c0e18c827d83d2ef.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+首先编写两个binder实体服务PairServiceA ，PairServiceB，并且在onCreate的时候相互绑定，并在onServiceDisconnected收到讣告的时候再次绑定。
+
+	public class PairServiceA extends Service {
+	
+	    @Nullable
+	    @Override
+	    public IBinder onBind(Intent intent) {
+	        return new AliveBinder();
+	    }
+	
+	    @Override
+	    public void onCreate() {
+	        super.onCreate();
+	        bindService(new Intent(PairServiceA.this, PairServiceB.class), mServiceConnection, BIND_AUTO_CREATE);
+	    }
+	
+	    private ServiceConnection mServiceConnection = new ServiceConnection() {
+	        @Override
+	        public void onServiceConnected(ComponentName name, IBinder service) {
+	
+	        }
+	
+	        @Override
+	        public void onServiceDisconnected(ComponentName name) {
+	            bindService(new Intent(PairServiceA.this, PairServiceB.class), mServiceConnection, BIND_AUTO_CREATE);
+	            ToastUtil.show("bind A");
+	        }
+	    };
+
+与之配对的B
+
+	public class PairServiceB extends Service {
+	
+	    @Nullable
+	    @Override
+	    public IBinder onBind(Intent intent) {
+	        return new AliveBinder();
+	    }
+	
+	    @Override
+	    public void onCreate() {
+	        super.onCreate();
+	        bindService(new Intent(PairServiceB.this, PairServiceA.class), mServiceConnection, BIND_AUTO_CREATE);
+	    }
+	
+	    private ServiceConnection mServiceConnection = new ServiceConnection() {
+	        @Override
+	        public void onServiceConnected(ComponentName name, IBinder service) {
+	
+	        }
+	
+	        @Override
+	        public void onServiceDisconnected(ComponentName name) {
+	            bindService(new Intent(PairServiceB.this, PairServiceA.class), mServiceConnection, BIND_AUTO_CREATE);
+	        }
+	    };
+	}
+
+之后再Manifest中注册，注意要进程分离
+
+        <service android:name=".service.alive.PairServiceA"/>
+        <service
+            android:name=".service.alive.PairServiceB"
+            android:process=":alive"/>
+            
+之后再Application或者Activity中启动一个Service即可。
+
+    startService(new Intent(MainActivity.this, PairServiceA.class));
+
+这个方案一般都没问题，因为Binder讣告是系统中Binder框架自带的，除非一次性全部杀死所有父子进程，这个没测试过。
+
+  
  
 # 这里针对异常杀死的一些需求
 
 1、**异常杀死后，再次打开完全重启（有个网友问的）** 如何判定是后台杀死
 2、进程保活
-
 
 ![App操作影响进程优先级](http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
  	        
