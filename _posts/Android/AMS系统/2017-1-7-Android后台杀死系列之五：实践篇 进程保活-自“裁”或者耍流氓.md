@@ -419,14 +419,14 @@ OnLowMemory()和OnTrimMemory()的比较
 | HEAVY_WEIGHT_APP_ADJ |   4   |  后台的重量级进程，system/rootdir/init.rc文件中设置    |
 | BACKUP_APP_ADJ |   3   |   备份进程（这个不太了解）   |
 | PERCEPTIBLE_APP_ADJ |    2  |    可感知进程，比如后台音乐播放  |
-| VISIBLE_APP_ADJ |  1    |   可见进程(可见，但是没能获取焦点，比如新进程仅有一个悬浮Activity，Visible process)   |
+| VISIBLE_APP_ADJ |  1    |   可见进程(可见，但是没能获取焦点，比如新进程仅有一个悬浮Activity，其后面的进程就是Visible process)   |
 | FOREGROUND_APP_ADJ |   0   |     前台进程（正在展示是APP，存在交互界面，Foreground process）  |
 
 *  第一种提高到FOREGROUND_APP_ADJ
 
 我们从低到高看：如何让进程编程FOREGROUND_APP_ADJ进程，也就是前台进程，这个没有别的办法，只有TOP activity进程才能是算前台进程。正常的交互逻辑下，这个是无法实现的，锁屏的时候倒是可以启动一个Activity，但是需要屏幕点亮的时候再隐藏，容易被用户感知，得不偿失，所以基本是无解,所以之前传说的QQ通过一个像素来保活的应该不是这种方案，而通过WindowManager往主屏幕添加View的方式也并未阻止进程被杀，到底是否通过一像素实现进程包活，个人还未得到解答，希望能有人解惑。
  
-* 第二种，提高到VISIBLE_APP_ADJ
+* 第二种，提高到VISIBLE_APP_ADJ或者PERCEPTIBLE_APP_ADJ（不同版本等级可能不同）
  
 这种做法是相对温和点的，因为Android官方曾给过类似的方案，比如音乐播放时后，通过设置前台服务的方式来保活。这里就为流氓进程提供了入口，不过显示一个常住服务会在通知栏上有个运行状态的图标，会被用户感知到。但是Android恰恰还有个漏洞可以把该图标移出，真不知道是不是Google故意的。这里可以参考微信的保活方案：**双Service强制前台进程保活**。
 
@@ -486,8 +486,6 @@ startForeground(ID， new Notification())，可以将Service变成前台服务�
 	}
 
 
-
- 
 # 对于多进程的APP
 
         <activity
@@ -554,8 +552,6 @@ AMS如果后台进程的数量过多，AMS会杀死一些后台进程。
         super.onLowMemory();
      }
 
-
-
     
  
 # onLowMemory的执行时机，杀干净了后台进程，通知前台
@@ -572,14 +568,9 @@ Preferably, you should implement onTrimMemory(int) from ComponentCallbacks2 to i
 是否给一个自我瘦身的机会，杀鸡儆猴，如果你是那只鸡，那就没办法了！onLowMemory是在杀死所有后台进程的时候，给前台进程回调用的，该杀的都杀了，如果你再不释放资源，并且内存还是不够的话，就别怪连前台进程也杀掉。 
 
 	scheduleAppGcsLocked
-	
 	performAppGcsIfAppropriateLocked
-	
 	performAppGcsLocked
 
-    /**
-     * Ask a given process to GC right now.
-     */
     final void performAppGcLocked(ProcessRecord app) {
         try {
             app.lastRequestedGc = SystemClock.uptimeMillis();
@@ -603,8 +594,6 @@ Runtime.getRuntime().gc();
 	        
 
 # 什么时候回到onLowmemory    -app.reportLowMemory==true，所有的后台进程，都被干掉的情况下
-
-
 	
 	 final void appDiedLocked(ProcessRecord app, int pid,
 	            IApplicationThread thread) {
@@ -625,9 +614,6 @@ Runtime.getRuntime().gc();
 	                        + ") has died.");
 	            }
 	            EventLog.writeEvent(EventLogTags.AM_PROC_DIED, app.userId, app.pid, app.processName);
-	            if (DEBUG_CLEANUP) Slog.v(
-	                TAG, "Dying app: " + app + ", pid: " + pid
-	                + ", thread: " + thread.asBinder());
 	            boolean doLowMem = app.instrumentationClass == null;
 	            handleAppDiedLocked(app, false, true);
 	            // 是不是因为内存紧张导致的LowmemoryKiller机制生效，杀死的进程
@@ -711,7 +697,8 @@ Runtime.getRuntime().gc();
 OnTrimMemory:Android系统从4.0开始还提供了onTrimMemory()的回调，当系统内存达到某些条件的时候，所有正在运行的应用都会收到这个回调， 同时在这个回调里面会传递以下的参数，代表不同的内存使用情况，收到onTrimMemory()回调的时候，需要根据传递的参数类型进行判断， 合理的选择释放自身的一些内存占用，一方面可以提高系统的整体运行流畅度，另外也可以避免自己被系统判断为优先需要杀掉的应用。
 
 
-# 流氓的进程保活手段
+
+
 ## QQ通过添加一个像素
 
 试验了下，并未成功，优先级并未改变，该被杀还是被杀
@@ -752,3 +739,4 @@ OnTrimMemory:Android系统从4.0开始还提供了onTrimMemory()的回调，当�
 [按"Home"键回到桌面的过程](http://book.51cto.com/art/201109/291309.htm)       
 [Android low memory killer 机制](https://my.oschina.net/wolfcs/blog/288259)           
 [应用内存优化之OnLowMemory&OnTrimMemory](http://www.cnblogs.com/xiajf/p/3993599.html)         
+
