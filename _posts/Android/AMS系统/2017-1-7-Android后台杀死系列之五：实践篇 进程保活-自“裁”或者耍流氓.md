@@ -8,12 +8,11 @@ image: http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.pn
  
 研究后台杀究竟有什么用呢，没用你研究它干嘛，既然有杀死，就有保活。本篇文章主要探讨一下进程的保活，Android本身设计的时候是非常善良的，它希望进程在不可见或者其他一些场景下APP要懂得主动释放，可是Android低估了”贪婪“，尤其是很多国产APP，只希望索取来提高自己的性能，不管其他APP或者系统的死活，导致了很严重的资源浪费，这也是Android被iOS诟病的最大原因。本文的保活手段也分两种：遵纪守法的进程保活与流氓手段换来的进程保活。
 
-**个人声明：我是坚决反对流氓进程保活的 我是坚决反对流氓进程保活的 我是坚决反对流氓进程保活的 **
+**声明：坚决反对流氓手段实现进程保活 坚决反对流氓进程保活 坚决反对流氓进程保活 “请告诉产品：无法进入白名单”**
 
 * 正常守法的进程保活：内存裁剪（好学生APP要使用）
 * 流氓的进程保活，提高优先级（好学生APP别用）
 * 流氓的进程保活，双进程相互唤醒（binder讣告原理）（好学生APP别用）
-
 
 # 针对LowmemoryKiller所做的进程保活
 
@@ -123,7 +122,7 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
 
 * TRIM_MEMORY_RUNNING_CRITICAL 表示该进程是前台或可见进程，但是目前手机比较内存十分吃紧（**后台及空进程基本被全干掉了**），这时应当尽可能地去释放任何不必要的资源，否则，系统可能会杀掉所有缓存中的进程，并且杀一些本来应当保持运行的进程。官方文档：the process is not an expendable background process, but the device is running extremely low on memory   and is about to not be able to keep any background processes running.  Your running process should free up as many non-critical resources as it  can to allow that memory to be used elsewhere.  The next thing that will happen after this is called to report that  nothing at all can be kept in the background, a situation that can start to notably impact the user.
 
-以上只是抽象的说明了一下Android既定参数的意义，下面看一下onTrimeMemory回调的时机及原理，这里采用6.0的代码分析，因为6.0这块的代码经过了重构，比之前4.3的代码清晰很多：当用户的操作导致APP优先级发生变化，就会调用updateOomAdjLocked去更新进程的优先级，在更新优先级的时候，会扫描一遍LRU进程列表， 重新计算进程的oom_adj，并且参考当前系统状况去通知进程裁剪内存（这里只是针对Android Java层APP），这次操作一般发生在打开新的Activity界面、退回后台、应用跳转切换等等，updateOomAdjLocked代码大概600多行，比较长，尽量精简后如下：
+以上抽象的说明了一下Android既定参数的意义，下面看一下onTrimeMemory回调的时机及原理，这里采用6.0的代码分析，因为6.0比之前4.3的代码清晰很多：当用户的操作导致APP优先级发生变化，就会调用updateOomAdjLocked去更新进程的优先级，在更新优先级的时候，会扫描一遍LRU进程列表， 重新计算进程的oom_adj，并且参考当前系统状况去通知进程裁剪内存（这里只是针对Android Java层APP），这次操作一般发生在打开新的Activity界面、退回后台、应用跳转切换等等，updateOomAdjLocked代码大概600多行，比较长，尽量精简后如下，还是比较长，这里拆分成一段段梳理：
 
     final void updateOomAdjLocked() {
         final ActivityRecord TOP_ACT = resumedAppLocked();
@@ -147,13 +146,11 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
             cachedProcessLimit = mProcessLimit - emptyProcessLimit;
         }
  
-        
-        <!--关键点3 确定下进程槽 3个槽->
+         <!--关键点3 确定下进程槽 3个槽->
         int numSlots = (ProcessList.HIDDEN_APP_MAX_ADJ - ProcessList.HIDDEN_APP_MIN_ADJ + 1) / 2;
         // 后台进程/前台进程/空进程
         int numEmptyProcs = N - mNumNonCachedProcs - mNumCachedHiddenProcs;
-        
-        int emptyFactor = numEmptyProcs/numSlots;
+         int emptyFactor = numEmptyProcs/numSlots;
         if (emptyFactor < 1) emptyFactor = 1;
         int hiddenFactor = (mNumHiddenProcs > 0 ? mNumHiddenProcs : 1)/numSlots;
         if (hiddenFactor < 1) hiddenFactor = 1;
@@ -173,8 +170,10 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
         int curEmptyAdj = ProcessList.HIDDEN_APP_MIN_ADJ;
         // 有意思
         int nextEmptyAdj = curEmptyAdj+2;
-     
-
+    
+这前三个关键点主要是做了一些准备工作，关键点1 是单独抽离出TOP_APP，因为它比较特殊，系统只有一个前天进程，关键点2主要是根据当前的配置获取后台缓存进程与空进程的数目限制，而关键点3是将后台进程分为三备份，无论是后台进程还是空进程，会间插的均分6个优先级，一个优先级是可以有多个进程的，而且并不一定空进程的优先级小于HIDDEN进程优先级。
+         
+         
 	    for (int i=N-1; i>=0; i--) {
 	            ProcessRecord app = mLruProcesses.get(i);
 	            if (!app.killedByAm && app.thread != null) {
@@ -222,6 +221,8 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
 	                }
 				    <!--关键点8 设置优先级-->
 	                applyOomAdjLocked(app, true, now, nowElapsed);
+	                
+上面的这几个关键点主要是为所有进程计算出其优先级oom_adj之类的值，对于非后台进程，比如HOME进程 服务进程，备份进程等都有自己的独特的计算方式，对于剩余的后台进程，就根据LRU分配优先级。
 
 					 <!--关键点9 根据缓存进程的数由AMS选择性杀进程，后台进程太多-->
 	                switch (app.curProcState) {
@@ -258,7 +259,8 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
 	                }
 	            }
 	        }
-
+	        
+上面的两个关键点是看当前后台进程是否过多或者过老，如果存在过多或者过老的后台进程，AMS是有权利杀死他们的。**之后才是我们比较关心的存活进程的裁剪：**
  
 	        final int numCachedAndEmpty = numCached + numEmpty;
 	        int memFactor;
@@ -277,8 +279,7 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
 	        	// 后台进程数量足够说明内存充足
 	            memFactor = ProcessStats.ADJ_MEM_FACTOR_NORMAL;
 	        }
-	
-	        <!--关键点12 根据内存裁剪等级裁剪内存 Android认为后台进程不足的时候，内存也不足-->
+	       <!--关键点12 根据内存裁剪等级裁剪内存 Android认为后台进程不足的时候，内存也不足-->
 	        if (memFactor != ProcessStats.ADJ_MEM_FACTOR_NORMAL) {
 	            if (mLowRamStartTime == 0) {
 	                mLowRamStartTime = now;
@@ -303,14 +304,27 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
 	            if (mPreviousProcess != null) minFactor++;
 	            if (factor < minFactor) factor = minFactor;
 	            int curLevel = ComponentCallbacks2.TRIM_MEMORY_COMPLETE;
+关键点11这里不太好理解：**Android系统根据后台进程的数目来确定当前系统内存的状况，后台进程越多，越说明内存并不紧张，越少，说明越紧张，回收等级也就越高**，如果后台进程的数目较多，内存裁剪就比较宽松是ProcessStats.ADJ_MEM_FACTOR_NORMAL，如果不足，则再根据缓存数目划分等级。以6.0源码来说：
+
+* 如果后台进程数量（包含空进程）< 3 ，就说明内存非常紧张，内存裁剪因子就是ProcessStats.ADJ_MEM_FACTOR_CRITICAL
+* 如果后台进程数量（包含空进程）< 5 ，就说明内存非常紧张，内存裁剪因子就是ProcessStats.ADJ_MEM_FACTOR_LOW
+* 如果比上面两个多，但是仍然不足正常的后台数目 ，内存裁剪因子就是ProcessStats.ADJ_MEM_FACTOR_MODERATE
+
+与之对应的关键点12，是确立前台RUNNING进程（也不一定是前台显示）的裁剪等级。  
+
+* ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL; 
+*  ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW;  
+*  ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE;
+
+之后就真正开始裁剪APP，这里先看后台进程不足的情况的裁剪，这部分相对复杂一些：
+	            
 	            <!--裁剪后台进程-->
 	            for (int i=N-1; i>=0; i--) {
 	                ProcessRecord app = mLruProcesses.get(i);
 	                if (allChanged || app.procStateChanged) {
 	                    setProcessTrackerStateLocked(app, trackerMemFactor, now);
 	                    app.procStateChanged = false;
-	                }
-	                
+	                }   
 	       			//  PROCESS_STATE_HOME = 12;  
 	       			//PROCESS_STATE_LAST_ACTIVITY = 13; 退到后台的就会用
 	                // 优先级比较低，回收等级比较高ComponentCallbacks2.TRIM_MEMORY_COMPLETE
@@ -341,17 +355,11 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
 	                                break;
 	                        }
 	                    }
-	                } else if (app.curProcState == ActivityManager.PROCESS_STATE_HEAVY_WEIGHT) {
-	                    if (app.trimMemoryLevel < ComponentCallbacks2.TRIM_MEMORY_BACKGROUND
-	                            && app.thread != null) {
-	                        try {
-	                            app.thread.scheduleTrimMemory(
-	                                    ComponentCallbacks2.TRIM_MEMORY_BACKGROUND);
-	                        } catch (RemoteException e) {
-	                        }
-	                    }
-	                    app.trimMemoryLevel = ComponentCallbacks2.TRIM_MEMORY_BACKGROUND;
-	                } else {
+	                }
+	                
+上面的这部分是负责  app.curProcState >= ActivityManager.PROCESS_STATE_HOME这部分进程裁剪，这部分主要是后台缓存进程，一般是oom_adj在9-11之间的进程：
+              
+	                else {
 	                    if ((app.curProcState >= ActivityManager.PROCESS_STATE_IMPORTANT_BACKGROUND
 	                            || app.systemNoUi) && app.pendingUiClean) {
 	                        // 释放UI
@@ -374,7 +382,11 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
 	                    app.trimMemoryLevel = fgTrimLevel;
 	                }
 	            }
-	        } else {
+	        } 
+	        
+而这里的裁剪主要是一些优先级较高的进程，其裁剪一般是 ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN ，由于其比较总要，裁剪等级较低，至于前台进程的裁剪，一般是在启动的时候，这个时候app.pendingUiClean==false，只会裁剪当前
+	        
+	        else {
 	        	  <!--关键点13 内存充足的时候，进程的裁剪-->
 	             ... 
 	            for (int i=N-1; i>=0; i--) {
@@ -400,176 +412,7 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
 	            }
 	        }
 	 }
-
- 
-# 进程保活的具体做法：不一定准确，可根据自己内存当前的状况，综合考虑
-
-前面讲到，后台杀死的原理，假如进程进入后台，系统就不管了了？知道内存不够才去回收，当然不是，总要提前警告一次，才能抄家伙，上来就杀，太不讲人情，Android也是如此，先给App一个悔过的机会，让APP瘦身。
-
-两个入口：要根据自己的场景判断
-
-    @Override
-    public void onTerminate() {
-        super.onTerminate();
-     }
-
-    @Override
-    public void onLowMemory() {
-        super.onLowMemory();
-     }
-
-       
-OnLowMemory()和OnTrimMemory()的比较
-
-* OnLowMemory被回调时，已经没有后台进程；而onTrimMemory被回调时，还有后台进程。
-* OnLowMemory是在最后一个后台进程被杀时调用，一般情况是low memory killer 杀进程后触发；而OnTrimMemory的触发更频繁， 每次计算进程优先级时，只要满足条件，都会触发。
-* 通过一键清理后，OnLowMemory不会被触发，而OnTrimMemory会被触发一次。
-
-  
-# onLowMemory的执行时机，杀干净了后台进程，通知前台
-
-void onLowMemory ()
-
-This is called when the overall system is running low on memory, and actively running processes should trim their memory usage. While the exact point at which this will be called is not defined, generally it will happen when all background process have been killed. That is, before reaching the point of killing processes hosting service and foreground UI that we would like to avoid killing.
-
-You should implement this method to release any caches or other unnecessary resources you may be holding on to. The system will perform a garbage collection for you after returning from this method.
-
-Preferably, you should implement onTrimMemory(int) from ComponentCallbacks2 to incrementally unload your resources based on various levels of memory demands. That API is available for API level 14 and higher, so you should only use this onLowMemory() method as a fallback for older versions, which can be treated the same as onTrimMemory(int) with the TRIM_MEMORY_COMPLETE level.
-
-
-是否给一个自我瘦身的机会，杀鸡儆猴，如果你是那只鸡，那就没办法了！onLowMemory是在杀死所有后台进程的时候，给前台进程回调用的，该杀的都杀了，如果你再不释放资源，并且内存还是不够的话，就别怪连前台进程也杀掉。 
-
-	scheduleAppGcsLocked
-	performAppGcsIfAppropriateLocked
-	performAppGcsLocked
-
-    final void performAppGcLocked(ProcessRecord app) {
-        try {
-            app.lastRequestedGc = SystemClock.uptimeMillis();
-            if (app.thread != null) {
-                if (app.reportLowMemory) {
-                    app.reportLowMemory = false;
-                    app.thread.scheduleLowMemory();
-                } else {
-                    app.thread.processInBackground();
-                }
-            }
-        } catch (Exception e) {
-            // whatever.
-        }
-    }
-    
-这时候会回调APP的scheduleLowMemory，提供一个瘦身的机会减少内存
-
-Runtime.getRuntime().gc();
-	        
-	        
-
-# 什么时候回到onLowmemory  -app.reportLowMemory==true，所有的后台进程，都被干掉的情况下
-	
-	 final void appDiedLocked(ProcessRecord app, int pid,
-	            IApplicationThread thread) {
-	
-	        mProcDeaths[0]++;
-	        
-	        BatteryStatsImpl stats = mBatteryStatsService.getActiveStatistics();
-	        synchronized (stats) {
-	            stats.noteProcessDiedLocked(app.info.uid, pid);
-	        }
-	
-	        // Clean up already done if the process has been re-started.
-	        // 重启？
-	        if (app.pid == pid && app.thread != null &&
-	                app.thread.asBinder() == thread.asBinder()) {
-	            if (!app.killedBackground) {
-	                Slog.i(TAG, "Process " + app.processName + " (pid " + pid
-	                        + ") has died.");
-	            }
-	            EventLog.writeEvent(EventLogTags.AM_PROC_DIED, app.userId, app.pid, app.processName);
-	            boolean doLowMem = app.instrumentationClass == null;
-	            handleAppDiedLocked(app, false, true);
-	            // 是不是因为内存紧张导致的LowmemoryKiller机制生效，杀死的进程
-	            if (doLowMem) {
-	                // If there are no longer any background processes running,
-	                // and the app that died was not running instrumentation,
-	                // then tell everyone we are now low on memory.
-	
-	                // 通知低内存，大家注意，已经有富农被杀了，打土豪分田地的那哥们出来了，自觉的破财消灾吧
-	
-	                boolean haveBg = false;
-	                for (int i=mLruProcesses.size()-1; i>=0; i--) {
-	                    ProcessRecord rec = mLruProcesses.get(i);
-	                    if (rec.thread != null && rec.setAdj >= ProcessList.HIDDEN_APP_MIN_ADJ) {
-	                        haveBg = true;
-	                        break;
-	                    }
-	                }
-	                // 是不是所有的后台都被杀死了，如果都被杀死了，通知前台的app，快向组织交钱，包名要紧
-	                if (!haveBg) {
-	                    EventLog.writeEvent(EventLogTags.AM_LOW_MEMORY, mLruProcesses.size());
-	                    long now = SystemClock.uptimeMillis();
-	                    for (int i=mLruProcesses.size()-1; i>=0; i--) {
-	                        ProcessRecord rec = mLruProcesses.get(i);
-	                        if (rec != app && rec.thread != null &&
-	                                (rec.lastLowMemory+GC_MIN_INTERVAL) <= now) {
-	                            // The low memory report is overriding any current
-	                            // state for a GC request.  Make sure to do
-	                            // heavy/important/visible/foreground processes first.
-	                            if (rec.setAdj <= ProcessList.HEAVY_WEIGHT_APP_ADJ) {
-	                                rec.lastRequestedGc = 0;
-	                            } else {
-	                                rec.lastRequestedGc = rec.lastLowMemory;
-	                            }
-	                            rec.reportLowMemory = true;
-	                            rec.lastLowMemory = now;
-	                            mProcessesToGc.remove(rec);
-	                            addProcessToGcListLocked(rec);
-	                        }
-	                    }
-	                    // gc 
-	                    mHandler.sendEmptyMessage(REPORT_MEM_USAGE);
-	                    scheduleAppGcsLocked();
-	                }
-	            }
-	        } else if (app.pid != pid) {
-	            // A new process has already been started.
-	            Slog.i(TAG, "Process " + app.processName + " (pid " + pid
-	                    + ") has died and restarted (pid " + app.pid + ").");
-	            EventLog.writeEvent(EventLogTags.AM_PROC_DIED, app.userId, app.pid, app.processName);
-	        } else if (DEBUG_PROCESSES) {
-	            Slog.d(TAG, "Received spurious death notification for thread "
-	                    + thread.asBinder());
-	        }
-	    }
-	
-
-
-    final void performAppGcLocked(ProcessRecord app) {
-        try {
-            app.lastRequestedGc = SystemClock.uptimeMillis();
-            if (app.thread != null) {
-                // app.reportLowMemory app虚拟机的内存是不是不够了？？
-                if (app.reportLowMemory) {
-                    app.reportLowMemory = false;
-                    // 这里才真正的调用APP 的onLowmemory
-                    app.thread.scheduleLowMemory();
-                } else {
-                    app.thread.processInBackground();
-                }
-            }
-        } catch (Exception e) {
-            // whatever.
-        }
-    }
-    
-
-答案是肯定的AMS，也会有选择的杀死进程，不过跟当前的内存没太大关系，而是根据当前启动APP的数量，比如空的APP过多，或者后台APP过多，都可能引起后台杀死，比如在4.3上，如果后台的APP超过24个一般就会触发AMS杀进程，要么杀空进程，要么杀靠后的隐藏进程。
-
-
-OnTrimMemory:Android系统从4.0开始还提供了onTrimMemory()的回调，当系统内存达到某些条件的时候，所有正在运行的应用都会收到这个回调， 同时在这个回调里面会传递以下的参数，代表不同的内存使用情况，收到onTrimMemory()回调的时候，需要根据传递的参数类型进行判断， 合理的选择释放自身的一些内存占用，一方面可以提高系统的整体运行流畅度，另外也可以避免自己被系统判断为优先需要杀掉的应用。
-
-
-
+最后这部分是后台进程数量充足的时候，系统只会针对app.curProcState >= ActivityManager.PROCESS_STATE_IMPORTANT_BACKGROUND的进程进行裁剪，而裁剪等级也较低：ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN，因此根据裁剪等级APP可以大概知道系统当前的内存状况，同时也能知道系统希望自己如何裁剪，之后APP做出相应的瘦身即可。不过，上面的进程裁剪的优先级是完全根据后台进程数量来判断的，但是，不同的ROM可能进行了改造，所以裁剪等级不一定完全准确，比如在开发者模式打开**限制后台进程数量**的选项，限制后台进程数目不超过2个，那么这个时候的裁剪等级就是不太合理的，因为内存可能很充足，但是由于限制了后台进程的数量，导致裁剪等级过高。因此在使用的时候，最好结合裁剪等级与当前内存数量来综合考量。
 
 # 通过“流氓”手段提高oom_adj，降低被杀风险，化身流氓进程
 
@@ -735,11 +578,6 @@ startForeground(ID， new Notification())，可以将Service变成前台服务�
 
   
  
-# 这里针对异常杀死的一些需求
-
-1、**异常杀死后，再次打开完全重启（有个网友问的）** 如何判定是后台杀死
-2、进程保活
-
 ![App操作影响进程优先级](http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
  	        
 ###  参考文档
