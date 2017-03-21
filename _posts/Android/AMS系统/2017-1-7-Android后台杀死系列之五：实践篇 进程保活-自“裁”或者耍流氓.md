@@ -5,8 +5,8 @@ category: Android
 image: http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 
 ---
- 
-研究后台杀究竟有什么用呢，没用你研究它干嘛，既然有杀死，就有保活。本篇文章主要探讨一下进程的保活，Android本身设计的时候是非常善良的，它希望进程在不可见或者其他一些场景下APP要懂得主动释放，可是Android低估了”贪婪“，尤其是很多国产APP，只希望索取来提高自己的性能，不管其他APP或者系统的死活，导致了很严重的资源浪费，这也是Android被iOS诟病的最大原因。本文的保活手段也分两种：遵纪守法的进程保活与流氓手段换来的进程保活。
+
+本篇文章是后台杀死系列的最后一篇，主要探讨一下进程的保活，Android本身设计的时候是非常善良的，它希望进程在不可见或者其他一些场景下APP要懂得主动释放，可是Android低估了”贪婪“，尤其是很多国产APP，只希望索取来提高自己的性能，不管其他APP或者系统的死活，导致了很严重的资源浪费，这也是Android被iOS诟病的最大原因。本文的保活手段也分两种：遵纪守法的进程保活与流氓手段换来的进程保活。
 
 **声明：坚决反对流氓手段实现进程保活 坚决反对流氓进程保活 坚决反对流氓进程保活 “请告诉产品：无法进入白名单”**
 
@@ -87,7 +87,18 @@ lowmem_adj中各项数值代表阈值的警戒级数，lowmem_minfree代表对�
 
 ## onTrimeMemory的回调时机及内存裁剪等级
 
-OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是通知应用程序在不同的场景下进行自我瘦身，释放内存，降低被后台杀死的风险，提高用户体验，由于目前APP的适配基本是在14之上，所以不必考虑兼容问题。onTrimeMemory支持不同裁剪等级，比如，APP通过HOME建进入后台时，其优先级（oom_adj）就发生变化，从未触发onTrimeMemory回调，这个时候系统给出的裁剪等级一般是TRIM_MEMORY_UI_HIDDEN，意思是，UI已经隐藏，UI相关的、占用内存大的资源就可以释放了，比如大量的图片缓存等，当然，还会有其他很多场景对应不同的裁剪等级。因此，需要弄清楚两个问题：
+OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是通知应用程序在不同的场景下进行自我瘦身，释放内存，降低被后台杀死的风险，提高用户体验，由于目前APP的适配基本是在14之上，所以不必考虑兼容问题。在APP中可以在Application或者Activity中直接覆盖OnTrimMemory函数以响应系统号召：
+
+      public class LabApplication extends Application {
+         @Override
+           public void onTrimMemory(int level) {
+             super.onTrimMemory(level);
+             //根据level裁减内存
+              }
+        }
+
+
+onTrimeMemory支持不同裁剪等级，比如，APP通过HOME建进入后台时，其优先级（oom_adj）就发生变化，从未触发onTrimeMemory回调，这个时候系统给出的裁剪等级一般是TRIM_MEMORY_UI_HIDDEN，意思是，UI已经隐藏，UI相关的、占用内存大的资源就可以释放了，比如大量的图片缓存等，当然，还会有其他很多场景对应不同的裁剪等级。因此，需要弄清楚两个问题：
 
 * 1、不同的裁剪等级是如何生成的，其意义是什么
 * 2、APP如何根据不同的裁剪等级释放内存资源，（自裁的程度）
@@ -222,7 +233,7 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
 				    <!--关键点8 设置优先级-->
 	                applyOomAdjLocked(app, true, now, nowElapsed);
 	                
-上面的这几个关键点主要是为所有进程计算出其优先级oom_adj之类的值，对于非后台进程，比如HOME进程 服务进程，备份进程等都有自己的独特的计算方式，对于剩余的后台进程，就根据LRU分配优先级。
+上面的这几个关键点主要是为所有进程计算出其优先级oom_adj之类的值，对于非后台进程，比如HOME进程 服务进程，备份进程等都有自己的独特的计算方式，而剩余的后台进程就根据LRU三等分配优先级。
 
 					 <!--关键点9 根据缓存进程的数由AMS选择性杀进程，后台进程太多-->
 	                switch (app.curProcState) {
@@ -357,7 +368,7 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
 	                    }
 	                }
 	                
-上面的这部分是负责  app.curProcState >= ActivityManager.PROCESS_STATE_HOME这部分进程裁剪，这部分主要是后台缓存进程，一般是oom_adj在9-11之间的进程：
+上面的这部分是负责  app.curProcState >= ActivityManager.PROCESS_STATE_HOME这部分进程裁剪，这部分主要是后台缓存进程，一般是oom_adj在9-11之间的进程，这部门主要根据LRU确定不同的裁减等级。
               
 	                else {
 	                    if ((app.curProcState >= ActivityManager.PROCESS_STATE_IMPORTANT_BACKGROUND
@@ -384,7 +395,7 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
 	            }
 	        } 
 	        
-而这里的裁剪主要是一些优先级较高的进程，其裁剪一般是 ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN ，由于其比较总要，裁剪等级较低，至于前台进程的裁剪，一般是在启动的时候，这个时候app.pendingUiClean==false，只会裁剪当前
+而这里的裁剪主要是一些优先级较高的进程，其裁剪一般是 ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN ，由于这部分进程比较重要，裁剪等级较低，至于前台进程的裁剪，一般是在启动的时候，这个时候app.pendingUiClean==false，只会裁剪当前进程：
 	        
 	        else {
 	        	  <!--关键点13 内存充足的时候，进程的裁剪-->
@@ -416,7 +427,7 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
 
 # 通过“流氓”手段提高oom_adj，降低被杀风险，化身流氓进程
 
-进程优先级的计算Android是有自己的一条准则的，某些特殊场景的需要额外处理进程的oom_adj Android也是给了参考方案的。但是，那对于流氓来说，并没有任何约束效力。 "流氓"仍然能够参照oom_adj（优先级）的计算规则，利用其漏洞，提高进程的oom_adj，以降低被杀的风险。如果单单降低被杀风险还好，就怕那种即不想死，又想占用资源的APP，累积下去就会导致系统内存不足，导致整个系统卡顿。
+关于进程优先级的计算，Android是有自己的一条准则的，就算某些特殊场景的需要额外处理进程的oom_adj Android也是给了参考方案的。但是，那对于流氓来说，并没有任何约束效力。 "流氓"仍然能够参照oom_adj（优先级）的计算规则，利用其漏洞，提高进程的oom_adj，以降低被杀的风险。如果单单降低被杀风险还好，就怕那种即不想死，又想占用资源的APP，累积下去就会导致系统内存不足，导致整个系统卡顿。
 
 优先级的计算逻辑比较复杂，这里只简述非缓存进程，因为一旦沦为缓存进程，其优先级就只能依靠LRU来计算，不可控。而流氓是不会让自己沦为缓存进程的，非缓存进程是以下进程中的一种，并且，优先级越高（数值越小），越不易被杀死：
 
@@ -433,7 +444,7 @@ OnTrimMemory是在Android 4.0引入的一个回调接口，其主要作用就是
 
 我们从低到高看：如何让进程编程FOREGROUND_APP_ADJ进程，也就是前台进程，这个没有别的办法，只有TOP activity进程才能是算前台进程。正常的交互逻辑下，这个是无法实现的，锁屏的时候倒是可以启动一个Activity，但是需要屏幕点亮的时候再隐藏，容易被用户感知，得不偿失，所以基本是无解,所以之前传说的QQ通过一个像素来保活的应该不是这种方案，而通过WindowManager往主屏幕添加View的方式也并未阻止进程被杀，到底是否通过一像素实现进程包活，个人还未得到解答，希望能有人解惑。
  
-* 第二种，提高到VISIBLE_APP_ADJ或者PERCEPTIBLE_APP_ADJ（不同版本等级可能不同 “4.3 = PERCEPTIBLE_APP_ADJ” 而 “> 5.0 = VISIBLE_APP_ADJ”）
+* 第二种，提高到VISIBLE_APP_ADJ或者PERCEPTIBLE_APP_ADJ（不同版本等级可能不同 “4.3 = PERCEPTIBLE_APP_ADJ” 而 “> 5.0 = VISIBLE_APP_ADJ”），就表现形式上看，微博，微等信都可能用到了，而且这种手段的APP一般很难杀死，就算从最近的任务列表删除，其实进程还是没有被杀死，只是杀死了Activity等组件。
 
 先看一下源码中对两种优先级的定义，VISIBLE_APP_ADJ是含有可见但是非交互Activity的进程，PERCEPTIBLE_APP_ADJ是用户可感知的进程，如后台音乐播放等
  
@@ -503,7 +514,7 @@ startForeground(ID， new Notification())，可以将Service变成前台服务�
 
 前文我们分析过**Android Binder的讣告机制**：如果Service Binder实体的进程挂掉，系统会向Client发送讣告，而这个讣告系统就给进程保活一个可钻的空子。可以通过两个进程中启动两个binder服务，并且互为C/S，一旦一个进程挂掉，另一个进程就会收到讣告，在收到讣告的时候，唤起被杀进程。逻辑如下下：
 
-![双服务保活.jpg](http://upload-images.jianshu.io/upload_images/1460468-c0e18c827d83d2ef.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+![双服务保活.jpg](https://user-gold-cdn.xitu.io/2017/3/20/ff017d20d9dcabcab14f7d0790712061)
 
 首先编写两个binder实体服务PairServiceA ，PairServiceB，并且在onCreate的时候相互绑定，并在onServiceDisconnected收到讣告的时候再次绑定。
 
@@ -576,11 +587,38 @@ startForeground(ID， new Notification())，可以将Service变成前台服务�
 
 这个方案一般都没问题，因为Binder讣告是系统中Binder框架自带的，除非一次性全部杀死所有父子进程，这个没测试过。
  
- ![App操作影响进程优先级](http://upload-images.jianshu.io/upload_images/1460468-dec3e577ea74f0e8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+# 广播或者Service原地复活的进程保活
+
+还有一些比较常见的进程保活手段是通过注册BroadcastReceiver来实现的比如：
+
+* 开机
+* 网络状态切换
+* 相机
+* 一些国内推送SDK（内含一些）
+
+另外也能依靠Service的自启动特性，通过onStartCommand的START_STICKY来实现，相比上面的不死，这些算比较柔和的启动了，毕竟这两种都是允许后台杀死的前提下启动的：
+
+	public class BackGroundService extends Service {
+	    @Nullable
+	    @Override
+	    public IBinder onBind(Intent intent) {
+	        return null;
+	    }
+	
+	    @Override
+	    public int onStartCommand(Intent intent, int flags, int startId) {
+	        return START_STICKY;
+	    }
+	}
+
  
 # 总结 
 
 **所有流氓手段的进程保活，都是下策**，建议不要使用，本文只是分析实验用。当APP退回后台，优先级变低，就应该适时释放内存，以提高系统流畅度，依赖流氓手段提高优先级，还不释放内存，保持不死的，都是作死。
+
+[Android 后台杀死系列之一：FragmentActivity 及 PhoneWindow 后台杀死处理机制](https://juejin.im/post/5878dc578d6d810058b884a9)
+[Android后台杀死系列之二：ActivityManagerService与App现场恢复机制](https://juejin.im/post/5878c1ce8d6d810058769b75)  	        	[Android后台杀死系列之三：后台杀死原理LowMemoryKiller（4.3-6.0）](https://juejin.im/post/5878bf99570c35006211dc7a)   
+[Android后台杀死系列之四：Binder讣告原理](https://juejin.im/post/58cf7eef128fe1006c99ba1c)
 
 **仅供参考，欢迎指正 	**        
 
@@ -594,5 +632,5 @@ startForeground(ID， new Notification())，可以将Service变成前台服务�
 [微信Android客户端后台保活经验分享](http://www.infoq.com/cn/articles/wechat-android-background-keep-alive)      
 [按"Home"键回到桌面的过程](http://book.51cto.com/art/201109/291309.htm)       
 [Android low memory killer 机制](https://my.oschina.net/wolfcs/blog/288259)           
-[应用内存优化之OnLowMemory&OnTrimMemory](http://www.cnblogs.com/xiajf/p/3993599.html)         
+[应用内存优化之OnLowMemory&OnTrimMemory](http://www.cnblogs.com/xiajf/p/3993599.html)  
 
