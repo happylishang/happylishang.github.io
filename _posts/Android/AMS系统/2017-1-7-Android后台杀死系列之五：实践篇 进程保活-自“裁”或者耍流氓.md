@@ -510,6 +510,31 @@ startForeground(ID， new Notification())，可以将Service变成前台服务�
 	    }
 	}
 	
+不过这个漏洞在Android7.1之后失效了，因为Google加了一个校验：如果还有Service通过setForeground绑定相同id的Notification，就不能cancelNotification，也就是说还是会显示通知（在通知列表）。
+
+	 private void cancelForegroudNotificationLocked(ServiceRecord r) {
+	        if (r.foregroundId != 0) {
+	            // First check to see if this app has any other active foreground services
+	            // with the same notification ID.  If so, we shouldn't actually cancel it,
+	            // because that would wipe away the notification that still needs to be shown
+	            // due the other service.
+	            ServiceMap sm = getServiceMap(r.userId);
+	            if (sm != null) {
+	            <!--查看是不是与该ID 通知绑定的Service取消了了前台显示-->
+	                for (int i = sm.mServicesByName.size()-1; i >= 0; i--) {
+	                    ServiceRecord other = sm.mServicesByName.valueAt(i);
+	                    if (other != r && other.foregroundId == r.foregroundId
+	                            && other.packageName.equals(r.packageName)) {
+	                        // Found one!  Abort the cancel.
+	                        <!--如果找到还有显示的Service，直接返回-->
+	                        return;
+	                    }
+	                }
+	            }
+	            r.cancelNotification();
+	        }
+	    }
+	
 # 双Service守护进程保活（这个也很流氓，不过如果不提高优先级（允许被杀），也算稍微良心）
 
 前文我们分析过**Android Binder的讣告机制**：如果Service Binder实体的进程挂掉，系统会向Client发送讣告，而这个讣告系统就给进程保活一个可钻的空子。可以通过两个进程中启动两个binder服务，并且互为C/S，一旦一个进程挂掉，另一个进程就会收到讣告，在收到讣告的时候，唤起被杀进程。逻辑如下下：
