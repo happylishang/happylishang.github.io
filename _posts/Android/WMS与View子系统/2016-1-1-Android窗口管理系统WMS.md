@@ -9,6 +9,12 @@ categories: [android]
 
 > **分析Android框架的时候谨记：上层都是逻辑封装，包括Activity、View，所有的实现均有相应Servcie来处理，比如View的绘制等**
 
+
+**（1）WmS 眼中的，窗口是可以显示用来显示的 View。对于 WmS 而言，所谓的窗口就是一个通过 WindowManagerGlobal.addView()添加的 View 罢了；<br>
+（2）Window 类是一个针对窗口交互的抽象，也就是对于 WmS 来讲所有的用户消息是直接交给 View/ViewGroup 来处理的。而 Window 类把一些**交互从 View/ViewGroup 中抽离出来，定义了一些窗口的行为，例如菜单，以及处理系统按钮，如“Home”，“Back”等等。
+
+
+
 ### 目录
 
 * 窗口和图形系统 - Window and View Manager System.
