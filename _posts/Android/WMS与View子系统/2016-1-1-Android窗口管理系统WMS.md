@@ -15,6 +15,55 @@ categories: [android]
 
 
 
+
+// 可以看出，WMS无法直接管理View，只能通过mWindow，至于Window里面到底是什么，不关系
+// WMS应该只关心Window的管理（添加Window、删除Window、切换Window、Window发生过）
+// 至于View如何绘制，那是每个Window自己管理的事情
+
+    res = mWindowSession.addToDisplay(mWindow, mSeq, mWindowAttributes,
+            getHostVisibility(), mDisplay.getDisplayId(),
+            mAttachInfo.mContentInsets, mInputChannel);
+
+与窗口交互的几个关键函数
+
+	interface IWindowSession {
+	    int add(IWindow window, int seq, in WindowManager.LayoutParams attrs,
+	            in int viewVisibility, out Rect outContentInsets,
+	            out InputChannel outInputChannel);
+	
+	    int addToDisplay(IWindow window, int seq, in WindowManager.LayoutParams attrs,
+	                     in int viewVisibility, in int layerStackId, out Rect outContentInsets,
+	                     out InputChannel outInputChannel);
+	    int addWithoutInputChannel(IWindow window, int seq, in WindowManager.LayoutParams attrs,
+	                               in int viewVisibility, out Rect outContentInsets);
+	    int addToDisplayWithoutInputChannel(IWindow window, int seq, in WindowManager.LayoutParams attrs,
+	
+	    void remove(IWindow window);
+	
+	    int relayout(IWindow window, int seq, in WindowManager.LayoutParams attrs,
+	                 int requestedWidth, int requestedHeight, int viewVisibility,
+	                 int flags, out Rect outFrame, out Rect outOverscanInsets,
+	                 out Rect outContentInsets, out Rect outVisibleInsets,
+	                 out Configuration outConfig, out Surface outSurface);
+	
+	    void performDeferredDestroy(IWindow window);
+	
+	    boolean outOfMemory(IWindow window);
+	
+	    void setTransparentRegion(IWindow window, in Region region);
+	
+	    void setInsets(IWindow window, int touchableInsets, in Rect contentInsets,
+	                   in Rect visibleInsets, in Region touchableRegion);
+	
+	    void getDisplayFrame(IWindow window, out Rect outDisplayFrame);
+	
+	    void onRectangleOnScreenRequested(IBinder token, in Rect rectangle, boolean immediate);
+	
+	    IWindowId getWindowId(IBinder window);
+	}
+	
+从与WMS交互的函数中，可以看到其实并未涉及View的测量重回之类的逻辑。	
+	                            
 ### 目录
 
 * 窗口和图形系统 - Window and View Manager System.
@@ -126,18 +175,17 @@ categories: [android]
 	    
 	    
 	    
-	        Call<PhoneResult> call = service.getResult("3ce2066cc7c59d8d602dd9d743e449a5", 
-	        
-	           Call<PhoneResult> getResult(@Header("apikey") String apikey, @Query("phone") String phone);
+        Call<PhoneResult> call = service.getResult("3ce2066cc7c59d8d602dd9d743e449a5", 
+        
+           Call<PhoneResult> getResult(@Header("apikey") String apikey, @Query("phone") String phone);
 	    
+
+
 	          
            
 ### 参考文档
 
- 图解Android - Android GUI 系统 (2) - 窗口管理 (View, Canvas, Window Manager) <http://www.cnblogs.com/samchen2009/p/3367496.html>
- 
- Android 4.4(KitKat)窗口管理子系统 - 体系框架 <http://blog.csdn.net/jinzhuojun/article/details/37737439>
-  
- Android桌面悬浮窗效果实现，仿360手机卫士悬浮窗效果 <http://blog.csdn.net/guolin_blog/article/details/8689140> 
- 
+ [图解Android - Android GUI 系统 (2) - 窗口管理 (View, Canvas, Window Manager)](http://www.cnblogs.com/samchen2009/p/3367496.html)      
+ [Android 4.4(KitKat)窗口管理子系统 - 体系框架](http://blog.csdn.net/jinzhuojun/article/details/37737439)   
+ [Android桌面悬浮窗效果实现，仿360手机卫士悬浮窗效果] (http://blog.csdn.net/guolin_blog/article/details/8689140)    
  [ Android应用Activity、Dialog、PopWindow、Toast窗口添加机制及源码分析](http://blog.csdn.net/yanbober/article/details/46361191)
