@@ -2,6 +2,7 @@
 layout: post
 title: 从Toast显示原理初窥Android窗口管理系统 
 category: Android
+image: http://upload-images.jianshu.io/upload_images/1460468-a11e1f92cfa98c7c.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 
 ---
  
@@ -316,3 +317,6 @@ Android窗口管理系统是非常大的一块，如果真要牵扯的话要设�
  
  其实不一定非要主线程，因为APP端用到了Handler，Handler是依赖Looper的，必须是Looper线程才行，所以这里并指定到主线程。
 
+
+
+![Toast显示原理.png](http://upload-images.jianshu.io/upload_images/1460468-a11e1f92cfa98c7c.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
