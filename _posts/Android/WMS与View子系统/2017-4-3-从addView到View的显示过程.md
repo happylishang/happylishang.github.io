@@ -129,6 +129,15 @@ SurfaceFlinger创建Client
 	    }
 	    return sur;
 	}
+
+
+# 如何调用2D图形图Skia，不要太深入bitmap图形合成原理，只关心内存的分配与处理
+
+# 共享内存的传递，与处理
+
+
+
+
 	
 # 	参考文档
 [ GUI系统之SurfaceFlinger(11)SurfaceComposerClient](http://blog.csdn.net/xuesen_lin/article/details/8954957)       
