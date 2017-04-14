@@ -6,6 +6,9 @@ image:
 
 ---
 
+
+SurfaceFlinger不是系统服务，是系统守护进程，当然也算是系统服务，但是很重要，
+
 > Session.java
  
     @Override
@@ -88,4 +91,45 @@ image:
 	        }
 	    }
 	}
+
+SurfaceFlinger创建Client	
+
+> SurfaceFlinger.java
+
+	sp<ISurfaceComposerClient> SurfaceFlinger::createConnection()
+	{
+	    sp<ISurfaceComposerClient> bclient;
+	    sp<Client> client(new Client(this));
+	    status_t err = client->initCheck();
+	    if (err == NO_ERROR) {
+	        bclient = client;
+	    }
+	    return bclient;
+	}
+
+创建surface的代码
+
+	sp<SurfaceControl> SurfaceComposerClient::createSurface(
+	        const String8& name,
+	        uint32_t w,
+	        uint32_t h,
+	        PixelFormat format,
+	        uint32_t flags)
+	{
+	    sp<SurfaceControl> sur;
+	    if (mStatus == NO_ERROR) {
+	        sp<IBinder> handle;
+	        sp<IGraphicBufferProducer> gbp;
+	        status_t err = mClient->createSurface(name, w, h, format, flags,
+	                &handle, &gbp);
+	        ALOGE_IF(err, "SurfaceComposerClient::createSurface error %s", strerror(-err));
+	        if (err == NO_ERROR) {
+	            sur = new SurfaceControl(this, handle, gbp);
+	        }
+	    }
+	    return sur;
+	}
 	
+# 	参考文档
+[ GUI系统之SurfaceFlinger(11)SurfaceComposerClient](http://blog.csdn.net/xuesen_lin/article/details/8954957)       
+
