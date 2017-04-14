@@ -319,7 +319,7 @@ callback.hide()其实就是通过WindowManager移除当前View，
  
 # 一个小问题：Toast一定要在主线程？
  
- 答案是：并不一定早在主线程，但是要在Hanlder可用线程
+ 答案是：并不一定在主线程，但是要在Hanlder可用线程
  
 >  方案一：可行
 > 
