@@ -15,9 +15,14 @@ tags: [android]
 
 # 同步
 
-# idle
+# idle，最后执行
 
 # MessageQueue.java与NativeMessageQueue.cpp两个队列的问题
+
+为什么保留两个队列
+
+在nativeInit中，new了一个Native层的MessageQueue的对象，并将其地址保存在了Java层MessageQueue的成员mPtr中，Android中有好多这样的实现，一个类在Java层与Native层都有实现，通过JNI的GetFieldID与SetIntField把Native层的类的实例地址保存到Java层类的实例的mPtr成员中，比如Parcel。
+
 
 # Handler的基本用法
 
@@ -344,13 +349,16 @@ tags: [android]
 	        }
 	    }
 	    
-#     epoll_wait(int epfd, epoll_event events, int max events, int timeout) 
+# epoll_wait(int epfd, epoll_event events, int max events, int timeout) 
 
-timeout==0直接返回，上层已经兼容性的考虑了延时的问题
+timeout==0直接返回，上层已经兼容性的考虑了延时的问题，已经考虑了有延时，并且确定了下一个消息的最大延时
+
+关键是什么？睡眠在一个队列上？不是真正的睡眠，是在一个Fd上，并且有睡眠延时，唤醒，可以从其他线程唤醒，Syn关键字，保证了互斥访问，
 
 
 # 即可执行与延时消息的处理
 
 # 参考文档
-
-[Android消息机制1-Handler(Java层)](http://gityuan.com/2015/12/26/handler-message-framework/)
+ 
+[Android消息机制1-Handler(Java层)](http://gityuan.com/2015/12/26/handler-message-framework/)          
+[Android消息处理机制(Handler、Looper、MessageQueue与Message)](http://www.cnblogs.com/angeldevil/p/3340644.html)           
