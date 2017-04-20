@@ -8,6 +8,7 @@ image:
 
 
 SurfaceFlinger不是系统服务，是系统守护进程，当然也算是系统服务，但是很重要，
+SkCanvas其实就是Cavas.java 在native的对象
 
 > Session.java
  
