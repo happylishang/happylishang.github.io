@@ -1,13 +1,24 @@
 ---
 layout: post
-title: "HHanlder与Looper原理分析"
+title: "Hanlder与Looper原理分析"
 description: "android"
 category: android
 tags: [android]
+image: http://upload-images.jianshu.io/upload_images/1460468-b5787362a3a23a67.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 
 ---
 
-直观的想一下，Hanlder与Loope组成的消息队列如何用，肯定是一个死循环，不断的从队列上读取消息，并执行，再读取，当然，这个期间是可以通过同步机制插入消息，唤醒等待的线程之类的操作。
+本文分析下Android的消息处理机制，主要是针对Hanlder、Looper、MessageQueue组成的异步消息处理模型，先主观想一下这个模型需要的材料：
+
+*   消息队列：通过Hanlder发送的消息并是即刻执行的，因此需要一个队列来维护
+*  工作线程：需要一个线程不断摘取消息，并执行回调，这种线程就是Looper线程
+*  同步机制，会有不同的线程向同一个消息队列插入消息，这个时候就需要同步机制进行保证
+
+上面的三个部分可以简单的归结为如下图：
+
+![Looper运行模型.jpg](http://upload-images.jianshu.io/upload_images/1460468-b5787362a3a23a67.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+APP端UI线程都是Looper线程，每个Looper线程中维护一个消息队列，其他线程比如Binder线程或者自定义线程，都能通过Hanlder对象向Handler所依附消息队列线程发送消息，比如点击事件，都是通过InputManagerService处理后，通过binder通信，发送到App端Binder线程，再由Binder线程向UI线程发送送Message，其实就是通过Hanlder向UI的MessageQueue插入消息，与此同时，其他线程也能通过Hanlder向UI线程发送消息，显然这里就需要同步，以上就是Android消息处理模型的简单描述，之后跟踪源码，浅析一下具体的实现，以及里面的一些小手段。
 
 # 缓存机制Message
 
