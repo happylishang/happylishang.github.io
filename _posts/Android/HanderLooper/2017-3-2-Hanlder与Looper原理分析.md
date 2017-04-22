@@ -10,19 +10,68 @@ image: http://upload-images.jianshu.io/upload_images/1460468-b5787362a3a23a67.jp
 
 本文分析下Android的消息处理机制，主要是针对Hanlder、Looper、MessageQueue组成的异步消息处理模型，先主观想一下这个模型需要的材料：
 
-*   消息队列：通过Hanlder发送的消息并是即刻执行的，因此需要一个队列来维护
+*  消息队列：通过Hanlder发送的消息并是即刻执行的，因此需要一个队列来维护
 *  工作线程：需要一个线程不断摘取消息，并执行回调，这种线程就是Looper线程
-*  同步机制，会有不同的线程向同一个消息队列插入消息，这个时候就需要同步机制进行保证
+*  互斥机制，会有不同的线程向同一个消息队列插入消息，这个时候就需要同步机制进行保证
+*  空消息队列时候的同步机制，生产者消费者模型
 
 上面的三个部分可以简单的归结为如下图：
 
 ![Looper运行模型.jpg](http://upload-images.jianshu.io/upload_images/1460468-b5787362a3a23a67.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-APP端UI线程都是Looper线程，每个Looper线程中维护一个消息队列，其他线程比如Binder线程或者自定义线程，都能通过Hanlder对象向Handler所依附消息队列线程发送消息，比如点击事件，都是通过InputManagerService处理后，通过binder通信，发送到App端Binder线程，再由Binder线程向UI线程发送送Message，其实就是通过Hanlder向UI的MessageQueue插入消息，与此同时，其他线程也能通过Hanlder向UI线程发送消息，显然这里就需要同步，以上就是Android消息处理模型的简单描述，之后跟踪源码，浅析一下具体的实现，以及里面的一些小手段。
+APP端UI线程都是Looper线程，每个Looper线程中维护一个消息队列，其他线程比如Binder线程或者自定义线程，都能通过Hanlder对象向Handler所依附消息队列线程发送消息，比如点击事件，都是通过InputManagerService处理后，通过binder通信，发送到App端Binder线程，再由Binder线程向UI线程发送送Message，其实就是通过Hanlder向UI的MessageQueue插入消息，与此同时，其他线程也能通过Hanlder向UI线程发送消息，显然这里就需要同步，以上就是Android消息处理模型的简单描述，之后跟踪源码，浅析一下具体的实现，以及里面的一些小手段，首先，从Hanlder的常见用法入手，分析其实现原理，
+
+# Handler的一种基本用法
+
+		  <关键点1>
+        Handler hanlder=new Handler();
+        <关键点2>
+        hanlder.post(new Runnable() {
+            @Override
+            public void run() {
+                //TODO 
+            }
+        });
+
+ 这里有两个点需要注意，先看关键点1，Hanlder对象的创建，直观来看可能感觉不到有什么注意的地方，但是如果你在普通线程创建Handler，就会遇到异常，因为**普通线程是不能创建Hanlder对象的，必须是Looper线程才能创建，才有意义**，可以看下其构造函数： 
+
+    public Handler(Callback callback, boolean async) {
+
+        mLooper = Looper.myLooper();
+        if (mLooper == null) {
+            throw new RuntimeException(
+                "Can't create handler inside thread that has not called Looper.prepare()");
+        }
+        mQueue = mLooper.mQueue;
+        mCallback = callback;
+        mAsynchronous = async;
+    }
+    
+从上面的代码可以看出，Looper.myLooper()必须非空，否则就会抛出 RuntimeException异常，Looper.myLooper()什么时候才会非空？
+
+    public static @Nullable Looper myLooper() {
+        return sThreadLocal.get();
+    }
+
+    private static void prepare(boolean quitAllowed) {
+        if (sThreadLocal.get() != null) {
+            throw new RuntimeException("Only one Looper may be created per thread");
+        }
+        sThreadLocal.set(new Looper(quitAllowed));
+    }
+
+上面的两个函数牵扯到稍微拧巴的数据存储模型，不分析，只要理解，只有掉用过Looper.prepare的线程，才会有一个线程单利的Looper对象生成，Looper.prepare只能调用一次，再次调用会抛出异常，其实prepare的作用就是新建一个Looperd对象，在new Looper对象的时候，会创建关键的消息队列对象：
+
+    private Looper(boolean quitAllowed) {
+        mQueue = new MessageQueue(quitAllowed);
+        mThread = Thread.currentThread();
+    }
+    
+通过Looper.prepare，一个线程就有了MessageQueue，虽然还没有调用Loop.loop()将线程变成loop线程，但是new Handler已经没问题。
+
+
 
 # 缓存机制Message
-
-[参考](http://blog.csdn.net/tear2210/article/details/49741647)
 
 # 同步
 
@@ -34,16 +83,6 @@ APP端UI线程都是Looper线程，每个Looper线程中维护一个消息队列
 
 在nativeInit中，new了一个Native层的MessageQueue的对象，并将其地址保存在了Java层MessageQueue的成员mPtr中，Android中有好多这样的实现，一个类在Java层与Native层都有实现，通过JNI的GetFieldID与SetIntField把Native层的类的实例地址保存到Java层类的实例的mPtr成员中，比如Parcel。
 
-
-# Handler的基本用法
-
-        Handler hanlder=new Handler();
-        hanlder.post(new Runnable() {
-            @Override
-            public void run() {
-                //TODO 
-            }
-        });
 
 
 # Hanlder实现原理
@@ -373,3 +412,4 @@ timeout==0直接返回，上层已经兼容性的考虑了延时的问题，已�
  
 [Android消息机制1-Handler(Java层)](http://gityuan.com/2015/12/26/handler-message-framework/)          
 [Android消息处理机制(Handler、Looper、MessageQueue与Message)](http://www.cnblogs.com/angeldevil/p/3340644.html)           
+[参考](http://blog.csdn.net/tear2210/article/details/49741647)      
