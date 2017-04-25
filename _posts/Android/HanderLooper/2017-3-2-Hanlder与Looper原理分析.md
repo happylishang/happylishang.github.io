@@ -380,7 +380,6 @@ MessageQueue的nativeInit函数在Native层创建了NativeMessageQueue与Looper�
 	 
 	}
 
-这里并不用太过于纠结，只要理解，这是线程间通信的一种方式，主要为了处理多线程间生产者与消费者通信模型用的，
 
 现在我们知道了，Native层有也有一套MessageQueue与Looper，简单看一下Java层如何使用Native层对象的，接着走nativePollOnce
 
@@ -396,12 +395,7 @@ MessageQueue的nativeInit函数在Native层创建了NativeMessageQueue与Looper�
 	    mLooper->pollOnce(timeoutMillis);
 	    mPollObj = NULL;
 	    mPollEnv = NULL;
-	
-	    if (mExceptionObj) {
-	        env->Throw(mExceptionObj);
-	        env->DeleteLocalRef(mExceptionObj);
-	        mExceptionObj = NULL;
-	    }
+
 	}
 
 所以最终调用Looper::pollOnce，Java层有自己的消息队列，pollOnce也没有更新Java层对象，那么Native层的消息队里对于Java层有什么用呢，其实**只有睡眠与唤醒的作用**，比如2.3之前的版本，Native层的MessageQueue都不具备发送消息的能力。不过后来Native添加了发送消息的功能，但是日常开发我们用不到，不过如果native层如果有消息，一定会优先执行native层的消息
@@ -414,6 +408,116 @@ MessageQueue的nativeInit函数在Native层创建了NativeMessageQueue与Looper�
 	}
 	
 pollInner	函数比较长，不想过多分析，其实pollInner本身也可以看做是一个Loop函数，只不过
+ 
+
+	 int Looper::pollInner(int timeoutMillis) {
+	 
+	     
+	   // We are about to idle.   volatile bool mPolling;
+       mPolling = true;
+		<!--关键点1-->
+	    struct epoll_event eventItems[EPOLL_MAX_EVENTS];
+	    int eventCount = epoll_wait(mEpollFd, eventItems, EPOLL_MAX_EVENTS, timeoutMillis);
+		
+		 <!--关键点2-->
+	    mPolling = false;
+	    // Acquire lock.
+	    mLock.lock();
+ 	 
+ 	 	 <!--关键点3-->
+ 	 	 
+	    if (eventCount == 0) {
+	        result = POLL_TIMEOUT;
+	        goto Done;
+	    }
+	 
+	 	 <!--关键点4-->
+	    for (int i = 0; i < eventCount; i++) {
+	        int fd = eventItems[i].data.fd;
+	        uint32_t epollEvents = eventItems[i].events;
+	        if (fd == mWakeEventFd) {
+	            if (epollEvents & EPOLLIN) {
+	                awoken();
+	            } else {
+	                ALOGW("Ignoring unexpected epoll events 0x%x on wake event fd.", epollEvents);
+	            }
+	        } else {
+	            ssize_t requestIndex = mRequests.indexOfKey(fd);
+	            if (requestIndex >= 0) {
+	                int events = 0;
+	                if (epollEvents & EPOLLIN) events |= EVENT_INPUT;
+	                if (epollEvents & EPOLLOUT) events |= EVENT_OUTPUT;
+	                if (epollEvents & EPOLLERR) events |= EVENT_ERROR;
+	                if (epollEvents & EPOLLHUP) events |= EVENT_HANGUP;
+	                pushResponse(events, mRequests.valueAt(requestIndex));
+	            } else {
+	                ALOGW("Ignoring unexpected epoll events 0x%x on fd %d that is "
+	                        "no longer registered.", epollEvents, fd);
+	            }
+	        }
+	    }
+	Done: ;
+	
+	    // Invoke pending message callbacks.
+	    mNextMessageUptime = LLONG_MAX;
+	    while (mMessageEnvelopes.size() != 0) {
+	        nsecs_t now = systemTime(SYSTEM_TIME_MONOTONIC);
+	        const MessageEnvelope& messageEnvelope = mMessageEnvelopes.itemAt(0);
+	        if (messageEnvelope.uptime <= now) {
+	            // Remove the envelope from the list.
+	            // We keep a strong reference to the handler until the call to handleMessage
+	            // finishes.  Then we drop it so that the handler can be deleted *before*
+	            // we reacquire our lock.
+	            { // obtain handler
+	                sp<MessageHandler> handler = messageEnvelope.handler;
+	                Message message = messageEnvelope.message;
+	                mMessageEnvelopes.removeAt(0);
+	                mSendingMessage = true;
+	                mLock.unlock();
+	
+	 
+	                handler->handleMessage(message);
+	            } // release handler
+	
+	            mLock.lock();
+	            mSendingMessage = false;
+	            result = POLL_CALLBACK;
+	        } else {
+	            // The last message left at the head of the queue determines the next wakeup time.
+	            mNextMessageUptime = messageEnvelope.uptime;
+	            break;
+	        }
+	    }
+	
+	    // Release lock.
+	    mLock.unlock();
+	
+	    // Invoke all response callbacks.
+	    for (size_t i = 0; i < mResponses.size(); i++) {
+	        Response& response = mResponses.editItemAt(i);
+	        if (response.request.ident == POLL_CALLBACK) {
+	            int fd = response.request.fd;
+	            int events = response.events;
+	            void* data = response.request.data;
+	            // Invoke the callback.  Note that the file descriptor may be closed by
+	            // the callback (and potentially even reused) before the function returns so
+	            // we need to be a little careful when removing the file descriptor afterwards.
+	            int callbackResult = response.request.callback->handleEvent(fd, events, data);
+	            if (callbackResult == 0) {
+	                removeFd(fd, response.request.seq);
+	            }
+	
+	            // Clear the callback reference in the response structure promptly because we
+	            // will not clear the response vector itself until the next poll.
+	            response.request.callback.clear();
+	            result = POLL_CALLBACK;
+	        }
+	    }
+	    return result;
+	}
+
+以上牵扯到Linux中的[epoll机制：epoll_create、epoll_ctl、epoll_wait、close等](http://blog.csdn.net/yusiguyuan/article/details/15027821)， **一句话概括就是：线程阻塞监听多个fd句柄，其中一个fd有写入操作，当前线程就被唤醒**。这里不用太过于纠结，只要理解，这是线程间通信的一种方式，主要为了处理多线程间生产者与消费者通信模型用的，
+ 
  
 ![Looper Java层与native层关系.jpg](http://upload-images.jianshu.io/upload_images/1460468-d0dffe1f772d3513.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
  
