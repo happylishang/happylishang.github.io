@@ -431,17 +431,18 @@ pollInner	函数比较长，不想过多分析，其实pollInner本身也可以�
 	        goto Done;
 	    }
 	 
-	 	 <!--关键点4-->
+	 	 <!--关键点4 查看那个fd上又写入操作，-->
 	    for (int i = 0; i < eventCount; i++) {
 	        int fd = eventItems[i].data.fd;
 	        uint32_t epollEvents = eventItems[i].events;
+	        <!--关键点5 唤醒fd上有写入操作-->
 	        if (fd == mWakeEventFd) {
 	            if (epollEvents & EPOLLIN) {
 	                awoken();
 	            } else {
-	                ALOGW("Ignoring unexpected epoll events 0x%x on wake event fd.", epollEvents);
 	            }
 	        } else {
+	             <!--关键点6 其他fd上有写入操作-->
 	            ssize_t requestIndex = mRequests.indexOfKey(fd);
 	            if (requestIndex >= 0) {
 	                int events = 0;
@@ -457,7 +458,7 @@ pollInner	函数比较长，不想过多分析，其实pollInner本身也可以�
 	        }
 	    }
 	Done: ;
-	
+		        <!--关键点7处理操作回调 -->
 	    // Invoke pending message callbacks.
 	    mNextMessageUptime = LLONG_MAX;
 	    while (mMessageEnvelopes.size() != 0) {
