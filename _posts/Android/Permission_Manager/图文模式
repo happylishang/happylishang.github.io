@@ -1,0 +1,164 @@
+从6.0 MarshMallow开始，Android支持动态权限管理，即有些权限需要在使用到的时候动态申请，根据用户的选择需要有不同的处理，具体表现可以看下图：
+
+![权限申请](http://upload-images.jianshu.io/upload_images/1460468-fada7ed2171bd16d.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+本文并不关心权限适配的原理，原理可以参考[Android权限管理原理
+](http://www.jianshu.com/p/9938d367b6db)，这里只是针对6.0中的表现做适配，先思考以下几个问题：
+* 为什么6.0权限需要适配
+* 什么权限需要动态适配
+* 怎样动态适配权限
+* 怎么样实现第三方库，简化代码及适配流程  **[ 权限兼容库 PermissionCompat](https://github.com/happylishang/PermissionCompat)**
+* 对于国产ROM的影响
+
+# 为什么6.0需要权限适配
+
+6.0之前Android的权限都是在安装的时候授予的，6.0之后，为了简化安装流程，并且方便用户控制权限，Android允许在运行的时候动态控制权限。对于开发而言就是将targetSdkVersion设置为23，当运行在Android 6.0 +的手机上时，就会调用6.0相关的API，达到动态控制权限的目的。但是，如果仅仅是将targetSdkVersion设置为23，而在代码层面没有针对Android 6.0做适配，就可能在申请系统服务的时候，由于权限不足，引发崩溃。
+
+* targetSDKVersion：该属性用于通知系统，您已针对目标版本进行测试，标识App能够适配的系统版本，有些新的API是只有新的系统才有的。
+
+# 什么权限需要动态适配
+并非所有的权限都需要动态申请，Android6.0将权限分为两种，普通权限跟敏感（危险）权限，普通权限是不需要动态申请的，但是敏感权限需要动态申请。
+
+* 1、**普通权限**（Normal permissions）：不会泄露用户隐私，同时也不会导致手机安全问题。如网络请求权限、WIFI状态等，这类权限只需要在Manifest列出来，之后，系统会自动赋给APP权限：
+
+	 * 	ACCESS_NETWORK_STATE    
+	 * 	ACCESS_NOTIFICATION_POLICY      
+	 * 	ACCESS_WIFI_STATE       
+	 * 	BLUETOOTH			
+	 * 	BLUETOOTH_ADMIN				
+
+* 2、**敏感权限**（Dangerous permissions）：与普通权限对应，可能会影响用户的隐私，存储数据等，比如拍照、存储、通讯录、地理GPS等，这类权限需要在Manifest列出来，在需要的的时候，显示的请求用户准许。
+ 
+	* 	CALENDAR	
+	* 	CAMERA	
+	* 	CONTACTS	
+	* 	LOCATION	
+	* 	PHONE	
+	* 	SENSORS	
+	* 	SMS	
+	* 	STORAGE	
+ 
+敏感权限的请求是按照分组进行提醒的，并非仅仅针对一条，比如通讯录的读取权限与写权限，只要一个权限获到，下次请求权限的时候会自动提供，当然也要请求。否则还是有问题。
+
+* 3、**特殊权限**（Special Permissions） --不在本文分析范围
+
+  There are a couple of permissions that don't behave like normal and dangerous permissions. SYSTEM_ALERT_WINDOW and WRITE_SETTINGS 
+
+# 怎样动态适配权限
+
+对于敏感权限的适配有一个原则，那就是实时检查，因为权限随时可能被回收，比如用户可以在设置里面把权限给取消，但是APP并不一定知道，因此每次都需要检查，一旦没有，就需要请求，之后，根据返回结果处理后续逻辑。
+
+## 实现步骤
+
+* 1、在Manifest中列出来
+
+无论普通权限还是敏感权限，都需要在Manifest中列出来，同时也是对6.0之前的版本的一种兼容。
+	
+![WechatIMG1.jpeg](http://upload-images.jianshu.io/upload_images/1460468-6c6abacfef5ee1d9.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+	    
+
+* 2、需要时，显示的请求
+
+在权限没被授予前提下，系统会显示授权对话框，让用户操作，目前授权对话框不可定制，不过可以在申请之前添加一些解释，告诉用户为什么需要该权限，但是Google提醒，不要做过多的解释，可能会使用户感到厌烦。
+	
+![WechatIMG10.jpeg](http://upload-images.jianshu.io/upload_images/1460468-15d0812809e18703.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+* 3、处理授权回调
+	
+	*   兼容6.0之前的处理：在这里只需要处理获得权限即可，因为6.0之前只存在Install权限，一旦安装，所有权限都是默认授予的，虽然国内ROM对权限管理做了自己的一些定制，但基本都是兼容的。
+	* 	需要对6.0的授权成功、失败、永不询问做处理
+
+
+![WechatIMG11.jpeg](http://upload-images.jianshu.io/upload_images/1460468-5a2421288af4073c.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+
+# 具体APP中不同的实现方案
+
+* 1、简单的封装回调
+* 2、基于APT，采用注解方式简化编码逻辑，自动封封回调
+
+先看一下直接回调的方式
+
+## 采用最直接的回调
+
+首先在基类Activity或者Fragment中统一设置授权回调监听，这里我们用一个
+ 
+	
+![WechatIMG4.jpeg](http://upload-images.jianshu.io/upload_images/1460468-3747bf1cf50a8943.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+ 
+之后在需要时候的请求，并根据结果处理后续逻辑即可。
+
+![WechatIMG12.jpeg](http://upload-images.jianshu.io/upload_images/1460468-e726311cbdea7e39.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+  
+上面的方法比较直接，灵活，不过每次都要自己实现回调监听Listener，接下来看第二种实现，基于APT，通过注解的方式，自动添加Listener，这种实现参考了ButterKnife的实现方式。
+
+# 基于APT与注解，编译过程中生成代码，自动添加回调
+* 1、基于APT，定义一系列Annotation，并动态生成辅助Listener类
+* 2、添加Android支持库，在基类统一处理回调，
+* 3、添加工具类，连接绑定Listener与Activity（Fragment）
+
+相应的实现分三个库：
+
+* 注解库
+* APT生成支持库
+* Android支持库
+
+## 注解库：
+
+![注解库](http://upload-images.jianshu.io/upload_images/1460468-080816d56da84482.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+主要用来定义一些回调方法注解、及请求实体的类注解
+
+	* ActivityPermission
+	* FragmentPermission
+	* OnDenied
+	* OnGranted
+	* OnGrantedListener
+	* OnNeverAsk
+	* OnShowRationale
+
+## APT生成支持库
+
+主要用来在编译阶段，动态生Listener类
+
+	PermissionProcessor.java
+
+部分参考代码：
+	
+![WechatIMG6.jpeg](http://upload-images.jianshu.io/upload_images/1460468-cf3014dd079e1dfc.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+##  Android支持库
+
+主要会封装了一些工具类，基类以及对回调的处理
+
+	* BasePermissionCompatActivity.java
+	* BasePermissionCompatFragment.java
+	* PermissionCompat.java
+	* PermissionUtils.java
+
+参考代码：
+	
+![WechatIMG7.jpeg](http://upload-images.jianshu.io/upload_images/1460468-f3f73fd9b1db6460.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+	    
+## 使用
+
+* 1、Activity继承BasePermissionCompatActivity
+* 2、用注解写回调函数，支持权限分组，跟单独处理，但是每个分组都要写自己的回调函数（目前回调函数，不支持参数）
+* 3、回调必需配套，也就是一个权限必须对应四个函数，否则编译不通过
+* 4、请求的权限必须有回调函数，不然报运行时错误--崩溃
+	
+
+![WechatIMG8.jpeg](http://upload-images.jianshu.io/upload_images/1460468-8f6fd75111a1b93e.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+# 国产ROM兼容性
+
+6.0之前权限管理即不是原生功能又没有制定相应标准，每个厂家的实现都是完全不同的，虽然4.3 Google官方试图推出AppOpsManager来动态适配权限管理，但由于不成熟，一直到6.0也没走向前台。不过，看6.0之前国内ROM的表现，基本是在每个服务内部触发鉴权请求，对原生权限的判断并没多大影响，所以兼容没太大问题。
+
+最后附上GitHub Demo及第三方库链接 **[权限兼容库 PermissionCompat](https://github.com/happylishang/PermissionCompat)**
+
+# 参考文档
+
+1、[Requesting Permissions at Run Time](https://developer.android.com/training/permissions/requesting.html)        
+2、[PermissionDispatcher](https://github.com/a1018875550/PermissionDispatcher)       
+3、[Android6.0权限适配之WRITE_EXTERNAL_STORAGE（SD卡写入）](http://unclechen.github.io/2016/03/06/Android6.0%E6%9D%83%E9%99%90%E9%80%82%E9%85%8D%E4%B9%8BSD%E5%8D%A1%E5%86%99%E5%85%A5/)
+
