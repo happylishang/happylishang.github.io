@@ -142,4 +142,4 @@ SurfaceFlinger创建Client
 	
 # 	参考文档
 [ GUI系统之SurfaceFlinger(11)SurfaceComposerClient](http://blog.csdn.net/xuesen_lin/article/details/8954957)       
-[Android Project Butter分析](http://blog.csdn.net/innost/article/details/8272867)
+
