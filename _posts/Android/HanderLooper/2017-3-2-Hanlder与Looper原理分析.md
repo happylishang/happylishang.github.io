@@ -149,18 +149,15 @@ mAsynchronous可以先不关心，我们使用的一般是mAsynchronous=false的
                     }
                     if (needWake && p.isAsynchronous()) {
                         needWake = false;
-                    }
-                }
+                    }}
                 msg.next = p; // invariant: p == prev.next
                 prev.next = msg;
             }
             <!--关键点3-->
             if (needWake) {
                 nativeWake(mPtr);
-            }
-        }
-        return true;
-    }
+            } }
+        return true; }
     
  很明显enqueueMessage需要同步,因为存在多个线程往一个Loop线程的MessageQueue中插入消息的场景。 这里其实是将Message根据延时插入到特定的地方，先看下关键点1，mMessages其实代表消息队列的头部，如果mMessages为空，说明还没有消息，如果当前插入的消息不需要延时，或者说延时比mMessages头消息的延时要小，那么当前要插入的消息就需要放在头部，至于是否需要唤醒队列，则需要根据当前的Loop线程的状态来判断，后面讲Loop线程的时候再回过头说；再来看下关键点2，这个时候需要将消息插入到队列中间，其实就是找到第一个Delay事件小于当前Message的非空Message，并插入到它的前面，往队列中插入消息时，如果Loop线程在睡眠，是不应该唤醒的，异步消息的处理会更加特殊一些，先不讨论。最后看关键点3，如果需要唤醒Loop线程，通过nativeWake唤醒，以上，普通消息的插入算结束了，接下来看一下消息的执行。
  
@@ -199,21 +196,21 @@ mAsynchronous可以先不关心，我们使用的一般是mAsynchronous=false的
 	        int pendingIdleHandlerCount = -1; // -1 only during first iteration
 	        int nextPollTimeoutMillis = 0;
 	        for (;;) {
-               <!--关键点1-->
+               <!--关键点1 是否需要阻塞等待，第一次一定不阻塞-->
 	            nativePollOnce(ptr, nextPollTimeoutMillis);
-	           <!--关键点2-->
+	           <!--关键点2 同步互斥-->
 	            synchronized (this) {
 	                final long now = SystemClock.uptimeMillis();
 	                Message prevMsg = null;
 	                Message msg = mMessages;
-	          <!--关键点3-->
+	          <!--关键点3 是否存在barier-->
 	                if (msg != null && msg.target == null) {
 	                    do {
 	                        prevMsg = msg;
 	                        msg = msg.next;
 	                    } while (msg != null && !msg.isAsynchronous());
 	                }
-	           <!--关键点4-->
+	           <!--关键点4 第一个消息是否需要阻塞等待，并计算出阻塞等待时间-->
 	                if (msg != null) {
 	                    if (now < msg.when) {
 	                        // Next message is not ready.  Set a timeout to wake up when it is ready.
@@ -231,14 +228,10 @@ mAsynchronous可以先不关心，我们使用的一般是mAsynchronous=false的
 	                        return msg;
 	                    }
 	                } else {
-	           <!--关键点5-->
+	           <!--关键点5 需要无限等待-->
 	                    nextPollTimeoutMillis = -1;
-	                }
-	                
-	                // If first time idle, then get the number of idlers to run.
-	                // Idle handles only run if the queue is empty or if the first message
-	                // in the queue (possibly a barrier) is due to be handled in the future.
-	          <!--关键点6-->
+	                }         
+	          <!--关键点6 没有可以即刻执行的Message，查看是否存在需要处理的IdleHandler，如果不存在，则返回，阻塞等待，如果存在则执行IdleHandler-->
 	                if (pendingIdleHandlerCount < 0
 	                        && (mMessages == null || now < mMessages.when)) {
 	                    pendingIdleHandlerCount = mIdleHandlers.size();
@@ -248,15 +241,12 @@ mAsynchronous可以先不关心，我们使用的一般是mAsynchronous=false的
 	                    mBlocked = true;
 	                    continue;
 	                }
-	
 	                if (mPendingIdleHandlers == null) {
 	                    mPendingIdleHandlers = new IdleHandler[Math.max(pendingIdleHandlerCount, 4)];
 	                }
 	                mPendingIdleHandlers = mIdleHandlers.toArray(mPendingIdleHandlers);
 	            }
-	
-	            // Run the idle handlers.
-	            // We only ever reach this code block during the first iteration.
+	            <!--关键点7处理IdleHandler-->
 	            for (int i = 0; i < pendingIdleHandlerCount; i++) {
 	                final IdleHandler idler = mPendingIdleHandlers[i];
 	                mPendingIdleHandlers[i] = null; // release the reference to the handler
@@ -266,15 +256,13 @@ mAsynchronous可以先不关心，我们使用的一般是mAsynchronous=false的
 	                } catch (Throwable t) {
 	                    Log.wtf(TAG, "IdleHandler threw exception", t);
 	                }
-	
 	                if (!keep) {
 	                    synchronized (this) {
 	                        mIdleHandlers.remove(idler);
 	                    }
 	                }
 	            }
-
-	            // Reset the idle handler count to 0 so we do not run them again.
+	           <!--处理完IdleHandler ，需要重新判断Message队列 nextPollTimeoutMillis赋值为0-->
 	            pendingIdleHandlerCount = 0;
 	            nextPollTimeoutMillis = 0;
 	        }
@@ -286,7 +274,9 @@ mAsynchronous可以先不关心，我们使用的一般是mAsynchronous=false的
 * timeoutMillis >0 ：睡眠如果超过timeoutMillis，就返回
 * timeoutMillis =-1：一直睡眠，知道其他线程唤醒它
 
-next函数中，nextPollTimeoutMillis初始值=0 ，所以for循环第一次是一定不会阻塞的，如果能找到一个Delay倒计时结束的消息，就返回该消息，否则，执行第二次循环，睡眠等待，直到头部第一个消息Delay时间结束，所以next函数一定会返回一个Message对象。再看MessageQueue的nativePollOnce函数之前，首先看一下MessageQueue构造函数，因为牵扯到后面的线程阻塞原理：
+next函数中，nextPollTimeoutMillis初始值=0 ，所以for循环第一次是一定不会阻塞的，如果能找到一个Delay倒计时结束的消息，就返回该消息，否则，执行第二次循环，睡眠等待，直到头部第一个消息Delay时间结束，所以next函数一定会返回一个Message对象。再看MessageQueue的nativePollOnce函数之前，先走通整个流程，接着看关键点2，这里其实是牵扯到一个互斥的问题，防止多个线程同时从消息队列取消息，关键点3主要是看看是否需要处理异步消息，关键点4，是常用的入口，看取到的消息是不是需要立即执行，需要立即执行的就返回当前消息，如果需要等待，计算出等待时间。最后，如果需要等待，还要查看，IdleHandler列表是否为空，不为空的话，需要处理IdleHandler列表，最后，重新计算一遍。
+
+接着分析nativePollOnce函数，该函数可以看做睡眠阻塞的入口，该函数是一个native函数，牵扯到native层的Looper与MessageQueue，因为java层的MessageQueue只是一个简单的类，没有处理睡眠与唤醒的机制，首先看一下Java层MessageQueue构造函数，这里牵扯到后面的线程阻塞原理：
 
     MessageQueue(boolean quitAllowed) {
         mQuitAllowed = quitAllowed;
@@ -328,19 +318,17 @@ MessageQueue的nativeInit函数在Native层创建了NativeMessageQueue与Looper�
 	}
 	
 	void Looper::rebuildEpollLocked() {
-    // Close old epoll instance if we have one.
     if (mEpollFd >= 0) {
         close(mEpollFd);
     }
     mEpollFd = epoll_create(EPOLL_SIZE_HINT);
-    LOG_ALWAYS_FATAL_IF(mEpollFd < 0, "Could not create epoll instance: %s", strerror(errno));
+
     struct epoll_event eventItem;
     memset(& eventItem, 0, sizeof(epoll_event)); // zero out unused members of data field union
     eventItem.events = EPOLLIN;
     eventItem.data.fd = mWakeEventFd;
     int result = epoll_ctl(mEpollFd, EPOLL_CTL_ADD, mWakeEventFd, & eventItem);
-    LOG_ALWAYS_FATAL_IF(result != 0, "Could not add wake event fd to epoll instance: %s",
-                        strerror(errno));
+
     for (size_t i = 0; i < mRequests.size(); i++) {
         const Request& request = mRequests.valueAt(i);
         struct epoll_event eventItem;
@@ -354,34 +342,7 @@ MessageQueue的nativeInit函数在Native层创建了NativeMessageQueue与Looper�
 }
 
 
-看一下关键点1，这里其实是采用了Linux的新API，这里用的是7.0的源码，eventfd函数会创建一个eventfd，这是一个计数器相关的fd，计数器不为零是有可读事件发生，read以后计数器清零，write递增计数器；返回的fd可以进行如下操作：read、write、select(poll、epoll)、close，再更早的Android版本中，其实是采用了管道的通信方式用来睡眠与唤醒,看一下4.3的代码
-
-	Looper::Looper(bool allowNonCallbacks) :
-	        mAllowNonCallbacks(allowNonCallbacks), mSendingMessage(false),
-	        mResponseIndex(0), mNextMessageUptime(LLONG_MAX) {
-	    int wakeFds[2];
-	    int result = pipe(wakeFds);
-	
-	    mWakeReadPipeFd = wakeFds[0];
-	    mWakeWritePipeFd = wakeFds[1];
-	
-	    result = fcntl(mWakeReadPipeFd, F_SETFL, O_NONBLOCK);
-	
-	    result = fcntl(mWakeWritePipeFd, F_SETFL, O_NONBLOCK);
-	    // Allocate the epoll instance and register the wake pipe.
-	    mEpollFd = epoll_create(EPOLL_SIZE_HINT);
-	    LOG_ALWAYS_FATAL_IF(mEpollFd < 0, "Could not create epoll instance.  errno=%d", errno);
-	
-	    struct epoll_event eventItem;
-	    memset(& eventItem, 0, sizeof(epoll_event)); // zero out unused members of data field union
-	    eventItem.events = EPOLLIN;
-	    eventItem.data.fd = mWakeReadPipeFd;
-	    result = epoll_ctl(mEpollFd, EPOLL_CTL_ADD, mWakeReadPipeFd, & eventItem);
-	 
-	}
-
-
-现在我们知道了，Native层有也有一套MessageQueue与Looper，简单看一下Java层如何使用Native层对象的，接着走nativePollOnce
+看一下关键点1，这里其实是采用了Linux的新API，这里用的是7.0的源码，eventfd函数会创建一个eventfd，这是一个计数器相关的fd，计数器不为零是有可读事件发生，read以后计数器清零，write递增计数器；返回的fd可以进行如下操作：read、write、select(poll、epoll)、close，现在我们知道了，Native层有也有一套MessageQueue与Looper，简单看一下Java层如何使用Native层对象的，接着走nativePollOnce
 
 	static void android_os_MessageQueue_nativePollOnce(JNIEnv* env, jobject obj,
 	        jlong ptr, jint timeoutMillis) {
@@ -407,13 +368,10 @@ MessageQueue的nativeInit函数在Native层创建了NativeMessageQueue与Looper�
 	    }
 	}
 	
-pollInner	函数比较长，不想过多分析，其实pollInner本身也可以看做是一个Loop函数，只不过
- 
+pollInner	函数比较长，不想过多分析，其实pollInner本身也可以看做是一个Loop函数，只不过处理完本地Message消息之后，还要返回Java层处理Java消息：
 
 	 int Looper::pollInner(int timeoutMillis) {
 	 
-	     
-	   // We are about to idle.   volatile bool mPolling;
        mPolling = true;
 		<!--关键点1-->
 	    struct epoll_event eventItems[EPOLL_MAX_EVENTS];
@@ -421,16 +379,13 @@ pollInner	函数比较长，不想过多分析，其实pollInner本身也可以�
 		
 		 <!--关键点2-->
 	    mPolling = false;
-	    // Acquire lock.
 	    mLock.lock();
- 	 
  	 	 <!--关键点3-->
  	 	 
 	    if (eventCount == 0) {
 	        result = POLL_TIMEOUT;
 	        goto Done;
 	    }
-	 
 	 	 <!--关键点4 查看那个fd上又写入操作，-->
 	    for (int i = 0; i < eventCount; i++) {
 	        int fd = eventItems[i].data.fd;
@@ -439,9 +394,8 @@ pollInner	函数比较长，不想过多分析，其实pollInner本身也可以�
 	        if (fd == mWakeEventFd) {
 	            if (epollEvents & EPOLLIN) {
 	                awoken();
-	            } else {
-	            }
-	        } else {
+	            } else { } } 
+	            else {
 	             <!--关键点6 其他fd上有写入操作-->
 	            ssize_t requestIndex = mRequests.indexOfKey(fd);
 	            if (requestIndex >= 0) {
@@ -451,65 +405,41 @@ pollInner	函数比较长，不想过多分析，其实pollInner本身也可以�
 	                if (epollEvents & EPOLLERR) events |= EVENT_ERROR;
 	                if (epollEvents & EPOLLHUP) events |= EVENT_HANGUP;
 	                pushResponse(events, mRequests.valueAt(requestIndex));
-	            } else {
-	                ALOGW("Ignoring unexpected epoll events 0x%x on fd %d that is "
-	                        "no longer registered.", epollEvents, fd);
-	            }
-	        }
-	    }
+	            } else { } }  }
 	Done: ;
-		        <!--关键点7处理操作回调 -->
-	    // Invoke pending message callbacks.
+		 <!--关键点7处理操作回调 -->
 	    mNextMessageUptime = LLONG_MAX;
 	    while (mMessageEnvelopes.size() != 0) {
 	        nsecs_t now = systemTime(SYSTEM_TIME_MONOTONIC);
 	        const MessageEnvelope& messageEnvelope = mMessageEnvelopes.itemAt(0);
 	        if (messageEnvelope.uptime <= now) {
-	            // Remove the envelope from the list.
-	            // We keep a strong reference to the handler until the call to handleMessage
-	            // finishes.  Then we drop it so that the handler can be deleted *before*
-	            // we reacquire our lock.
 	            { // obtain handler
 	                sp<MessageHandler> handler = messageEnvelope.handler;
 	                Message message = messageEnvelope.message;
 	                mMessageEnvelopes.removeAt(0);
 	                mSendingMessage = true;
 	                mLock.unlock();
-	
-	 
-	                handler->handleMessage(message);
+		                handler->handleMessage(message);
 	            } // release handler
-	
 	            mLock.lock();
 	            mSendingMessage = false;
 	            result = POLL_CALLBACK;
 	        } else {
-	            // The last message left at the head of the queue determines the next wakeup time.
 	            mNextMessageUptime = messageEnvelope.uptime;
 	            break;
 	        }
 	    }
-	
-	    // Release lock.
 	    mLock.unlock();
-	
-	    // Invoke all response callbacks.
 	    for (size_t i = 0; i < mResponses.size(); i++) {
 	        Response& response = mResponses.editItemAt(i);
 	        if (response.request.ident == POLL_CALLBACK) {
 	            int fd = response.request.fd;
 	            int events = response.events;
 	            void* data = response.request.data;
-	            // Invoke the callback.  Note that the file descriptor may be closed by
-	            // the callback (and potentially even reused) before the function returns so
-	            // we need to be a little careful when removing the file descriptor afterwards.
 	            int callbackResult = response.request.callback->handleEvent(fd, events, data);
 	            if (callbackResult == 0) {
 	                removeFd(fd, response.request.seq);
 	            }
-	
-	            // Clear the callback reference in the response structure promptly because we
-	            // will not clear the response vector itself until the next poll.
 	            response.request.callback.clear();
 	            result = POLL_CALLBACK;
 	        }
@@ -517,19 +447,43 @@ pollInner	函数比较长，不想过多分析，其实pollInner本身也可以�
 	    return result;
 	}
 
-以上牵扯到Linux中的[epoll机制：epoll_create、epoll_ctl、epoll_wait、close等](http://blog.csdn.net/yusiguyuan/article/details/15027821)， **一句话概括就是：线程阻塞监听多个fd句柄，其中一个fd有写入操作，当前线程就被唤醒**。这里不用太过于纠结，只要理解，这是线程间通信的一种方式，主要为了处理多线程间生产者与消费者通信模型用的，
+以上牵扯到Linux中的[epoll机制：epoll_create、epoll_ctl、epoll_wait、close等](http://blog.csdn.net/yusiguyuan/article/details/15027821)， **用一句话概括：线程阻塞监听多个fd句柄，其中一个fd有写入操作，当前线程就被唤醒**。这里不用太过于纠结，只要理解，这是线程间通信的一种方式，为了处理多线程间生产者与消费者通信模型用的，看下7.0源码中native层实现的同步逻辑：
+
+![Looper Java层与native层关系7.0.jpg](http://upload-images.jianshu.io/upload_images/1460468-984fc74f9ca9d351.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
  
- 
-![Looper Java层与native层关系.jpg](http://upload-images.jianshu.io/upload_images/1460468-d0dffe1f772d3513.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
- 
-# epoll_wait(int epfd, epoll_event events, int max events, int timeout) 
+在更早的Android版本中，同步逻辑是利用管道通信实现的,不过思想是一致的，看一下4.3的代码
 
-timeout==0直接返回，上层已经兼容性的考虑了延时的问题，已经考虑了有延时，并且确定了下一个消息的最大延时
+	Looper::Looper(bool allowNonCallbacks) :
+	        mAllowNonCallbacks(allowNonCallbacks), mSendingMessage(false),
+	        mResponseIndex(0), mNextMessageUptime(LLONG_MAX) {
+	    int wakeFds[2];
+	    int result = pipe(wakeFds);
+	    mWakeReadPipeFd = wakeFds[0];
+	    mWakeWritePipeFd = wakeFds[1];
+	    result = fcntl(mWakeReadPipeFd, F_SETFL, O_NONBLOCK);
+	    result = fcntl(mWakeWritePipeFd, F_SETFL, O_NONBLOCK);
+	    // Allocate the epoll instance and register the wake pipe.
+	    mEpollFd = epoll_create(EPOLL_SIZE_HINT);
+	    LOG_ALWAYS_FATAL_IF(mEpollFd < 0, "Could not create epoll instance.  errno=%d", errno);
+	
+	    struct epoll_event eventItem;
+	    memset(& eventItem, 0, sizeof(epoll_event)); // zero out unused members of data field union
+	    eventItem.events = EPOLLIN;
+	    eventItem.data.fd = mWakeReadPipeFd;
+	    result = epoll_ctl(mEpollFd, EPOLL_CTL_ADD, mWakeReadPipeFd, & eventItem);
+	}
 
-关键是什么？睡眠在一个队列上？不是真正的睡眠，是在一个Fd上，并且有睡眠延时，唤醒，可以从其他线程唤醒，Syn关键字，保证了互斥访问，
+![Looper Java层与native层关系4.3.jpg](http://upload-images.jianshu.io/upload_images/1460468-d0dffe1f772d3513.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 
-# 只有在ViewRootImpl的实现中看到有用，为了绘制的优先级与同步
+* loop线程睡眠的原理 ：在MessageQueue中找到下一个需要执行的消息，没有消息的话，需要无限睡眠等待其他线程插入消息唤醒，如果有消息，计算出执行下一个消息需要等待的时间，阻塞等待，直到超时。
+* Java层与Native层两份消息队列：Java层的主要是为了业务逻辑，native层，主要为了睡眠与唤醒
+* 睡眠与唤醒的实现手段：早期版本通过管道，后来如6.0 7.0的版本，是通过eventfd来实现，思想一致
+
+
+# 主线程才能更新UI的正解与误解
+
+答案是否定的，ViewRootImpl只有在ViewRootImpl的实现中看到有用，为了绘制的优先级与同步
 
     void scheduleTraversals() {
         if (!mTraversalScheduled) {
@@ -544,24 +498,6 @@ timeout==0直接返回，上层已经兼容性的考虑了延时的问题，已�
             pokeDrawLockIfNeeded();
         }
     }
-
-
-
-# 缓存机制Message
-
-# 同步
-
-# idle，最后执行
-
-# MessageQueue.java与NativeMessageQueue.cpp两个队列的问题
-
-为什么保留两个队列
-
-在nativeInit中，new了一个Native层的MessageQueue的对象，并将其地址保存在了Java层MessageQueue的成员mPtr中，Android中有好多这样的实现，一个类在Java层与Native层都有实现，通过JNI的GetFieldID与SetIntField把Native层的类的实例地址保存到Java层类的实例的mPtr成员中，比如Parcel。
-
-
-
-# 即可执行与延时消息的处理
 
 # 参考文档
  
