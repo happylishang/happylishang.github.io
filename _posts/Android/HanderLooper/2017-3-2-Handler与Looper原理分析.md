@@ -1,12 +1,13 @@
 ---
 layout: post
-title: "Hanlder与Looper原理分析"
+title: "Android Handler与Looper原理分析"
 description: "android"
 category: android
 tags: [android]
 image: http://upload-images.jianshu.io/upload_images/1460468-b5787362a3a23a67.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 
 ---
+
 
 本文分析下Android的消息处理机制，主要是针对Hanlder、Looper、MessageQueue组成的异步消息处理模型，先主观想一下这个模型需要的材料：
 
@@ -368,84 +369,28 @@ MessageQueue的nativeInit函数在Native层创建了NativeMessageQueue与Looper�
 	    }
 	}
 	
-pollInner	函数比较长，不想过多分析，其实pollInner本身也可以看做是一个Loop函数，只不过处理完本地Message消息之后，还要返回Java层处理Java消息：
+pollInner	函数比较长，主要是通过利用epoll_wait监听上面的管道或者eventfd，等待超时或者其他线程的唤醒，不过多分析
 
-	 int Looper::pollInner(int timeoutMillis) {
-	 
-       mPolling = true;
-		<!--关键点1-->
-	    struct epoll_event eventItems[EPOLL_MAX_EVENTS];
-	    int eventCount = epoll_wait(mEpollFd, eventItems, EPOLL_MAX_EVENTS, timeoutMillis);
-		
-		 <!--关键点2-->
-	    mPolling = false;
-	    mLock.lock();
- 	 	 <!--关键点3-->
- 	 	 
-	    if (eventCount == 0) {
-	        result = POLL_TIMEOUT;
-	        goto Done;
-	    }
-	 	 <!--关键点4 查看那个fd上又写入操作，-->
-	    for (int i = 0; i < eventCount; i++) {
-	        int fd = eventItems[i].data.fd;
-	        uint32_t epollEvents = eventItems[i].events;
-	        <!--关键点5 唤醒fd上有写入操作-->
-	        if (fd == mWakeEventFd) {
-	            if (epollEvents & EPOLLIN) {
-	                awoken();
-	            } else { } } 
-	            else {
-	             <!--关键点6 其他fd上有写入操作-->
-	            ssize_t requestIndex = mRequests.indexOfKey(fd);
-	            if (requestIndex >= 0) {
-	                int events = 0;
-	                if (epollEvents & EPOLLIN) events |= EVENT_INPUT;
-	                if (epollEvents & EPOLLOUT) events |= EVENT_OUTPUT;
-	                if (epollEvents & EPOLLERR) events |= EVENT_ERROR;
-	                if (epollEvents & EPOLLHUP) events |= EVENT_HANGUP;
-	                pushResponse(events, mRequests.valueAt(requestIndex));
-	            } else { } }  }
-	Done: ;
-		 <!--关键点7处理操作回调 -->
-	    mNextMessageUptime = LLONG_MAX;
-	    while (mMessageEnvelopes.size() != 0) {
-	        nsecs_t now = systemTime(SYSTEM_TIME_MONOTONIC);
-	        const MessageEnvelope& messageEnvelope = mMessageEnvelopes.itemAt(0);
-	        if (messageEnvelope.uptime <= now) {
-	            { // obtain handler
-	                sp<MessageHandler> handler = messageEnvelope.handler;
-	                Message message = messageEnvelope.message;
-	                mMessageEnvelopes.removeAt(0);
-	                mSendingMessage = true;
-	                mLock.unlock();
-		                handler->handleMessage(message);
-	            } // release handler
-	            mLock.lock();
-	            mSendingMessage = false;
-	            result = POLL_CALLBACK;
-	        } else {
-	            mNextMessageUptime = messageEnvelope.uptime;
-	            break;
-	        }
-	    }
-	    mLock.unlock();
-	    for (size_t i = 0; i < mResponses.size(); i++) {
-	        Response& response = mResponses.editItemAt(i);
-	        if (response.request.ident == POLL_CALLBACK) {
-	            int fd = response.request.fd;
-	            int events = response.events;
-	            void* data = response.request.data;
-	            int callbackResult = response.request.callback->handleEvent(fd, events, data);
-	            if (callbackResult == 0) {
-	                removeFd(fd, response.request.seq);
-	            }
-	            response.request.callback.clear();
-	            result = POLL_CALLBACK;
-	        }
-	    }
-	    return result;
-	}
+		 int Looper::pollInner(int timeoutMillis) {
+		 
+	       mPolling = true;
+			<!--关键点1-->
+		    struct epoll_event eventItems[EPOLL_MAX_EVENTS];
+		    int eventCount = epoll_wait(mEpollFd, eventItems, EPOLL_MAX_EVENTS, timeoutMillis);
+			 <!--关键点2-->
+		    mPolling = false;
+		    mLock.lock();
+	 	 	 <!--关键点3 查看那个fd上又写入操作-->	 	 	  for (int i = 0; i < eventCount; i++) {
+		        int fd = eventItems[i].data.fd;
+		        uint32_t epollEvents = eventItems[i].events;
+		        <!--关键点5 唤醒fd 上有写入操作 返回Java层继续执行-->
+		        if (fd == mWakeEventFd) {
+		            if (epollEvents & EPOLLIN) {
+		                awoken();
+		            } else { } } 
+		            else {
+		          <!--关键点6 本地MessageQueue有消息，执行本地消息-->    
+		            } }
 
 以上牵扯到Linux中的[epoll机制：epoll_create、epoll_ctl、epoll_wait、close等](http://blog.csdn.net/yusiguyuan/article/details/15027821)， **用一句话概括：线程阻塞监听多个fd句柄，其中一个fd有写入操作，当前线程就被唤醒**。这里不用太过于纠结，只要理解，这是线程间通信的一种方式，为了处理多线程间生产者与消费者通信模型用的，看下7.0源码中native层实现的同步逻辑：
 
@@ -476,31 +421,21 @@ pollInner	函数比较长，不想过多分析，其实pollInner本身也可以�
 ![Looper Java层与native层关系4.3.jpg](http://upload-images.jianshu.io/upload_images/1460468-d0dffe1f772d3513.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 
+# 小结
+
 * loop线程睡眠的原理 ：在MessageQueue中找到下一个需要执行的消息，没有消息的话，需要无限睡眠等待其他线程插入消息唤醒，如果有消息，计算出执行下一个消息需要等待的时间，阻塞等待，直到超时。
 * Java层与Native层两份消息队列：Java层的主要是为了业务逻辑，native层，主要为了睡眠与唤醒
-* 睡眠与唤醒的实现手段：早期版本通过管道，后来如6.0 7.0的版本，是通过eventfd来实现，思想一致
+* 睡眠与唤醒的实现手段：早期版本通过管道，后来如6.0、7.0的版本，是通过eventfd来实现，思想一致。
 
+作者：看书的小蜗牛
+原文链接:
 
-# 主线程才能更新UI的正解与误解
-
-答案是否定的，ViewRootImpl只有在ViewRootImpl的实现中看到有用，为了绘制的优先级与同步
-
-    void scheduleTraversals() {
-        if (!mTraversalScheduled) {
-            mTraversalScheduled = true;
-            mTraversalBarrier = mHandler.getLooper().getQueue().postSyncBarrier();
-            mChoreographer.postCallback(
-                    Choreographer.CALLBACK_TRAVERSAL, mTraversalRunnable, null);
-            if (!mUnbufferedInputDispatch) {
-                scheduleConsumeBatchedInput();
-            }
-            notifyRendererOfFramePending();
-            pokeDrawLockIfNeeded();
-        }
-    }
+**仅供参考，欢迎指正 **
 
 # 参考文档
  
 [Android消息机制1-Handler(Java层)](http://gityuan.com/2015/12/26/handler-message-framework/)          
 [Android消息处理机制(Handler、Looper、MessageQueue与Message)](http://www.cnblogs.com/angeldevil/p/3340644.html)           
 [参考](http://blog.csdn.net/tear2210/article/details/49741647)      
+[Android 中子线程真的不能更新 UI 吗？ Viewroot创建的时机 addwindow，resume](https://juejin.im/entry/58133f59c4c97100553f1056)          
+[Android只在UI主线程修改UI，是个谎言吗？ 为什么这段代码能完美运行？](https://www.zhihu.com/question/24764972)       
