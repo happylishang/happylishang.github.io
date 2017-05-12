@@ -7,6 +7,78 @@ image:
 ---
 
 
+handlerresume
+
+	 final void handleResumeActivity(IBinder token,
+	            boolean clearHide, boolean isForward, boolean reallyResume, int seq, String reason) {
+	        ActivityClientRecord r = mActivities.get(token);
+	        if (!checkAndUpdateLifecycleSeq(seq, r, "resumeActivity")) {
+	            return;
+	        }
+	        unscheduleGcIdler();
+	        mSomeActivitiesChanged = true;
+
+	        r = performResumeActivity(token, clearHide, reason);
+	
+	        if (r != null) {
+	            final Activity a = r.activity;
+	            final int forwardBit = isForward ?
+	                    WindowManager.LayoutParams.SOFT_INPUT_IS_FORWARD_NAVIGATION : 0;
+	            boolean willBeVisible = !a.mStartedActivity;
+	            if (!willBeVisible) {
+	                try {
+	                    willBeVisible = ActivityManagerNative.getDefault().willActivityBeVisible(
+	                            a.getActivityToken());
+	                } catch (RemoteException e) {
+	                    throw e.rethrowFromSystemServer();
+	                }
+	            }
+	            if (r.window == null && !a.mFinished && willBeVisible) {
+	                r.window = r.activity.getWindow();
+	                View decor = r.window.getDecorView();
+	                decor.setVisibility(View.INVISIBLE);
+	                ViewManager wm = a.getWindowManager();
+	                WindowManager.LayoutParams l = r.window.getAttributes();
+	                a.mDecor = decor;
+	                l.type = WindowManager.LayoutParams.TYPE_BASE_APPLICATION;
+	                l.softInputMode |= forwardBit;
+	                if (r.mPreserveWindow) {
+	                    a.mWindowAdded = true;
+	                    r.mPreserveWindow = false;
+	                    ViewRootImpl impl = decor.getViewRootImpl();
+	                    if (impl != null) {
+	                        impl.notifyChildRebuilt();
+	                    }
+	                }
+	
+	                // 为什么不会添加window
+	                if (a.mVisibleFromClient && !a.mWindowAdded) {
+	                    a.mWindowAdded = true;
+	                    wm.addView(decor, l);
+	                }
+                
+WindowManager在onResume的时候向Window添加View，那为什么不会添加两次，因为a.mWindowAdded 添加后会被设置true。测量与布局。
+
+                if (r.activity.mVisibleFromClient) {
+                    r.activity.makeVisible();
+                }
+                
+    void makeVisible() {
+        if (!mWindowAdded) {
+            ViewManager wm = getWindowManager();
+            wm.addView(mDecor, getWindow().getAttributes());
+            mWindowAdded = true;
+        }
+        mDecor.setVisibility(View.VISIBLE);
+    }             
+    
+mDecor.setVisibility会回调onVisibilityChanged，每次前台切换后台，后台切换前台都能有响应的处理， 不过View的绘制时机到底是哪个？
+
+是addWindow吗？很明显是不是，另外View的Bitmap的存储，这部分数据的绘制是什么时候，Window可见的时候，会绘制机选Window窗口，再进行混排，最后
+
+setContentView只是用来生成DecorView那一套，但是并未将窗口添加到View
+
+
 SurfaceFlinger不是系统服务，是系统守护进程，当然也算是系统服务，但是很重要，
 SkCanvas其实就是Cavas.java 在native的对象
 
