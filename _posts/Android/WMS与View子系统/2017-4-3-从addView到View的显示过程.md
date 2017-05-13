@@ -6,6 +6,12 @@ image:
 
 ---
 
+# Activity是显示View的唯一方式吗？
+
+答案肯定是否定的，Activity只是View显示的一种方式，但是不是唯一的。不用Activity照样显示，只不过Activity封装了一些生命周期之类的处理，让View的显示分成多个阶段，在不同的阶段，给开发者更多的操作空间，另外，省却了开发者主动添加View，并且方便了Window窗口管理，这里。
+
+
+
 
 handlerresume
 
@@ -74,7 +80,17 @@ WindowManager在onResume的时候向Window添加View，那为什么不会添加�
     
 mDecor.setVisibility会回调onVisibilityChanged，每次前台切换后台，后台切换前台都能有响应的处理， 不过View的绘制时机到底是哪个？
 
-是addWindow吗？很明显是不是，另外View的Bitmap的存储，这部分数据的绘制是什么时候，Window可见的时候，会绘制机选Window窗口，再进行混排，最后
+是addWindow吗？很明显是不是，另外View的Bitmap的存储，这部分数据的绘制是什么时候，Window可见的时候，会绘制机选Window窗口，再进行混排，最后显示出来
+
+![onVisibilityChanged.png](http://upload-images.jianshu.io/upload_images/1460468-0ddc969626724148.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+# 主线程绘制View的说法
+
+setContentView会新建View类，但是并不会涉及测量绘制，只有显示后才会，
+
+# View显示时机，makeVisible 耗费主线程吗？
+
+
 
 setContentView只是用来生成DecorView那一套，但是并未将窗口添加到View
 
