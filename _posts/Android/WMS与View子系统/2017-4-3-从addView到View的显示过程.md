@@ -6,11 +6,32 @@ image:
 
 ---
 
+
+在View显示中，我所遇到的主观问题：
+
+*  主线程绘制View的说法
+*  View显示时机，makeVisible 耗费主线程吗？
+*  如何调用2D图形图Skia，不要太深入bitmap图形合成原理，只关心内存的分配与处理
+*  共享内存的传递，与处理
+*  Activity是显示View的唯一方式吗？
+*  什么时候，从当前线程托付给其他线程与服务，比如当前线程View的bitmap绘制完毕，什么时候使用共享内存通吃其他surfaceFliner混排Window
+*  Activity中View绘制所占用的内存什么时候释放，是不是Activity界面大块的越多，占用View的内存越多，只要Activity不销毁，View就会被强引用获取   
+*  GraphicBuffer支持跨进程，共享内存是内核空间分配内存吗？
+
+1、如何申请可以用来送显的内存，如何将其送往LCD？ 2、如何提供窗口系统？ 3、如何同步合成/显示多个图层？ 4、如何支持多屏？
+
+* SurfaceFlinger是Android里面用于提供图层合成的服务，负责给应用层提供窗口，并按指定位置合成所有图层到屏幕。
+* 
+
+
+# 共享内存属于文件范畴
+
+ 进程间需要共享的数据被放在一个叫做IPC共享内存区域的地方，所有需要访问该共享区域的进程都要把该共享区域映射到本进程的地址空间中去。系统V共享内存通过shmget获得或创建一个IPC共享内存区域，并返回相应的标识符。内核在保证shmget获得或创建一个共享内存区，初始化该共享内存区相应的shmid_kernel结构注同时，还将**在特殊文件系统shm中，创建并打开一个同名文件**，并在内存中建立起该文件的相应dentry及inode结构，**新打开的文件不属于任何一个进程（任何进程都可以访问该共享内存区）**。所有这一切都是系统调用shmget完成的。 
+[Linux环境进程间通信（五）: 共享内存（下）](https://www.ibm.com/developerworks/cn/linux/l-ipc/part5/index2.html)      
+
 # Activity是显示View的唯一方式吗？
 
 答案肯定是否定的，Activity只是View显示的一种方式，但是不是唯一的。不用Activity照样显示，只不过Activity封装了一些生命周期之类的处理，让View的显示分成多个阶段，在不同的阶段，给开发者更多的操作空间，另外，省却了开发者主动添加View，并且方便了Window窗口管理，这里。
-
-
 
 
 handlerresume
@@ -219,15 +240,54 @@ SurfaceFlinger创建Client
 	    return sur;
 	}
 
+ ![Surface的一些类图](http://upload-images.jianshu.io/upload_images/1460468-6b433f387a6bae81.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
 
 # 如何调用2D图形图Skia，不要太深入bitmap图形合成原理，只关心内存的分配与处理
 
 # 共享内存的传递，与处理
 
+ashmem 并像 binder 是 android 重新自己搞的一套东西，而是利用了 linux 的 tmpfs 文件系统。关于 tmpfs 我目前还不算很了解，可以先看下这里的2篇，有个基本的了解：
+
+Linux tmpfs 
+linux共享内存的设计
+
+那么大致能够知道，tmpfs 是一种可以基于 ram 或是 swap 的高速文件系统，然后可以拿它来实现不同进程间的内存共享。
+
+然后大致思路和流程是：
+
+Proc A 通过 tmpfs 创建一块共享区域，得到这块区域的 fd（文件描述符）
+Proc A 在 fd 上 mmap 一片内存区域到本进程用于共享数据
+Proc A 通过某种方法把 fd 倒腾给 Proc B
+Proc B 在接到的 fd 上同样 mmap 相同的区域到本进程
+然后 A、B 在 mmap 到本进程中的内存中读、写，对方都能看到了
+其实核心点就是创建一块共享区域，然后2个进程同时把这片区域 mmap 到本进程，然后读写就像本进程的内存一样。这里要解释下第3步，为什么要倒腾 fd，因为在 linux 中 fd 只是对本进程是唯一的，在 Proc A 中打开一个文件得到一个 fd，但是把这个打开的 fd 直接放到 Proc B 中，Proc B 是无法直接使用的。但是文件是唯一的，就是说一个文件（file）可以被打开多次，每打开一次就有一个 fd（文件描述符），所以对于同一个文件来说，需要某种转化，把 Proc A 中的 fd 转化成 Proc B 中的 fd。这样 Proc B 才能通过 fd mmap 同样的共享内存文件
 
 
+		case BINDER_TYPE_FD: {
+			int target_fd;
+			struct file *file;
+			<!--关键点1 可以根据fd在当前进程获取到file-->
+			file = fget(fp->handle);
+			<!--关键点2在目标进程中获取空闲fd-->
+			target_fd = task_get_unused_fd_flags(target_proc, O_CLOEXEC);
+			<!--关键点3将目标进程的空闲fd与file绑定-->
+			task_fd_install(target_proc, target_fd, file);
+			fp->handle = target_fd;
+		} break;
+		
+通过以上三步，就完成了fd到目标进程的映射
 
+
+# tmpfs是一种文件系统，这种文件系统的特殊性在于，其有时候使用ram，有时候使用vm(虚拟内存，磁盘上的交换分区)
+
+
+**tmpfs是一种文件系统，不占用进程本身的用户空间与内存空间，那个空间需要使用改文件系统，只需要将文件映射到自己的空间即可操作，使用完，释放即可**
 	
 # 	参考文档
-[ GUI系统之SurfaceFlinger(11)SurfaceComposerClient](http://blog.csdn.net/xuesen_lin/article/details/8954957)       
-
+[ GUI系统之SurfaceFlinger(11)SurfaceComposerClient](http://blog.csdn.net/xuesen_lin/article/details/8954957)                 
+[ Skia深入分析1——skia上下文](http://blog.csdn.net/jxt1234and2010/article/details/42572559)        
+[ Android图形显示系统——概述](http://blog.csdn.net/jxt1234and2010/article/details/44164691)           
+[Linux环境进程间通信（五）: 共享内存（下）](https://www.ibm.com/developerworks/cn/linux/l-ipc/part5/index2.html)      
+[Android Binder 分析——匿名共享内存（Ashmem）
+By Mingming](http://light3moon.com/2015/01/28/Android%20Binder%20%E5%88%86%E6%9E%90%E2%80%94%E2%80%94%E5%8C%BF%E5%90%8D%E5%85%B1%E4%BA%AB%E5%86%85%E5%AD%98[Ashmem]/)     
