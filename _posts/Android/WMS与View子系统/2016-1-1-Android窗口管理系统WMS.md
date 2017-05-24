@@ -205,6 +205,90 @@ AMS通过ActivityRecord表示一个Activity。而ActivityRecord的appToken在其
 
 # AMS 与WMS交互  mService.mWindowManager.addAppToken(
 
+
+WindowManager.LayoutParams token赋值与传递
+
+
+    public void addView(View view, ViewGroup.LayoutParams params,
+            Display display, Window parentWindow) {
+        if (view == null) {
+            throw new IllegalArgumentException("view must not be null");
+        }
+        if (display == null) {
+            throw new IllegalArgumentException("display must not be null");
+        }
+        if (!(params instanceof WindowManager.LayoutParams)) {
+            throw new IllegalArgumentException("Params must be WindowManager.LayoutParams");
+        }
+
+        final WindowManager.LayoutParams wparams = (WindowManager.LayoutParams)params;
+        if (parentWindow != null) {
+            parentWindow.adjustLayoutParamsForSubWindow(wparams);
+        }
+
+
+
+	  public void setWindowManager(WindowManager wm, IBinder appToken, String appName,
+	            boolean hardwareAccelerated) {
+	        mAppToken = appToken;
+	        mAppName = appName;
+	        mHardwareAccelerated = hardwareAccelerated
+	                || SystemProperties.getBoolean(PROPERTY_HARDWARE_UI, false);
+	        if (wm == null) {
+	            wm = (WindowManager)mContext.getSystemService(Context.WINDOW_SERVICE);
+	        }
+	        mWindowManager = ((WindowManagerImpl)wm).createLocalWindowManager(this);
+	    }
+
+	
+	void adjustLayoutParamsForSubWindow(WindowManager.LayoutParams wp) {
+	        CharSequence curTitle = wp.getTitle();
+	        if (wp.type >= WindowManager.LayoutParams.FIRST_SUB_WINDOW &&
+	            wp.type <= WindowManager.LayoutParams.LAST_SUB_WINDOW) {
+	            if (wp.token == null) {
+	                View decor = peekDecorView();
+	                if (decor != null) {
+	                    wp.token = decor.getWindowToken();
+	                }
+	            }
+	            if (curTitle == null || curTitle.length() == 0) {
+	                String title;
+	                if (wp.type == WindowManager.LayoutParams.TYPE_APPLICATION_MEDIA) {
+	                    title="Media";
+	                } else if (wp.type == WindowManager.LayoutParams.TYPE_APPLICATION_MEDIA_OVERLAY) {
+	                    title="MediaOvr";
+	                } else if (wp.type == WindowManager.LayoutParams.TYPE_APPLICATION_PANEL) {
+	                    title="Panel";
+	                } else if (wp.type == WindowManager.LayoutParams.TYPE_APPLICATION_SUB_PANEL) {
+	                    title="SubPanel";
+	                } else if (wp.type == WindowManager.LayoutParams.TYPE_APPLICATION_ATTACHED_DIALOG) {
+	                    title="AtchDlg";
+	                } else {
+	                    title=Integer.toString(wp.type);
+	                }
+	                if (mAppName != null) {
+	                    title += ":" + mAppName;
+	                }
+	                wp.setTitle(title);
+	            }
+	        } else {
+	            if (wp.token == null) {
+	                wp.token = mContainer == null ? mAppToken : mContainer.mAppToken;
+	            }
+	            if ((curTitle == null || curTitle.length() == 0)
+	                    && mAppName != null) {
+	                wp.setTitle(mAppName);
+	            }
+	        }
+	        if (wp.packageName == null) {
+	            wp.packageName = mContext.getPackageName();
+	        }
+	        if (mHardwareAccelerated) {
+	            wp.flags |= WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED;
+	        }
+	    }
+	
+
 注意AMS与WMS对象在同一个SystemServer进程
 
 
@@ -264,7 +348,7 @@ AMS通过ActivityRecord表示一个Activity。而ActivityRecord的appToken在其
             }
         }
         
-        
+ Activity 中        
 	          
            
 ### 参考文档
