@@ -38,6 +38,7 @@ image:
 * surfaceView与窗口的关系
 * WMS的作用
  
+ ![View绘制与共享内存.jpg](http://upload-images.jianshu.io/upload_images/1460468-103d49829291e1f7.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 # 共享内存属于文件范畴
 

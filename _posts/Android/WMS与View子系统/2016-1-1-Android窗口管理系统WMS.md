@@ -5,6 +5,9 @@ categories: [android]
 
 ---
 
+
+# Activity是Android的显示封装，Service是服务封装，BroaderCast是通知封装，而ContentProvider是持久化数据库共享封装
+
 ## Android 窗口管理系统入门 
 
 > **分析Android框架的时候谨记：上层都是逻辑封装，包括Activity、View，所有的实现均有相应Servcie来处理，比如View的绘制等**
@@ -13,12 +16,32 @@ categories: [android]
 **（1）WmS 眼中的，窗口是可以显示用来显示的 View。对于 WmS 而言，所谓的窗口就是一个通过 WindowManagerGlobal.addView()添加的 View 罢了；<br>
 （2）Window 类是一个针对窗口交互的抽象，也就是对于 WmS 来讲所有的用户消息是直接交给 View/ViewGroup 来处理的。而 Window 类把一些**交互从 View/ViewGroup 中抽离出来，定义了一些窗口的行为，例如菜单，以及处理系统按钮，如“Home”，“Back”等等。
 
+IWindow继承自Binder，并且其Bn端位于应用程序一侧（在例子中IWindow的实现类MyWindow就继承自IWindow.Stub），于是其在WMS一侧只能作为一个回调，以及起到窗口Id的作用。
+那么，窗口的本质是什么呢？
+是进行绘制所使用的画布：Surface。
+当一块Surface显示在屏幕上时，就是用户所看到的窗口了。客户端向WMS添加一个窗口的过程，其实就是WMS为其分配一块Surface的过程，一块块Surface在WMS的管理之下有序地排布在屏幕上，Android才得以呈现出多姿多彩的界面来。所以从这个意义上来讲，**WindowManagerService被称之为SurfaceManagerService也说得通的**。
 
 
+WindowToken指代一个应用组件。例如在进行窗口ZOrder排序时，属于同一个WindowToken的窗口会被安排在一起，而且在其中定义的一些属性将会影响所有属于此WindowToken的窗口。这些都表明了属于同一个WindowToken的窗口之间的紧密联系
 
+AMS通过ActivityRecord表示一个Activity。而ActivityRecord的appToken在其构造函数中被创建，所以每个ActivityRecord拥有其各自的appToken。而WMS接受AMS对Token的声明，并为appToken创建了唯一的一个AppWindowToken。因此，这个类型为IApplicationToken的Binder对象appToken粘结了AMS的ActivityRecord与WMS的AppWindowToken，只要给定一个ActivityRecord，都可以通过appToken在WMS中找到一个对应的AppWindowToken，从而使得AMS拥有了操纵Activity的窗口绘制的能力。例如，当AMS认为一个Activity需要被隐藏时，以Activity对应的ActivityRecord所拥有的appToken作为参数调用WMS的setAppVisibility()函数。此函数通过appToken找到其对应的AppWindowToken，然后将属于这个Token的所有窗口隐藏。
+注意**每当AMS因为某些原因（如启动/结束一个Activity，或将Task移到前台或后台）而调整ActivityRecord在mHistory中的顺序时，都会调用WMS相关的接口移动AppWindowToken在mAppTokens中的顺序，以保证两者的顺序一致**。在后面讲解窗口排序规则时会介绍到，AppWindowToken的顺序对窗口的顺序影响非常大。
+
+
+# 对于WMS的客户端来说，Token仅仅是一个Binder对象而已
+
+# WindowState与WindowToken区别
+
+* WindowState表示一个窗口的所有属性，所以它是WMS中事实上的窗口
+* WindowToken具有令牌的作用，是对应用组件的行为进行规范管理的一个手段。
+
+![一个正在回放视频并弹出两个对话框的Activity为例](http://img.blog.csdn.net/20150814130611265?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center)
 // 可以看出，WMS无法直接管理View，只能通过mWindow，至于Window里面到底是什么，不关系
 // WMS应该只关心Window的管理（添加Window、删除Window、切换Window、Window发生过）
 // 至于View如何绘制，那是每个Window自己管理的事情
+
+说明对比一下mTokenMap和mWindowMap。这两个HashMap维护了WMS中最重要的两类数据：WindowToken及WindowState。它们的键都是IBinder，区别是： mTokenMap的键值可能是IAppWindowToken的Bp端（使用addAppToken()进行声明），或者是其他任意一个Binder的Bp端(使用addWindowToken()进行声明)；而mWindowMap的键值一定是IWindow的Bp端
+
 
     res = mWindowSession.addToDisplay(mWindow, mSeq, mWindowAttributes,
             getHostVisibility(), mDisplay.getDisplayId(),
@@ -180,7 +203,68 @@ categories: [android]
            Call<PhoneResult> getResult(@Header("apikey") String apikey, @Query("phone") String phone);
 	    
 
+# AMS 与WMS交互  mService.mWindowManager.addAppToken(
 
+注意AMS与WMS对象在同一个SystemServer进程
+
+
+            wm = WindowManagerService.main(context, power, display, inputManager,
+                    uiHandler, wmHandler,
+                    factoryTest != SystemServer.FACTORY_TEST_LOW_LEVEL,
+                    !firstBoot, onlyCore);
+            ServiceManager.addService(Context.WINDOW_SERVICE, wm);
+            ServiceManager.addService(Context.INPUT_SERVICE, inputManager);
+
+            ActivityManagerService.self().setWindowManager(wm);
+            
+            
+
+    private final void startActivityLocked(ActivityRecord r, boolean newTask,
+            boolean doResume, boolean keepCurTransition, Bundle options) {
+        final int NH = mHistory.size();
+
+        int addPos = -1;
+        
+        if (!newTask) {
+            // If starting in an existing task, find where that is...
+            boolean startIt = true;
+            for (int i = NH-1; i >= 0; i--) {
+                ActivityRecord p = mHistory.get(i);
+                if (p.finishing) {
+                    continue;
+                }
+                if (p.task == r.task) {
+                    // Here it is!  Now, if this is not yet visible to the
+                    // user, then just add it without starting; it will
+                    // get started when the user navigates back to it.
+                    addPos = i+1;
+                    if (!startIt) {
+                        if (DEBUG_ADD_REMOVE) {
+                            RuntimeException here = new RuntimeException("here");
+                            here.fillInStackTrace();
+                            Slog.i(TAG, "Adding activity " + r + " to stack at " + addPos,
+                                    here);
+                        }
+                        mHistory.add(addPos, r);
+                        r.putInHistory();
+                        mService.mWindowManager.addAppToken(addPos, r.appToken, r.task.taskId,
+                                r.info.screenOrientation, r.fullscreen,
+                                (r.info.flags & ActivityInfo.FLAG_SHOW_ON_LOCK_SCREEN) != 0);
+                        if (VALIDATE_TOKENS) {
+                            validateAppTokensLocked();
+                        }
+                        ActivityOptions.abort(options);
+                        return;
+                    }
+                    break;
+                }
+                if (p.fullscreen) {
+                    startIt = false;
+                }
+            }
+        }
+        
+        
 	          
            
 ### 参考文档
