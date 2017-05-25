@@ -6,6 +6,7 @@ image:
 
 ---
 
+他们写的我都没看懂，
 
 在View显示中，我所遇到的主观问题：
 
@@ -29,6 +30,7 @@ image:
 
 这个问题是我比较关心的问题，我们知道View在绘制后，APP占用的内存会上升，那么这个内存我们理所当然的认为是在APP的进程内分配的，但同时，SurfaceFlinger也需要这份内存进行图层高度合成，那么这两份内存是同一份吗？如果不是同一份，数据的传递是不是太大了，不会不会造成浪费。这里的内存就是匿名共享内存，是同一份，这个机制利用了Linux的tmpfs系统，具体的原理不想太深就，完全属于Linux IPC通信的东西，可以自己翻内核，对于理解Android只要清楚这两份内存是同一份，同一份内存是如何传递的呢，就是通过共享fd，文件操作符，tmpfs将共享内存抽象成文件，对于共享内存的操作，就如同对于文件的操作，可以通过map将数据映射到自己的进程空间，直接进行操作，当然要自己处理同步与互斥问题，ashmem_pin_region和ashmem_unpin_region就是同步用的（Android系统的运行时库提到了执行匿名共享内存的锁定和解锁操作的两个函数 ）。几个关注点
 
+
 * 视图的绘制与更新 skia库
 * fd的传递
 * 渲染的点
@@ -37,6 +39,7 @@ image:
 * ViewRootImpl、WMS与SurfaceFlinger分工
 * surfaceView与窗口的关系
 * WMS的作用
+* Cient将UI绘制到内存，如何通知SurfaceFlinger混排Window（Signal），并且绘制到窗口的呢 WMS在SurfaceFlinger混排窗口中起到什么作用呢
  
  ![View绘制与共享内存.jpg](http://upload-images.jianshu.io/upload_images/1460468-103d49829291e1f7.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
@@ -130,11 +133,9 @@ setContentView会新建View类，但是并不会涉及测量绘制，只有显�
 
 
 
-setContentView只是用来生成DecorView那一套，但是并未将窗口添加到View
+setContentView只是用来生成DecorView那一套，但是并未将窗口添加显示
 
-
-SurfaceFlinger不是系统服务，是系统守护进程，当然也算是系统服务，但是很重要，
-SkCanvas其实就是Cavas.java 在native的对象
+SurfaceFlinger不是系统服务，是系统守护进程，当然也算是系统服务，但是很重要，   SkCanvas其实就是Cavas.java 在native的对象
 
 > Session.java
  
@@ -249,13 +250,47 @@ SurfaceFlinger创建Client
 	        sp<IGraphicBufferProducer> gbp;
 	        status_t err = mClient->createSurface(name, w, h, format, flags,
 	                &handle, &gbp);
-	        ALOGE_IF(err, "SurfaceComposerClient::createSurface error %s", strerror(-err));
 	        if (err == NO_ERROR) {
 	            sur = new SurfaceControl(this, handle, gbp);
 	        }
 	    }
 	    return sur;
 	}
+
+SurfaceControl转化为surface
+
+    void getSurface(Surface outSurface) {
+        outSurface.copyFrom(mSurfaceControl);
+    }
+
+	
+	static jlong nativeCreateFromSurfaceControl(JNIEnv* env, jclass clazz,
+	        jlong surfaceControlNativeObj) {
+	    /*
+	     * This is used by the WindowManagerService just after constructing
+	     * a Surface and is necessary for returning the Surface reference to
+	     * the caller. At this point, we should only have a SurfaceControl.
+	     */
+	
+	    sp<SurfaceControl> ctrl(reinterpret_cast<SurfaceControl *>(surfaceControlNativeObj));
+	    sp<Surface> surface(ctrl->getSurface());
+	    if (surface != NULL) {
+	        surface->incStrong(&sRefBaseOwner);
+	    }
+	    return reinterpret_cast<jlong>(surface.get());
+	}
+	
+	sp<Surface> SurfaceControl::getSurface() const
+	{
+	    Mutex::Autolock _l(mLock);
+	    if (mSurfaceData == 0) {
+	        // This surface is always consumed by SurfaceFlinger, so the
+	        // producerControlledByApp value doesn't matter; using false.
+	        mSurfaceData = new Surface(mGraphicBufferProducer, false);
+	    }
+	    return mSurfaceData;
+	}
+
 
  ![Surface的一些类图](http://upload-images.jianshu.io/upload_images/1460468-6b433f387a6bae81.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
@@ -318,6 +353,104 @@ tmpfs 写的时候，缺页中断，申请内存[Linux 中 mmap() 函数的内�
 linux中默认大小是ram的一半，
 
 tmpfs是一种文件系统，文件是不会占用用户空间，或者内核空间的数据的，如果说通过映射进来，虽然说占用了，但是还是复用一份文件，无论读取与否还是写与否，都是针对同一份文件，而tmpfs比较特殊，属于内存文件，一个内存文件也有node之类的属性，只不过它是存储在内存中，而不是磁盘中，它的申请与释放也一定更加的紧迫与严谨，方式内存被浪费。
+
+
+# surface.unlockCanvasAndPost(canvas);真正绘制入口，但是如何触发绘制，这里是不是又牵扯到SurfaceFlinger呢？
+
+
+如何触发SurfaceFlinger绘制
+
+![](http://wiki.jikexueyuan.com/project/deep-android-v1/images/chapter8/image021.png)
+
+SuraceFlinger是被动绘制，不是主动轮询的，有消息通知绘制才会绘制
+![SF工作线程的流程](http://wiki.jikexueyuan.com/project/deep-android-v1/images/chapter8/image024.png)
+
+Activity端在绘制完UI后，将把BackBuffer投递出去以显示。接着上面的流程，这个BackBuffer的编号是0。待Activity投递完后，才会调用signal函数触发SF消费，所以在此之前格局不会发生变化。
+
+[参考文档](http://wiki.jikexueyuan.com/project/deep-android-v1/surface.html)
+
+ViewRoot是Surfac系统甚至UI系统中一个非常关键的类，下面把网上一些关于ViewRoot的问题做个总结，希望这样能帮助读者对ViewRoot有更加清楚的认识。
+
+·  ViewRoot和View类的关系是什么？
+
+ViewRoot是View视图体系的根。每一个Window（注意是Window，比如PhoneWindow）有一个ViewRoot，它的作用是处理layout和View视图体系的绘制。那么视图体系又是什么呢？它包括Views和ViewGroups，也就是SDK中能看到的View类都属于视图体系。根据前面的分析可知，这些View是需要通过draw画出来的。而ViewRoot就是用来draw它们的，ViewRoot本身没有draw/onDraw函数。
+
+·   ViewRoot和它所控制的View及其子View使用同一个Canvas吗？
+
+这个问题的答案就很简单了，我们在ViewRoot的performTraversals中见过。ViewRoot提供Canvas给它所控制的View，所以它们使用同一个Canvas。但Canvas使用的内存却不是固定的，而是通过Surface的lockCanvas得到的。
+
+·  View、Surface和Canvas之间的关系是怎样的？我认为，每一个view将和一个canvas，以及一个surface绑定到一起（这里的“我”表示提问人）。
+
+这个问题的答案也很简单。一个Window将和一个Surface绑定在一起，绘制前ViewRoot会从Surface中lock出一个Canvas。
+
+·  Canvas有一个bitmap，那么绘制UI时，数据是画在Canvas的这个bitmap中吗？
+
+答案是肯定的，bitmap实际上包括了一块内存，绘制的数据最终都在这块内存上。 
+
+·   同一个ViewRoot下，不同类型的View（不同类型指不同的UI单元，例如按钮、文本框等）使用同一个Surface吗？
+
+是的，但是SurfaceView要除外。因为SurfaceView的绘制一般在单独的线程上，并且由应用层主动调用lockCanvas、draw和unlockCanvasAndPost来完成绘制流程。应用层相当于抛开了ViewRoot的控制，直接和屏幕打交道，这在camera、video方面用得最多
+
+
+
+真正绘制的入口
+
+
+	static void nativeUnlockCanvasAndPost(JNIEnv* env, jclass clazz,
+	        jlong nativeObject, jobject canvasObj) {
+	    sp<Surface> surface(reinterpret_cast<Surface *>(nativeObject));
+	    if (!isSurfaceValid(surface)) {
+	        return;
+	    }
+	
+	    // detach the canvas from the surface
+	    Canvas* nativeCanvas = GraphicsJNI::getNativeCanvas(env, canvasObj);
+	    nativeCanvas->setBitmap(SkBitmap());
+	
+	    // unlock surface
+	    status_t err = surface->unlockAndPost();
+	    if (err < 0) {
+	        doThrowIAE(env);
+	    }
+	}
+
+	status_t Surface::unlockAndPost()
+	{
+	    if (mLockedBuffer == 0) {
+	        ALOGE("Surface::unlockAndPost failed, no locked buffer");
+	        return INVALID_OPERATION;
+	    }
+	
+	    int fd = -1;
+	    status_t err = mLockedBuffer->unlockAsync(&fd);
+	    ALOGE_IF(err, "failed unlocking buffer (%p)", mLockedBuffer->handle);
+	
+	    err = queueBuffer(mLockedBuffer.get(), fd);
+	    ALOGE_IF(err, "queueBuffer (handle=%p) failed (%s)",
+	            mLockedBuffer->handle, strerror(-err));
+	
+	    mPostedBuffer = mLockedBuffer;
+	    mLockedBuffer = 0;
+	    return err;
+	}
+
+这里应该就跟WMS没啥关系了，SurfaceFling，要处理吗？
+
+
+# Toast的token为null， 
+
+如果自己写就算 token非空也不收影响，因为是系统窗口。
+
+Application 的Token为 getSystemService，所以如果Dialog用Application的context就会崩溃
+
+1）在 Window System 中，分为两部分的内容，一部分是运行在系统服务进程（WmS 所在进程）的 WmS 及相关类，另一部分是运行在应用进程的 WindowManagerImpl, WindowManagerGlobal，ViewRootImpl 等相关类。WmS 用 WindowState 来描述一个窗口，而应用进程用 ViewRootImpl，WindowManager.LayoutParms 来描述一个窗口的相关内容。
+
+（2）对于 WmS 来讲，窗口对应一个 View 对象，而不是 Window 对象。添加一个窗口，就是通过 WindowManager 的 addView 方法。同样的，移除一个窗口，就是通过 removeView 方法。更新一个窗口的属性，通过 updateViewLayout 方法。
+
+（3）Window 类描述是一类具有某种通用特性的窗口，其实现类是 PhoneWindow。Activity 对应的窗口，以及 Dialog 对应的窗口，会对应一个 PhoneWindow 对象。PhoneWindow 类把一些操作的统一处理了，例如长按，按”Back”键等。
+
+Android Framework 把窗口分为三种类型，应用窗口，子窗口以及系统窗口。不同类型的窗口，在执行添加窗口操作时，对于 WindowManager.LayoutParams 中的参数 token 具有不同的要求。应用窗口，LayoutParams 中的 token，必须是某个有效的 Activity 的 mToken。而子窗口，LayoutParams 中的 token，必须是父窗口的 ViewRootImpl 中的 W 对象。系统窗口，有些系统窗口不需要 token，有些系统窗口的 token 必须满足一定的要求。
+
 	
 # 	参考文档
 [ GUI系统之SurfaceFlinger(11)SurfaceComposerClient](http://blog.csdn.net/xuesen_lin/article/details/8954957)                 
@@ -327,3 +460,4 @@ tmpfs是一种文件系统，文件是不会占用用户空间，或者内核空
 [Android Binder 分析——匿名共享内存（Ashmem）
 By Mingming](http://light3moon.com/2015/01/28/Android%20Binder%20%E5%88%86%E6%9E%90%E2%80%94%E2%80%94%E5%8C%BF%E5%90%8D%E5%85%B1%E4%BA%AB%E5%86%85%E5%AD%98[Ashmem]/)     
 [Android 匿名共享内存驱动源码分析](http://blog.csdn.net/yangwen123/article/details/9318319)
+[ Android窗口管理服务WindowManagerService的简要介绍和学习计划](http://blog.csdn.net/luoshengyang/article/details/8462738)         

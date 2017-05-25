@@ -349,8 +349,222 @@ WindowManager.LayoutParams token赋值与传递
         }
         
  Activity 中        
+	     
 	          
-           
+
+
+Dialog和Activity共享同一个WindowManager（也就是上面分析的WindowManagerImpl），而WindowManagerImpl里面有个Window类型的mParentWindow变量，这个变量在Activity的attach中创建WindowManagerImpl时传入的为当前Activity的Window，而当前Activity的Window里面的mAppToken值又为当前Activity的token，所以Activity与Dialog共享了同一个mAppToken值，只是Dialog和Activity的Window对象不同。
+
+[Android窗口机制（五）最终章：WindowManager.LayoutParams和Token以及其他窗口Dialog，Toast](http://www.jianshu.com/p/bac61386d9bf)
+
+
+这里是Activity Dialog复用的关键， 是Activity覆盖了  getSystemService函数里面的  mWindowManager就是Dialog使用的Manager，并且Window的Manager中，有个mParentWindow变量，是Activity中window自己。  mWindowManager = mWindow.getWindowManager();
+
+
+> Activity.java
+
+    @Override
+    public Object getSystemService(String name) {
+        if (getBaseContext() == null) {
+            throw new IllegalStateException(
+                    "System services not available to Activities before onCreate()");
+        }
+
+        if (WINDOW_SERVICE.equals(name)) {
+            return mWindowManager;
+        } else if (SEARCH_SERVICE.equals(name)) {
+            ensureSearchManager();
+            return mSearchManager;
+        }
+        return super.getSystemService(name);
+    }
+
+WindowManagerImpl.java
+
+    @Override
+    public void addView(View view, ViewGroup.LayoutParams params) {
+        // 如果是dialog，这里的mParentWindow是Activity的Window
+        mGlobal.addView(view, params, mDisplay, mParentWindow);
+    }
+
+
+LayoutParams中token是WMS用来处理tokenmap跟,而IWindow主要是用来处理mWindowMap的。
+
+*  tokenmap 传递的token竟然在 WindowManager.LayoutParams attrs中
+*  windowmap的key用的是IWindow
+*  mWindowMap 与 mTokenMap都是系统唯一的。这个系统维护一份
+
+多个Windowstate 对应一个windowToken
+
+如何理解WindowToken 对于Popinwindow，是个子窗口，需要有响应的Token，什么样的Token？
+
+    private View mview;
+    private Runnable runnable0 = new Runnable() {
+        @Override
+        public void run() {
+            mview = LayoutInflater.from(MainActivity.this).inflate(R.layout.popcontianer, null);
+            mTextView = mview.findViewById(R.id.show);
+            mTextView.setOnClickListener(new View.OnClickListener() {
+                @TargetApi(Build.VERSION_CODES.KITKAT)
+                @Override
+                public void onClick(View v) {
+                    PopupWindow popupWindow = new PopupWindow();
+                    View view = LayoutInflater.from(MainActivity.this).inflate(R.layout.content_main, null);
+                    popupWindow.setContentView(view);
+                    popupWindow.setWidth(ViewGroup.LayoutParams.WRAP_CONTENT);
+                    popupWindow.setHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
+                    popupWindow.showAsDropDown(mTextView);
+
+                    mTextView.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            WindowManager mWindowManager = (WindowManager) getApplication().getSystemService(Context.WINDOW_SERVICE);
+                            mWindowManager.removeView(mview);
+                        }
+                    });
+                }
+            });
+            WindowManager mWindowManager = (WindowManager) getApplication().getSystemService(Context.WINDOW_SERVICE);
+            mWindowManager.addView(mview, getParams());
+        }
+    };
+
+    View mTextView = null;
+    Handler handler = null;
+
+    @OnClick(R.id.first)
+    void first() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                Looper.prepare();
+                handler = new Handler();
+                handler.post(runnable0);
+                Looper.loop();
+            }
+        }).start();
+    }
+    
+注意，虽然添加View，但是从来没有向WMS直接传递View对象，真正与WMS通信的接口IWindowSession没有给任何View参数的传递，都是IWindow window加上其他的必要参数，也就是View的管理不是WMS的范畴，WMS只负责抽象Window的管理。
+
+	interface IWindowSession {
+	    int add(IWindow window, int seq, in WindowManager.LayoutParams attrs,
+	            in int viewVisibility, out Rect outContentInsets,
+	            out InputChannel outInputChannel);
+	    int addToDisplay(IWindow window, int seq, in WindowManager.LayoutParams attrs,
+	            in int viewVisibility, in int layerStackId, out Rect outContentInsets,
+	            out InputChannel outInputChannel);
+	    int addWithoutInputChannel(IWindow window, int seq, in WindowManager.LayoutParams attrs,
+	            in int viewVisibility, out Rect outContentInsets);
+	    int addToDisplayWithoutInputChannel(IWindow window, int seq, in WindowManager.LayoutParams attrs,
+	            in int viewVisibility, in int layerStackId, out Rect outContentInsets);
+	    void remove(IWindow window);
+	    int relayout(IWindow window, int seq, in WindowManager.LayoutParams attrs,
+	            int requestedWidth, int requestedHeight, int viewVisibility,
+	            int flags, out Rect outFrame, out Rect outOverscanInsets,
+	            out Rect outContentInsets, out Rect outVisibleInsets,
+	            out Configuration outConfig, out Surface outSurface);
+	    void performDeferredDestroy(IWindow window);
+	    boolean outOfMemory(IWindow window);
+	    void setTransparentRegion(IWindow window, in Region region);
+	    void setInsets(IWindow window, int touchableInsets, in Rect contentInsets,
+	            in Rect visibleInsets, in Region touchableRegion);
+	...
+	}
+
+WMS 究竟管理什么呢？有人说WingdowManagerService也可以成为SurfaceManagerService，为何？
+
+
+Activity的addview与显示不同步，为啥？
+
+
+	final void handleResumeActivity(IBinder token,
+	            boolean clearHide, boolean isForward, boolean reallyResume, int seq, String reason) {
+	        ActivityClientRecord r = mActivities.get(token);
+	        if (!checkAndUpdateLifecycleSeq(seq, r, "resumeActivity")) {
+	            return;
+	        }
+ 
+            }
+            if (r.window == null && !a.mFinished && willBeVisible) {
+                r.window = r.activity.getWindow();
+                // 如果Decorview还没新建，就在此处新建
+                View decor = r.window.getDecorView();
+                // 会回调整个View的View Visibilitychange
+                decor.setVisibility(View.INVISIBLE);
+                ViewManager wm = a.getWindowManager();
+                WindowManager.LayoutParams l = r.window.getAttributes();
+                a.mDecor = decor;
+                l.type = WindowManager.LayoutParams.TYPE_BASE_APPLICATION;
+                l.softInputMode |= forwardBit;
+<!--关键点1-->
+                // 为什么不会添加window 不会重复两次添加 a.mWindowAdded
+                if (a.mVisibleFromClient && !a.mWindowAdded) {
+                    a.mWindowAdded = true;
+                    wm.addView(decor, l);
+                }
+ 
+            // Get rid of anything left hanging around.
+            cleanUpPendingRemoveWindows(r, false /* force */);
+
+            // The window is now visible if it has been added, we are not
+            // simply finishing, and we are not starting another activity.
+            if (!r.activity.mFinished && willBeVisible
+                    && r.activity.mDecor != null && !r.hideForNow) {
+                if (r.newConfig != null) {
+                    performConfigurationChangedForActivity(r, r.newConfig, REPORT_TO_ACTIVITY);
+                    if (DEBUG_CONFIGURATION) Slog.v(TAG, "Resuming activity "
+                            + r.activityInfo.name + " with newConfig " + r.activity.mCurrentConfig);
+                    r.newConfig = null;
+                }
+                if (localLOGV) Slog.v(TAG, "Resuming " + r + " with isForward="
+                        + isForward);
+                WindowManager.LayoutParams l = r.window.getAttributes();
+                if ((l.softInputMode
+                        & WindowManager.LayoutParams.SOFT_INPUT_IS_FORWARD_NAVIGATION)
+                        != forwardBit) {
+                    l.softInputMode = (l.softInputMode
+                            & (~WindowManager.LayoutParams.SOFT_INPUT_IS_FORWARD_NAVIGATION))
+                            | forwardBit;
+                    if (r.activity.mVisibleFromClient) {
+                        ViewManager wm = a.getWindowManager();
+                        View decor = r.window.getDecorView();
+                        wm.updateViewLayout(decor, l);
+                    }
+                }
+                r.activity.mVisibleFromServer = true;
+                mNumVisibleActivities++;
+                // 会回调整个View的View Visibilitychange
+         <!--关键点2-->
+                if (r.activity.mVisibleFromClient) {
+                    r.activity.makeVisible();
+                }
+                
+ 先是不可见添加，后面设置可见，这里也牵扯到窗口的管理，与显示顺序
+ 
+#  通知View绘制的关键点是是什么时候 ？？ 或者说通知SurfaceFlinger绘制的时候，SurfaceFlinger是一个单独的进程，同SystemServer进程独立，addView的时候吗
+  
+  
+      private int createSurfaceControl(Surface outSurface, int result, WindowState win,
+            WindowStateAnimator winAnimator) {
+        if (!win.mHasSurface) {
+            result |= RELAYOUT_RES_SURFACE_CHANGED;
+        }
+        WindowSurfaceController surfaceController = winAnimator.createSurfaceLocked();
+        if (surfaceController != null) {
+            surfaceController.getSurface(outSurface);
+            if (SHOW_TRANSACTIONS) Slog.i(TAG_WM, "  OUT SURFACE " + outSurface + ": copied");
+        } else {
+            // For some reason there isn't a surface.  Clear the
+            // caller's object so they see the same state.
+            outSurface.release();
+        }
+        return result;
+    }
+    
+
+![View绘制的触发点.png](http://upload-images.jianshu.io/upload_images/1460468-bb563db5618b31f3.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+                 
 ### 参考文档
 
  [图解Android - Android GUI 系统 (2) - 窗口管理 (View, Canvas, Window Manager)](http://www.cnblogs.com/samchen2009/p/3367496.html)      
