@@ -23,7 +23,7 @@ image:
 1、如何申请可以用来送显的内存，如何将其送往LCD？ 2、如何提供窗口系统？ 3、如何同步合成/显示多个图层？ 4、如何支持多屏？
 
 * SurfaceFlinger是Android里面用于提供图层合成的服务，负责给应用层提供窗口，并按指定位置合成所有图层到屏幕。
-* 
+* 视图的重绘流程，第一次绘制流程
 
 
 # View绘制所占用的内存如何共享
@@ -451,13 +451,720 @@ Application 的Token为 getSystemService，所以如果Dialog用Application的co
 
 Android Framework 把窗口分为三种类型，应用窗口，子窗口以及系统窗口。不同类型的窗口，在执行添加窗口操作时，对于 WindowManager.LayoutParams 中的参数 token 具有不同的要求。应用窗口，LayoutParams 中的 token，必须是某个有效的 Activity 的 mToken。而子窗口，LayoutParams 中的 token，必须是父窗口的 ViewRootImpl 中的 W 对象。系统窗口，有些系统窗口不需要 token，有些系统窗口的 token 必须满足一定的要求。
 
+只能通过 Context.getSystemServer 来获取 WindowManager（即获取一个 WindowManagerImpl 的实例）。如果这个 context 是 Activity，则直接返回了 Activity 的 mWindowManager，其 WindowManagerImpl.mParentWindow 就是这个 Activity 本身对应的 PhoneWindow。如果这个 context 是 Application，或者 Service，则直接返回一个 WindowManagerImpl 的实例，而且 mParentWindow 为 null。
+
+（6）在调用 WindowManagerImpl 的 addView 之前，如果没有给 token 赋值，则会走默认的 token 赋值逻辑。默认的 token 赋值逻辑是这样的，如果 mParentWindow 不为空，则会调用其 adjustLayoutParamsForSubWindow 方法。在 adjustLayoutParamsForSubWindow 方法中，如果当前要添加的窗口是，应用窗口，如果其 token 为空，则会把当前 PhoneWindow 的 mToken 赋值给 token。如果是子窗口，则会把当前 PhonwWindow 对应的 DecorView 的 mAttachInfo 中的 mWindowToken 赋值给 token。而 View 中的 AttachInfo mAttachIno 来自 ViewRootImpl 的 mAttachInfo。因此这个 token 本质就是父窗口的 ViewRootImpl 中的 W 类对象。
 	
+# 为什么Dialog的Token不能为空
+
+Dialog的窗口类型同Activity类型是应用窗口，所以TOken不能为null，否则wms会出错，
+popwindow也是个独立的窗口，有个windowstate但是，它必须 依附父窗口，这个父窗口不必是Actvity，但是token不能为null，这也是为了管理子window
+Toast类系统窗口，可以为null，也可以不为null，系统窗口不走应用窗口的管理逻辑，所以为所谓Token是什么，跟随类型，
+
+# detach from window 与Attach window的时机
+	
+	performTraversals的时候，第一次会dispatchAttachedToWindow
+	
+    private void performTraversals() {
+  
+          mWindowAttributesChangesFlag = 0;
+
+        Rect frame = mWinFrame;
+        if (mFirst) {
+            mAttachInfo.mHasWindowFocus = false;
+            mAttachInfo.mWindowVisibility = viewVisibility;
+            mAttachInfo.mRecomputeGlobalAttributes = false;
+            mLastConfiguration.setTo(host.getResources().getConfiguration());
+            mLastSystemUiVisibility = mAttachInfo.mSystemUiVisibility;
+            // Set the layout direction if it has not been set before (inherit is the default)
+            if (mViewLayoutDirectionInitial == View.LAYOUT_DIRECTION_INHERIT) {
+                host.setLayoutDirection(mLastConfiguration.getLayoutDirection());
+            }
+            host.dispatchAttachedToWindow(mAttachInfo, 0);
+            mAttachInfo.mTreeObserver.dispatchOnWindowAttachedChange(true);
+            dispatchApplyInsets(host);
+
+        } else {
+ 
+        }
+
+        if (viewVisibilityChanged) {
+            mAttachInfo.mWindowVisibility = viewVisibility;
+            host.dispatchWindowVisibilityChanged(viewVisibility);
+            host.dispatchVisibilityAggregated(viewVisibility == View.VISIBLE);
+            if (viewVisibility != View.VISIBLE || mNewSurfaceNeeded) {
+                endDragResizing();
+      } 
+               
+ ViewRootImpl 在收到要删除窗口的命令后，会执行以下操作，详细见源码分析：
+（1）判断是否可以立即删除窗口，否则会等下次 UI 操作时执行；
+（2）确认需要删除窗口时，会执行 doDie 方法，通过 dispatchDetachedFromWindow 通知 View 树，窗口要被删除了；
+（3）dispatchDetachedFromWindow 执行以下操作
+1、通过 dispatchDetachedFromWindow，通知 View 树，窗口已经移除了，你们已经 detach from window 了。
+2、把窗口对应的 HardRender, Surface 给释放了；
+3、通过 mWindowSession，通知 WmS，窗口要移除了，WmS 会把跟这个窗口相关的 WindowState，以及 WindowToken 给移除，同时更新其它窗口的显示<br>
+4、 通知 Choreographer,这个窗口不需要显示了，跟这个窗口相关的一些UI刷新操作，可以取消了。
+（4）当根 View 收到 dispatchDetachedFromWindow 调用后，会遍历View树中的每一个 View，把这个通知传递下来。这样 View 的 mAttachInfo 会清除了，reset 为 null了。               
+   
+   
+#  主动删除view，主动root.die
+   
+       private void removeViewLocked(int index, boolean immediate) {
+        ViewRootImpl root = mRoots.get(index);
+        View view = root.getView();
+
+        if (view != null) {
+            InputMethodManager imm = InputMethodManager.getInstance();
+            if (imm != null) {
+                imm.windowDismissed(mViews.get(index).getWindowToken());
+            }
+        }
+        boolean deferred = root.die(immediate);
+        if (view != null) {
+            view.assignParent(null);
+            if (deferred) {
+                mDyingViews.add(view);
+            }
+        }
+    }
+    boolean die(boolean immediate) {
+        // Make sure we do execute immediately if we are in the middle of a traversal or the damage
+        // done by dispatchDetachedFromWindow will cause havoc on return.
+        if (immediate && !mIsInTraversal) {
+            doDie();
+            return false;
+        }
+
+        if (!mIsDrawing) {
+            destroyHardwareRenderer();
+        } else {
+            Log.e(mTag, "Attempting to destroy the window while drawing!\n" +
+                    "  window=" + this + ", title=" + mWindowAttributes.getTitle());
+        }
+        mHandler.sendEmptyMessage(MSG_DIE);
+        return true;
+    }
+     void doDie() {
+        checkThread();
+        if (LOCAL_LOGV) Log.v(mTag, "DIE in " + this + " of " + mSurface);
+        synchronized (this) {
+            if (mRemoved) {
+                return;
+            }
+            mRemoved = true;
+            if (mAdded) {
+                dispatchDetachedFromWindow();
+            }
+
+            if (mAdded && !mFirst) {
+                destroyHardwareRenderer();
+
+                if (mView != null) {
+                    int viewVisibility = mView.getVisibility();
+                    boolean viewVisibilityChanged = mViewVisibility != viewVisibility;
+                    if (mWindowAttributesChanged || viewVisibilityChanged) {
+                        // If layout params have been changed, first give them
+                        // to the window manager to make sure it has the correct
+                        // animation info.
+                        try {
+                            if ((relayoutWindow(mWindowAttributes, viewVisibility, false)
+                                    & WindowManagerGlobal.RELAYOUT_RES_FIRST_TIME) != 0) {
+                                mWindowSession.finishDrawing(mWindow);
+                            }
+                        } catch (RemoteException e) {
+                        }
+                    }
+
+                    mSurface.release();
+                }
+            }
+
+            mAdded = false;
+        }
+        WindowManagerGlobal.getInstance().doRemoveView(this);
+    }
+ 
+ 删除view   
+ 
+#  Activity声明周期跟Window现实隐藏的关系
+
+addwindow，
+可见
+不可见
+Activity 回调 visible attctch detach
+
+    private void handleStopActivity(IBinder token, boolean show, int configChanges, int seq) {
+        ActivityClientRecord r = mActivities.get(token);
+        if (!checkAndUpdateLifecycleSeq(seq, r, "stopActivity")) {
+            return;
+        }
+        r.activity.mConfigChangeFlags |= configChanges;
+
+        StopInfo info = new StopInfo();
+        performStopActivityInner(r, info, show, true, "handleStopActivity");
+
+        if (localLOGV) Slog.v(
+            TAG, "Finishing stop of " + r + ": show=" + show
+            + " win=" + r.window);
+// 处理可见性
+        updateVisibility(r, show);
+        
+        
+        
+            private void updateVisibility(ActivityClientRecord r, boolean show) {
+        View v = r.activity.mDecor;
+        if (v != null) {
+            if (show) {
+                if (!r.activity.mVisibleFromServer) {
+                    r.activity.mVisibleFromServer = true;
+                    mNumVisibleActivities++;
+                    if (r.activity.mVisibleFromClient) {
+                        r.activity.makeVisible();
+                    }
+                }
+                if (r.newConfig != null) {
+                    performConfigurationChangedForActivity(r, r.newConfig, REPORT_TO_ACTIVITY);
+                    if (DEBUG_CONFIGURATION) Slog.v(TAG, "Updating activity vis "
+                            + r.activityInfo.name + " with new config "
+                            + r.activity.mCurrentConfig);
+                    r.newConfig = null;
+                }
+            } else {
+
+                // 更新DecorView的显示
+                if (r.activity.mVisibleFromServer) {
+                    r.activity.mVisibleFromServer = false;
+                    mNumVisibleActivities--;
+                    v.setVisibility(View.INVISIBLE);
+                }
+            }
+        }
+    }
+    
+消息驱动型UI更新界面
+     
+stop Activity对于WMS的影响，将WIndow设置为不可见，不用SurfaceFlinger混排了吗？     
+     
+    final void stopActivityLocked(ActivityRecord r) {
+        if (DEBUG_SWITCH) Slog.d(TAG_SWITCH, "Stopping: " + r);
+        if ((r.intent.getFlags()&Intent.FLAG_ACTIVITY_NO_HISTORY) != 0
+                || (r.info.flags&ActivityInfo.FLAG_NO_HISTORY) != 0) {
+            if (!r.finishing) {
+                if (!mService.isSleepingLocked()) {
+                    if (DEBUG_STATES) Slog.d(TAG_STATES, "no-history finish of " + r);
+                    if (requestFinishActivityLocked(r.appToken, Activity.RESULT_CANCELED, null,
+                            "stop-no-history", false)) {
+                        // Activity was finished, no need to continue trying to schedule stop.
+                        adjustFocusedActivityLocked(r, "stopActivityFinished");
+                        r.resumeKeyDispatchingLocked();
+                        return;
+                    }
+                } else {
+                    if (DEBUG_STATES) Slog.d(TAG_STATES, "Not finishing noHistory " + r
+                            + " on stop because we're just sleeping");
+                }
+            }
+        }
+
+        if (r.app != null && r.app.thread != null) {
+            adjustFocusedActivityLocked(r, "stopActivity");
+            r.resumeKeyDispatchingLocked();
+            try {
+                r.stopped = false;
+                if (DEBUG_STATES) Slog.v(TAG_STATES,
+                        "Moving to STOPPING: " + r + " (stop requested)");
+                r.state = ActivityState.STOPPING;
+                if (DEBUG_VISIBILITY) Slog.v(TAG_VISIBILITY,
+                        "Stopping visible=" + r.visible + " for " + r);
+                if (!r.visible) {
+                    // stop的花，就需要将window设置为不可见，
+                    // 注意这里的mWindowManager就是windowmangerservice对象
+                    mWindowManager.setAppVisibility(r.appToken, false);
+                }
+                        
+  WMS  控制Window可见性
+           
+     @Override
+    public void setAppVisibility(IBinder token, boolean visible)
+    
+
+type   |  handle  | hint | flag | tr | blnd |   format    |     source crop (l,t,r,b)      |          frame         | name 
+-----------+----------+------+------+----+------+-------------+--------------------------------+------------------------+------
+       HWC | b66d6a50 | 0002 | 0000 | 00 | 0100 | RGBA_8888   |    0.0,    0.0, 1080.0, 1920.0 |    0,    0, 1080, 1920 | com.snail.labaffinity/com.snail.labaffinity.activity.MainActivity
+       HWC | b66d6f50 | 0002 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0,  384.0,  132.0 |  348, 1452,  732, 1584 | Toast
+       HWC | b66d63c0 | 0002 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 1080.0,   72.0 |    0,    0, 1080,   72 | StatusBar
+       HWC | b66d6690 | 0002 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 1080.0,  144.0 |    0, 1776, 1080, 1920 | NavigationBar
+ FB TARGET | b6a51c10 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 1080.0, 1920.0 |    0,    0, 1080, 1920 | HWC_FRAMEBUFFER_TARGET
+ 
+ 
+#  为什么要第二个Activity先Resume，上一个Activity才sotp
+ 
+*  1、加快现实速度
+*  2、有时候需要第二个先现实，再定第一个要不要被覆盖
+    
+ 注意学习深入理解Android卷I
+    
+# invalide重新绘制原理    
+    
+    
+	    
+	/Users/netease/sourecode/base/native/libs/gui/BufferQueueProducer.cpp:
+	  930  
+	  931          if (frameAvailableListener != NULL) {
+	  932:             frameAvailableListener->onFrameAvailable(item);
+	  933          } else if (frameReplacedListener != NULL) {
+	  934              frameReplacedListener->onFrameReplaced(item);
+
+
+ 
+Layer.cpp
+
+	void Layer::onFrameAvailable(const BufferItem& item) {
+	    // Add this buffer from our internal queue tracker
+	    { // Autolock scope
+	        Mutex::Autolock lock(mQueueItemLock);
+	
+	        // Reset the frame number tracker when we receive the first buffer after
+	        // a frame number reset
+	        if (item.mFrameNumber == 1) {
+	            mLastFrameNumberReceived = 0;
+	        }
+	
+	        // Ensure that callbacks are handled in order
+	        while (item.mFrameNumber != mLastFrameNumberReceived + 1) {
+	            status_t result = mQueueItemCondition.waitRelative(mQueueItemLock,
+	                    ms2ns(500));
+	            if (result != NO_ERROR) {
+	                ALOGE("[%s] Timed out waiting on callback", mName.string());
+	            }
+	        }
+	
+	        mQueueItems.push_back(item);
+	        android_atomic_inc(&mQueuedFrames);
+	
+	        // Wake up any pending callbacks
+	        mLastFrameNumberReceived = item.mFrameNumber;
+	        mQueueItemCondition.broadcast();
+	    }
+	
+	    mFlinger->signalLayerUpdate();
+	}
+	
+# Client端本地surface.cpp构造
+
+	static jlong nativeReadFromParcel(JNIEnv* env, jclass clazz,
+	        jlong nativeObject, jobject parcelObj) {
+	    Parcel* parcel = parcelForJavaObject(env, parcelObj);
+	    if (parcel == NULL) {
+	        doThrowNPE(env);
+	        return 0;
+	    }
+	
+	    android::view::Surface surfaceShim;
+	
+	    // Calling code in Surface.java has already read the name of the Surface
+	    // from the Parcel
+	    surfaceShim.readFromParcel(parcel, /*nameAlreadyRead*/true);
+	
+	    sp<Surface> self(reinterpret_cast<Surface *>(nativeObject));
+	
+	    // update the Surface only if the underlying IGraphicBufferProducer
+	    // has changed.
+	    if (self != nullptr
+	            && (IInterface::asBinder(self->getIGraphicBufferProducer()) ==
+	                    IInterface::asBinder(surfaceShim.graphicBufferProducer))) {
+	        // same IGraphicBufferProducer, return ourselves
+	        return jlong(self.get());
+	    }
+	
+	    sp<Surface> sur;
+	    if (surfaceShim.graphicBufferProducer != nullptr) {
+	        // we have a new IGraphicBufferProducer, create a new Surface for it
+	        sur = new Surface(surfaceShim.graphicBufferProducer, true);
+	        // and keep a reference before passing to java
+	        sur->incStrong(&sRefBaseOwner);
+	    }
+	
+	    if (self != NULL) {
+	        // and loose the java reference to ourselves
+	        self->decStrong(&sRefBaseOwner);
+	    }
+	
+	    return jlong(sur.get());
+	}
+
+# canvas bitmap跟surface关系，内存分配的实际，管理，用户空间的内存不断扩大的原因
+
+# SufaceView都有独立的绘图表面
+
+SurfaceView的拥有独立的Surface，或者可以使用两块，如果不往这块surface上绘制东西，底层是surface会被默认会绘制成黑色，SufaceView本来就是view
+
+好像要mSurfaceHolder.unlockCanvasAndPost(canvas);//解锁画布，提交画好的图像，之后才能算有
+
+type   |  handle  | hint | flag | tr | blnd |   format    |     source crop (l,t,r,b)      |          frame         | name 
+-----------+----------+------+------+----+------+-------------+--------------------------------+------------------------+------
+       HWC | b66d6820 | 0002 | 0000 | 00 | 0100 | RGB_565     |    0.0,    0.0, 1080.0, 1536.0 |    0,  240, 1080, 1776 | SurfaceView
+       HWC | b4d425a0 | 0002 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 1080.0, 1920.0 |    0,    0, 1080, 1920 | com.snail.labaffinity/com.snail.labaffinity.activity.ColorThreadSurfaceActivity
+       HWC | b66d6190 | 0002 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 1080.0,   72.0 |    0,    0, 1080,   72 | StatusBar
+       HWC | b66d6870 | 0002 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 1080.0,  144.0 |    0, 1776, 1080, 1920 | NavigationBar
+ FB TARGET | b6a4fb40 | 0000 | 0000 | 00 | 0105 | RGBA_8888   |    0.0,    0.0, 1080.0, 1920.0 |    0,    0, 1080, 1920 | HWC_FRAMEBUFFER_TARGET
+ 
+
+# 内存分配跟释放是SurfaceFlinger管理？
+
+Bitmap是Java层内存，绘图表面占用的内存跟bitmap不同
+[ Android4.2.2 SurfaceFlinger之图形缓存区申请与分配dequeueBuffer](http://blog.csdn.net/gzzaigcnforever/article/details/21892067)
+  
+  
+  Client -> creatSurface -> surfaceflinger ->createLayer->new layer- >onfirstRef > 
+  
+  
+	  void Layer::onFirstRef() {
+	    // Creates a custom BufferQueue for SurfaceFlingerConsumer to use
+	    sp<IGraphicBufferProducer> producer;
+	    sp<IGraphicBufferConsumer> consumer;
+	    BufferQueue::createBufferQueue(&producer, &consumer);
+	    mProducer = new MonitoredProducer(producer, mFlinger);
+	    mSurfaceFlingerConsumer = new SurfaceFlingerConsumer(consumer, mTextureName,
+	            this);
+	    mSurfaceFlingerConsumer->setConsumerUsageBits(getEffectiveUsage(0));
+	    mSurfaceFlingerConsumer->setContentsChangedListener(this);
+	    mSurfaceFlingerConsumer->setName(mName);
+	<!--是否最对限制两个缓存-->
+	#ifndef TARGET_DISABLE_TRIPLE_BUFFERING
+	    mProducer->setMaxDequeuedBufferCount(2);
+	#endif
+	
+	    const sp<const DisplayDevice> hw(mFlinger->getDefaultDisplayDevice());
+	    updateTransformHint(hw);
+	}   
+	
+	
+	void BufferQueue::createBufferQueue(sp<IGraphicBufferProducer>* outProducer,
+        sp<IGraphicBufferConsumer>* outConsumer,
+        const sp<IGraphicBufferAlloc>& allocator) {
+    sp<BufferQueueCore> core(new BufferQueueCore(allocator));
+    sp<IGraphicBufferProducer> producer(new BufferQueueProducer(core));
+    sp<IGraphicBufferConsumer> consumer(new BufferQueueConsumer(core));
+    *outProducer = producer;
+    *outConsumer = consumer;
+	}
+	
+ [调用alloc分配了一块共享的内存缓冲区，alloc函数将返回共享区的fd和缓冲区的指针](http://www.voidcn.com/blog/kc58236582/article/p-6219365.html)
+ 
+ 
+#  Surface.java如何同surfaceFlinger通信，绘制完成，如何人通知Surfacelinger绘制呢？
+ 
+	 
+	 status_t Surface::writeToParcel(Parcel* parcel, bool nameAlreadyWritten) const {
+	    if (parcel == nullptr) return BAD_VALUE;
+	
+	    status_t res = OK;
+	
+	    if (!nameAlreadyWritten) {
+	        res = parcel->writeString16(name);
+	        if (res != OK) return res;
+	
+	        /* isSingleBuffered defaults to no */
+	        res = parcel->writeInt32(0);
+	        if (res != OK) return res;
+	    }
+	// 注意，这里是将 IGraphicBufferProducer::asBinder 写入到 了
+	    res = parcel->writeStrongBinder(
+	            IGraphicBufferProducer::asBinder(graphicBufferProducer));
+	
+	    return res;
+	}
+
+Surface可以理解为一张画布，那么Surface为何要和一个缓冲区队列相关呢？在播放动画时，美妙至少要播放24帧画面才能形成比较真实的动画效果。而这些数据是通过cpu解码得到的，准备他们需要时间。对于图像显示设备而言，刷新周期是固定的，我们必须要在它需要数据的时候把数据准备好。视频播放的每一帧也需要在指定的时间播放，因此解码器会提前准备好一批数据，这些数据保存在解码器内存的缓冲区中，当时间到达是，解码器会把内部缓冲区的图像复制到Surface中，但是显示设备并不是立刻就把数据取走的，因此Surface也需要缓冲区来临时保存数据。
+
+# 分配内存的时机，是surface lock的时候，dequeueBuffer ，当然，可能已经分配过，unlockAndPost是绘制完成，请求SF进行图层混合。或者说，真正进行绘制的时候，才会分配共享内存
+
+####   IGraphicBufferProducer是应用进程同SF通信的关键  IGraphicBufferProducer是新建Surface的时候，回传回来的
+
+#### IwindowSession是应用同WMS通信的窗口
+
+#### IWindow是WMS同APP通信窗口 
+
+
+通过Surface里的远程通信类IGraphicBufferProducer对象向SF发送消息，请求分配内存，发送之后，内存分配，并回传fd，映射内存，之后，就可以使用内存进行绘图了。Surface Parcelable readFromParcel。
+	
+	static jint nativeReadFromParcel(JNIEnv* env, jclass clazz,
+	        jint nativeObject, jobject parcelObj) {
+	    Parcel* parcel = parcelForJavaObject(env, parcelObj);
+	    if (parcel == NULL) {
+	        doThrowNPE(env);
+	        return 0;
+	    }
+	
+	    sp<Surface> self(reinterpret_cast<Surface *>(nativeObject));
+	    sp<IBinder> binder(parcel->readStrongBinder());
+	
+	    // update the Surface only if the underlying IGraphicBufferProducer
+	    // has changed.
+	    if (self != NULL
+	            && (self->getIGraphicBufferProducer()->asBinder() == binder)) {
+	        // same IGraphicBufferProducer, return ourselves
+	        return int(self.get());
+	    }
+	
+	    sp<Surface> sur;
+	    sp<IGraphicBufferProducer> gbp(interface_cast<IGraphicBufferProducer>(binder));
+	    if (gbp != NULL) {
+	        // we have a new IGraphicBufferProducer, create a new Surface for it
+	        sur = new Surface(gbp);
+	        // and keep a reference before passing to java
+	        sur->incStrong(&sRefBaseOwner);
+	    }
+	
+	    if (self != NULL) {
+	        // and loose the java reference to ourselves
+	        self->decStrong(&sRefBaseOwner);
+	    }
+	
+	    return int(sur.get());
+	}
+
+
+
+	status_t Surface::lock(
+	        ANativeWindow_Buffer* outBuffer, ARect* inOutDirtyBounds)
+	{
+	    if (mLockedBuffer != 0) {
+	        ALOGE("Surface::lock failed, already locked");
+	        return INVALID_OPERATION;
+	    }
+	
+	// connect
+	    
+	    if (!mConnectedToCpu) {
+	        int err = Surface::connect(NATIVE_WINDOW_API_CPU);
+	        if (err) {
+	            return err;
+	        }
+	        setUsage(GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN);
+	    }
+	
+	    ANativeWindowBuffer* out;
+	    int fenceFd = -1;
+	    status_t err = dequeueBuffer(&out, &fenceFd);
+
+在Layer的onFirstRef函数中，调用了下面函数，创建了3个对象BufferQueueCore BufferQueueProducer BufferQueueConsumer。 每个Layer有自己的 BufferQueueCore、BufferQueueProducer、BufferQueueConsumer
+
+	
+	status_t BufferQueueProducer::dequeueBuffer(int *outSlot,
+	        sp<android::Fence> *outFence, uint32_t width, uint32_t height,
+	        PixelFormat format, uint32_t usage) {
+	    ATRACE_CALL();
+	    。。。
+	            sp<GraphicBuffer> graphicBuffer(mCore->mAllocator->createGraphicBuffer(
+                width, height, format, usage,
+                {mConsumerName.string(), mConsumerName.size()}, &error));
+                
+                
+     sp<GraphicBuffer> GraphicBufferAlloc::createGraphicBuffer(uint32_t width,
+        uint32_t height, PixelFormat format, uint32_t usage,
+        std::string requestorName, status_t* error) {
+    sp<GraphicBuffer> graphicBuffer(new GraphicBuffer(
+            width, height, format, usage, std::move(requestorName)));
+    status_t err = graphicBuffer->initCheck();
+    *error = err;
+    if (err != 0 || graphicBuffer->handle == 0) {
+        if (err == NO_MEMORY) {
+            GraphicBuffer::dumpAllocationsToSystemLog();
+        }
+ 
+        return 0;
+    }
+    return graphicBuffer;
+    }           
+    
+	    GraphicBuffer::GraphicBuffer(uint32_t inWidth, uint32_t inHeight,
+	        PixelFormat inFormat, uint32_t inUsage)
+	    : BASE(), mOwner(ownData), mBufferMapper(GraphicBufferMapper::get()),
+	      mInitCheck(NO_ERROR), mId(getUniqueId())
+	{
+	    ......
+	    mInitCheck = initSize(inWidth, inHeight, inFormat, inUsage);
+	}
+
+	status_t GraphicBuffer::initSize(uint32_t inWidth, uint32_t inHeight,
+	        PixelFormat inFormat, uint32_t inUsage)
+	{
+	    GraphicBufferAllocator& allocator = GraphicBufferAllocator::get();
+	    uint32_t outStride = 0;
+	    status_t err = allocator.alloc(inWidth, inHeight, inFormat, inUsage,
+	            &handle, &outStride);
+	    if (err == NO_ERROR) {
+	        width = static_cast<int>(inWidth);
+	        height = static_cast<int>(inHeight);
+	        format = inFormat;
+	        usage = static_cast<int>(inUsage);
+	        stride = static_cast<int>(outStride);
+	    }
+	    return err;
+	}
+
+
+	status_t GraphicBufferAllocator::alloc(uint32_t width, uint32_t height,
+	        PixelFormat format, uint32_t usage, buffer_handle_t* handle,
+	        uint32_t* stride)
+	{
+	    ......
+	    err = mAllocDev->alloc(mAllocDev, static_cast<int>(width),
+	            static_cast<int>(height), format, static_cast<int>(usage), handle,
+	            &outStride);
+	            
+	            
+
+在GraphicBufferAllocator的构造函数中装载了Gralloc模块，因此mAllocDev指向了Gralloc模块。这个会在后面的博客中分析
+
+	GraphicBufferAllocator::GraphicBufferAllocator()
+	    : mAllocDev(0)
+	{
+	    hw_module_t const* module;
+	    int err = hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &module);
+	    ALOGE_IF(err, "FATAL: can't find the %s module", GRALLOC_HARDWARE_MODULE_ID);
+	    if (err == 0) {
+	        gralloc_open(module, &mAllocDev);
+	    }
+	}
+	
+这里调用alloc分配了一块共享的内存缓冲区，alloc函数将返回共享区的fd和缓冲区的指针。既然GraphicBuffer中的缓冲区是共享内存，我们知道使用共享内存需要传递共享内存的句柄fd。下面我们看看是如何传到客户进程的。
+
+![](http://gityuan.com/images/surfaceFlinger/class_buffer_queue.jpg)
+
+# Gralloc模块
+
+分配共享内存
+
+
+* 1、view添加wms到如何到显示？wms知道view吗？不知道
+* 2、共享内存 = 
+* 3、surface 的对应关系 一个surface 、layer 、lock 多个？
+* 4、wms SurfaceFlinger的关系，为什么要经过wms，不经过可以吗？ 可以
+* 5、不经过AMS可以吗 ，可以
+* 6、就算是共享内存，什么时候分配，lock的时候分配，不是同一块吗？
+* 7、通信surface绘制完成如何通知，AMS返回给客户端，WMS排序，input管理 surface对应内存，也拿着sf通信的proxy
+* 8、WMS为何不拆开，转么处理输入，不太合理
+* 9、计算大小WMS做，SurfaceFlinger，只是处理合成、分配内存、绘制、，其余的不考虑
+* surface绘制如何到内存，Surface有内存地址，映射到Canvas，skiaCanvas
+* surface -》surfacecontol-》client-》layer -》生产消费
+
+## Surface  是客户端同SF进行通信的接口，没有WMS，依旧可以进行图形绘制，
+
+SurfaceView使用的回调，其实就是要准备好Surface才可以，在
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        mParent.requestTransparentRegion(this);
+        mSession = getWindowSession();
+        mLayout.token = getWindowToken();
+        mLayout.setTitle("SurfaceView");
+        mViewVisibility = getVisibility() == VISIBLE;
+
+        if (!mGlobalListenersAdded) {
+            ViewTreeObserver observer = getViewTreeObserver();
+            observer.addOnScrollChangedListener(mScrollChangedListener);
+            observer.addOnPreDrawListener(mDrawListener);
+            mGlobalListenersAdded = true;
+        }
+    }
+    
+        @Override
+    protected void onDetachedFromWindow() {
+        if (mGlobalListenersAdded) {
+            ViewTreeObserver observer = getViewTreeObserver();
+            observer.removeOnScrollChangedListener(mScrollChangedListener);
+            observer.removeOnPreDrawListener(mDrawListener);
+            mGlobalListenersAdded = false;
+        }
+
+        mRequestedVisible = false;
+        updateWindow(false, false);
+        mHaveFrame = false;
+        if (mWindow != null) {
+            try {
+                mSession.remove(mWindow);
+            } catch (RemoteException ex) {
+                // Not much we can do here...
+            }
+            mWindow = null;
+        }
+        mSession = null;
+        mLayout.token = null;
+
+        super.onDetachedFromWindow();
+    }
+    
+     private void updateWindow(boolean force, boolean redrawNeeded) {
+        if (!mHaveFrame) {
+            return;
+        }
+        ViewRootImpl viewRoot = getViewRootImpl();
+        if (viewRoot != null) {
+            mTranslator = viewRoot.mTranslator;
+        
+                mLayout.height = getHeight();
+                if (mTranslator != null) {
+                    mTranslator.translateLayoutParamsInAppWindowToScreen(mLayout);
+                }
+                
+                mLayout.format = mRequestedFormat;
+                mLayout.flags |=WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                              | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                              | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+                              | WindowManager.LayoutParams.FLAG_SCALED
+                              | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                              | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                              ;
+                if (!getContext().getResources().getCompatibilityInfo().supportsScreen()) {
+                    mLayout.flags |= WindowManager.LayoutParams.FLAG_COMPATIBLE_WINDOW;
+                }
+                mLayout.privateFlags |= WindowManager.LayoutParams.PRIVATE_FLAG_NO_MOVE_ANIMATION;
+
+                if (mWindow == null) {
+                    Display display = getDisplay();
+                    mWindow = new MyWindow(this);
+                    mLayout.type = mWindowType;
+                    mLayout.gravity = Gravity.START|Gravity.TOP;
+                    mSession.addToDisplayWithoutInputChannel(mWindow, mWindow.mSeq, mLayout,
+
+                int relayoutResult;
+
+                mSurfaceLock.lock();
+                try {
+                    mUpdateWindowNeeded = false;
+                    reportDrawNeeded = mReportDrawNeeded;
+                    mReportDrawNeeded = false;
+                    mDrawingStopped = !visible;
+    
+                    if (DEBUG) Log.i(TAG, "Cur surface: " + mSurface);
+
+                    relayoutResult = mSession.relayout(
+                        mWindow, mWindow.mSeq, mLayout, mWidth, mHeight,
+                            visible ? VISIBLE : GONE,
+                            WindowManagerGlobal.RELAYOUT_DEFER_SURFACE_DESTROY,
+                            mWinFrame, mOverscanInsets, mContentInsets,
+                            mVisibleInsets, mConfiguration, mNewSurface);
+                    if ((relayoutResult & WindowManagerGlobal.RELAYOUT_RES_FIRST_TIME) != 0) {
+                        mReportDrawNeeded = true;
+
+ 
+    }
+
+
+
 # 	参考文档
+
 [ GUI系统之SurfaceFlinger(11)SurfaceComposerClient](http://blog.csdn.net/xuesen_lin/article/details/8954957)                 
 [ Skia深入分析1——skia上下文](http://blog.csdn.net/jxt1234and2010/article/details/42572559)        
 [ Android图形显示系统——概述](http://blog.csdn.net/jxt1234and2010/article/details/44164691)           
 [Linux环境进程间通信（五）: 共享内存（下）](https://www.ibm.com/developerworks/cn/linux/l-ipc/part5/index2.html)      
 [Android Binder 分析——匿名共享内存（Ashmem）
 By Mingming](http://light3moon.com/2015/01/28/Android%20Binder%20%E5%88%86%E6%9E%90%E2%80%94%E2%80%94%E5%8C%BF%E5%90%8D%E5%85%B1%E4%BA%AB%E5%86%85%E5%AD%98[Ashmem]/)     
-[Android 匿名共享内存驱动源码分析](http://blog.csdn.net/yangwen123/article/details/9318319)
-[ Android窗口管理服务WindowManagerService的简要介绍和学习计划](http://blog.csdn.net/luoshengyang/article/details/8462738)         
+[Android 匿名共享内存驱动源码分析](http://blog.csdn.net/yangwen123/article/details/9318319)       
+[ Android窗口管理服务WindowManagerService的简要介绍和学习计划](http://blog.csdn.net/luoshengyang/article/details/8462738)                      
+[Android4.2.2 SurfaceFlinger之图形渲染queueBuffer实现和VSYNC的存在感](http://blog.csdn.net/gzzaigcnforever/article/details/22046141)          
+[Android6.0 显示系统GraphicBuffer分配内存](http://www.voidcn.com/blog/kc58236582/article/p-6238474.html)         
