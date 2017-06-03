@@ -23,7 +23,7 @@ image:
 1、如何申请可以用来送显的内存，如何将其送往LCD？ 2、如何提供窗口系统？ 3、如何同步合成/显示多个图层？ 4、如何支持多屏？
 
 * SurfaceFlinger是Android里面用于提供图层合成的服务，负责给应用层提供窗口，并按指定位置合成所有图层到屏幕。
-* 视图的重绘流程，第一次绘制流程
+* 视图的重绘流程，第一次绘制流程 
 
 
 # View绘制所占用的内存如何共享
@@ -1155,7 +1155,405 @@ SurfaceView使用的回调，其实就是要准备好Surface才可以，在
     }
 
 
+# View invalidate 更新原理
 
+invalidate函数如果没有重新，没有调用requestLayout，就不会重新测量，不会重新布局
+ 
+[Android View 深度分析requestLayout、invalidate与postInvalidate](http://www.jianshu.com/p/effe9b4333de)          ，
+以TExtview的 setText而言，如果测量后，需要重新布局，那就要requestLayout，如果不需要，就算了，只需要draw
+
+整个View树的绘图流程是在ViewRootImpl.Java类的performTraversals()函数展开的，该函数做的执行过程可简单概况为
+ 根据之前设置的状态，判断是否需要重新计算视图大小(measure)、是否重新需要安置视图的位置(layout)、以及是否需要重绘
+ (draw)，其框架过程如下：
+
+    void invalidate(boolean invalidateCache) {
+        if (skipInvalidate()) {
+            return;
+        }
+        if ((mPrivateFlags & (PFLAG_DRAWN | PFLAG_HAS_BOUNDS)) == (PFLAG_DRAWN | PFLAG_HAS_BOUNDS) ||
+                (invalidateCache && (mPrivateFlags & PFLAG_DRAWING_CACHE_VALID) == PFLAG_DRAWING_CACHE_VALID) ||
+                (mPrivateFlags & PFLAG_INVALIDATED) != PFLAG_INVALIDATED || isOpaque() != mLastIsOpaque) {
+            mLastIsOpaque = isOpaque();
+            mPrivateFlags &= ~PFLAG_DRAWN;
+            mPrivateFlags |= PFLAG_DIRTY;
+            if (invalidateCache) {
+                mPrivateFlags |= PFLAG_INVALIDATED;
+                mPrivateFlags &= ~PFLAG_DRAWING_CACHE_VALID;
+            }
+            final AttachInfo ai = mAttachInfo;
+            final ViewParent p = mParent;
+            //noinspection PointlessBooleanExpression,ConstantConditions
+            if (!HardwareRenderer.RENDER_DIRTY_REGIONS) {
+                if (p != null && ai != null && ai.mHardwareAccelerated) {
+                    // fast-track for GL-enabled applications; just invalidate the whole hierarchy
+                    // with a null dirty rect, which tells the ViewAncestor to redraw everything
+                    p.invalidateChild(this, null);
+                    return;
+                }
+            }
+	
+            if (p != null && ai != null) {
+                final Rect r = ai.mTmpInvalRect;
+                r.set(0, 0, mRight - mLeft, mBottom - mTop);
+                // Don't call invalidate -- we don't want to internally scroll
+                // our own bounds
+                p.invalidateChild(this, r);
+            }
+        }
+    }
+    
+
+ViewrootImpl本来就是ViewParent，在setView的时候，被assign给DecorView。
+
+	public void setView(View view, WindowManager.LayoutParams attrs, View panelParentView) {
+	        synchronized (this) {
+	      ...
+	        view.assignParent(this);
+
+所以最终会调用ViewrootImpl的invalidate。最终
+
+    void invalidate() {
+        mDirty.set(0, 0, mWidth, mHeight);
+        scheduleTraversals();
+    }      
+
+插入紧急异步消息，之前的消息都不执行，一直等到新消息
+          
+    void scheduleTraversals() {
+        if (!mTraversalScheduled) {
+            mTraversalScheduled = true;
+            mTraversalBarrier = mHandler.getLooper().postSyncBarrier();
+            mChoreographer.postCallback(
+                    Choreographer.CALLBACK_TRAVERSAL, mTraversalRunnable, null);
+            scheduleConsumeBatchedInput();
+        }
+    }
+ 
+ 重绘哪一部分？不能每次都重绘整个View吧？   
+ 
+     void doTraversal() {
+        if (mTraversalScheduled) {
+            mTraversalScheduled = false;
+            mHandler.getLooper().removeSyncBarrier(mTraversalBarrier);
+
+            if (mProfile) {
+                Debug.startMethodTracing("ViewAncestor");
+            }
+
+            Trace.traceBegin(Trace.TRACE_TAG_VIEW, "performTraversals");
+            try {
+                performTraversals();
+            } finally {
+                Trace.traceEnd(Trace.TRACE_TAG_VIEW);
+            }
+
+            if (mProfile) {
+                Debug.stopMethodTracing();
+                mProfile = false;
+            }
+        }
+    }
+
+# // 注意 注意 setView要先执行完，才会执行后面的消息，哪怕他是异步消息
+   
+   为何requestLayout在addwindow前面，仍然可以有效执行，因为是通过发消息来处理的，requestLayout虽然在前，但是实际的任务却在addwindow的后面，所以不会有问题。
+   
+    public void setView(View view, WindowManager.LayoutParams attrs, View panelParentView) {
+        synchronized (this) {
+        ...
+        requestLayout();
+                if ((mWindowAttributes.inputFeatures
+                        & WindowManager.LayoutParams.INPUT_FEATURE_NO_INPUT_CHANNEL) == 0) {
+                    mInputChannel = new InputChannel();
+                }
+                try {
+                    mOrigWindowType = mWindowAttributes.type;
+                    mAttachInfo.mRecomputeGlobalAttributes = true;
+                    collectViewAttributes();
+                    // 真正的显示逻辑
+                    // 为何mWindow传过去，为了远端跟当前端通信
+                    res = mWindowSession.addToDisplay(mWindow, mSeq, mWindowAttributes,
+                            getHostVisibility(), mDisplay.getDisplayId(),
+                            mAttachInfo.mContentInsets, mInputChannel);
+                }
+        ...
+      }
+      
+      
+# WMS 与PhoneWindow与Touch事件
+
+SystemServer进程中新建InputManagerService
+
+	HandlerThread wmHandlerThread = new HandlerThread("WindowManager");  
+	wmHandlerThread.start();  
+	Handler wmHandler = new Handler(wmHandlerThread.getLooper());    
+	  
+	    inputManager = new InputManagerService(context, wmHandler);             
+	    wm = WindowManagerService.main(context, power, display, inputManager,  
+	            wmHandler, factoryTest != SystemServer.FACTORY_TEST_LOW_LEVEL,  
+	            !firstBoot, onlyCore);  
+	    ServiceManager.addService(Context.WINDOW_SERVICE, wm);  
+	    ServiceManager.addService(Context.INPUT_SERVICE, inputManager);  
+	  
+	    inputManager.setWindowManagerCallbacks(wm.getInputMonitor());  
+    inputManager.start(); 
+	
+InputManagerService的启动
+
+	static jint nativeInit(JNIEnv* env, jclass clazz,
+	        jobject serviceObj, jobject contextObj, jobject messageQueueObj) {
+	    sp<MessageQueue> messageQueue = android_os_MessageQueue_getMessageQueue(env, messageQueueObj);
+	    if (messageQueue == NULL) {
+	        jniThrowRuntimeException(env, "MessageQueue is not initialized.");
+	        return 0;
+	    }
+	
+	    NativeInputManager* im = new NativeInputManager(contextObj, serviceObj,
+	            messageQueue->getLooper());
+	    im->incStrong(0);
+	    return reinterpret_cast<jint>(im);
+	}
+	
+因为Java层的MessageQueue总是对应native层的NativeMessageQueue对象，所以首先先取得native层的messageQueue，并构造NativeInputManager对象：
+
+	public class InputManagerService extends IInputManager.Stub	
+	
+	
+	NativeInputManager::NativeInputManager(jobject contextObj,  
+	        jobject serviceObj, const sp<Looper>& looper) :  
+	        mLooper(looper) {  
+	    JNIEnv* env = jniEnv();  
+	  
+	    mContextObj = env->NewGlobalRef(contextObj);  
+	    mServiceObj = env->NewGlobalRef(serviceObj);  
+	  
+	    {  
+	        AutoMutex _l(mLock);  
+	        mLocked.systemUiVisibility = ASYSTEM_UI_VISIBILITY_STATUS_BAR_VISIBLE;  
+	        mLocked.pointerSpeed = 0;  
+	        mLocked.pointerGesturesEnabled = true;  
+	        mLocked.showTouches = false;  
+	    }  
+	  
+	    sp<EventHub> eventHub = new EventHub();  
+	    mInputManager = new InputManager(eventHub, this, this);  
+	} 
+	
+EventHub是监听的关键类，EventHub采用了管道，我们知道新版本的Looper采用了eventfd实现唤醒，而这里的EventHub还是采用管道
+	
+	EventHub::EventHub(void) :
+	        mBuiltInKeyboardId(NO_BUILT_IN_KEYBOARD), mNextDeviceId(1), mControllerNumbers(),
+	        mOpeningDevices(0), mClosingDevices(0),
+	        mNeedToSendFinishedDeviceScan(false),
+	        mNeedToReopenDevices(false), mNeedToScanDevices(true),
+	        mPendingEventCount(0), mPendingEventIndex(0), mPendingINotify(false) {
+	    acquire_wake_lock(PARTIAL_WAKE_LOCK, WAKE_LOCK_ID);
+	    mEpollFd = epoll_create(EPOLL_SIZE_HINT);
+	    mINotifyFd = inotify_init();
+	    int result = inotify_add_watch(mINotifyFd, DEVICE_PATH, IN_DELETE | IN_CREATE);
+	    struct epoll_event eventItem;
+	    memset(&eventItem, 0, sizeof(eventItem));
+	    eventItem.events = EPOLLIN;
+	    eventItem.data.u32 = EPOLL_ID_INOTIFY;
+	    result = epoll_ctl(mEpollFd, EPOLL_CTL_ADD, mINotifyFd, &eventItem);
+	    int wakeFds[2];
+	    result = pipe(wakeFds);
+	 	 mWakeReadPipeFd = wakeFds[0];
+	    mWakeWritePipeFd = wakeFds[1];
+	    result = fcntl(mWakeReadPipeFd, F_SETFL, O_NONBLOCK);
+	    result = fcntl(mWakeWritePipeFd, F_SETFL, O_NONBLOCK);	    eventItem.data.u32 = EPOLL_ID_WAKE;
+	    result = epoll_ctl(mEpollFd, EPOLL_CTL_ADD, mWakeReadPipeFd, &eventItem);
+	}
+	
+	InputManager::InputManager(
+        const sp<EventHubInterface>& eventHub,
+        const sp<InputReaderPolicyInterface>& readerPolicy,
+        const sp<InputDispatcherPolicyInterface>& dispatcherPolicy) {
+    mDispatcher = new InputDispatcher(dispatcherPolicy);
+    mReader = new InputReader(eventHub, readerPolicy, mDispatcher);
+    initialize();
+}
+
+InputManagerService不是Android中传统的WMS AMS类Binder服务，InputManagerService更像是守护线程类服务，监听底层事件，将事件分发给上层需求。 epoll事件轮询输入事件
+
+input有个管道，用来监听ANR ？？[Input系统—ANR原理分析](http://gityuan.com/2017/01/01/input-anr/) 利用Watching-Dog
+
+Phonewindow Actvity Dialog PopWindow的触摸事件响应
+
+Actvity Dialog有Phonwindow，里面有Decorview，DecorView在分发事件的时候，会首先利用Phonwindow的callBack，调用Activity或者Dialog的处理，而普通的是没有的，比如Toast类型的，触摸事件事件直接就会发送到View中去
+
+可以有多个窗口接收触摸事件，比如Activity可以同Popwindow懂事接收触摸事件，
+
+# 如何找到对应的窗口呢，或者说如何找到对应的InputChannal，通过管道发送消息
+
+![整体框架图](http://gityuan.com/images/input/input_summary.jpg) 
+
+[整体框架图](http://gityuan.com/2016/12/31/input-ipc/)
+
+不同版本不一样，低版本用的是管道，高版本用的是本地socket，依托Linux的Android是很灵活的，所以有时候，理解其大概原理就行，因为具体的实现方式可能会不断优化。
+WMS 在addWindow的时候，会利用           
+
+	 mInputMonitor.setUpdateInputWindowsNeededLw();
+
+    final InputMonitor mInputMonitor = new InputMonitor(this)
+    
+       public void updateInputWindowsLw(boolean force) {
+        if (!force && !mUpdateInputWindowsNeeded) {
+            return;
+        }
+        mUpdateInputWindowsNeeded = false;
+
+        if (false) Slog.d(WindowManagerService.TAG, ">>>>>> ENTERED updateInputWindowsLw");
+
+        // Populate the input window list with information about all of the windows that
+        // could potentially receive input.
+        // As an optimization, we could try to prune the list of windows but this turns
+        // out to be difficult because only the native code knows for sure which window
+        // currently has touch focus.
+        final WindowStateAnimator universeBackground = mService.mAnimator.mUniverseBackground;
+        final int aboveUniverseLayer = mService.mAnimator.mAboveUniverseLayer;
+        boolean addedUniverse = false;
+
+        // If there's a drag in flight, provide a pseudowindow to catch drag input
+        final boolean inDrag = (mService.mDragState != null);
+        if (inDrag) {
+            if (WindowManagerService.DEBUG_DRAG) {
+                Log.d(WindowManagerService.TAG, "Inserting drag window");
+            }
+            final InputWindowHandle dragWindowHandle = mService.mDragState.mDragWindowHandle;
+            if (dragWindowHandle != null) {
+                addInputWindowHandleLw(dragWindowHandle);
+            } else {
+                Slog.w(WindowManagerService.TAG, "Drag is in progress but there is no "
+                        + "drag window handle.");
+            }
+        }
+
+        final int NFW = mService.mFakeWindows.size();
+        for (int i = 0; i < NFW; i++) {
+            addInputWindowHandleLw(mService.mFakeWindows.get(i).mWindowHandle);
+        }
+
+        // Add all windows on the default display.
+        final int numDisplays = mService.mDisplayContents.size();
+        for (int displayNdx = 0; displayNdx < numDisplays; ++displayNdx) {
+            WindowList windows = mService.mDisplayContents.valueAt(displayNdx).getWindowList();
+            for (int winNdx = windows.size() - 1; winNdx >= 0; --winNdx) {
+                final WindowState child = windows.get(winNdx);
+                final InputChannel inputChannel = child.mInputChannel;
+                final InputWindowHandle inputWindowHandle = child.mInputWindowHandle;
+                if (inputChannel == null || inputWindowHandle == null || child.mRemoved) {
+                    // Skip this window because it cannot possibly receive input.
+                    continue;
+                }
+
+                final int flags = child.mAttrs.flags;
+                final int privateFlags = child.mAttrs.privateFlags;
+                final int type = child.mAttrs.type;
+
+                final boolean hasFocus = (child == mInputFocus);
+                final boolean isVisible = child.isVisibleLw();
+                final boolean hasWallpaper = (child == mService.mWallpaperTarget)
+                        && (type != WindowManager.LayoutParams.TYPE_KEYGUARD);
+                final boolean onDefaultDisplay = (child.getDisplayId() == Display.DEFAULT_DISPLAY);
+
+                // If there's a drag in progress and 'child' is a potential drop target,
+                // make sure it's been told about the drag
+                if (inDrag && isVisible && onDefaultDisplay) {
+                    mService.mDragState.sendDragStartedIfNeededLw(child);
+                }
+
+                if (universeBackground != null && !addedUniverse
+                        && child.mBaseLayer < aboveUniverseLayer && onDefaultDisplay) {
+                    final WindowState u = universeBackground.mWin;
+                    if (u.mInputChannel != null && u.mInputWindowHandle != null) {
+                        addInputWindowHandleLw(u.mInputWindowHandle, u, u.mAttrs.flags,
+                                u.mAttrs.privateFlags, u.mAttrs.type,
+                                true, u == mInputFocus, false);
+                    }
+                    addedUniverse = true;
+                }
+
+                if (child.mWinAnimator != universeBackground) {
+                    addInputWindowHandleLw(inputWindowHandle, child, flags, privateFlags, type,
+                            isVisible, hasFocus, hasWallpaper);
+                }
+            }
+        }
+ 
+        mService.mInputManager.setInputWindows(mInputWindowHandles);
+ 
+        clearInputWindowHandlesLw();
+
+     }
+
+    private void addInputWindowHandleLw(final InputWindowHandle windowHandle) {
+        if (mInputWindowHandles == null) {
+            mInputWindowHandles = new InputWindowHandle[16];
+        }
+        if (mInputWindowHandleCount >= mInputWindowHandles.length) {
+            mInputWindowHandles = Arrays.copyOf(mInputWindowHandles,
+                    mInputWindowHandleCount * 2);
+        }
+        mInputWindowHandles[mInputWindowHandleCount++] = windowHandle;
+    }
+    
+   WMS  addWindow-》updateFocusedWindowLocked-》mInputMonitor.updateInputWindowsLw-》mInputManager.setInputWindows-》NativeInputManager::setInputWindows-》getDispatcher()->setInputWindows
+   
+也就说窗口变化的时候WMS会将需要获取Input事件的窗口告诉InputManager，之后InputDisPatch就能知道需要将事件发送给哪个窗口
+
+void InputDispatcher::setInputWindows
+
+![](http://img.blog.csdn.net/20141213164750258?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamluemh1b2p1bg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast)
+
+VYNC主要处理的是动画，图形绘制、触摸事件这三种场景
+
+	   public static final int CALLBACK_INPUT = 0;
+	
+	    /**
+	     * Callback type: Animation callback.  Runs before traversals.
+	     * @hide
+	     */
+	    public static final int CALLBACK_ANIMATION = 1;
+	
+	    /**
+	     * Callback type: Traversal callback.  Handles layout and draw.  Runs last
+	     * after all other asynchronous messages have been handled.
+	     * @hide
+	     */
+	    public static final int CALLBACK_TRAVERSAL = 2;
+ 
+
+# WMS 与PhoneWindow与动画  
+
+动画更新原理，动画跟VSYNC的关系比较亲密。
+ 
+*  View动画原理 http://www.cnblogs.com/kross/p/4087780.html] 一句话 ，基于VSYNC不断的重绘
+*  属性动画  基于VSYNC不断的重绘
+*  窗口动画  http://blog.csdn.net/luoshengyang/article/details/8611754
+
+Activity全屏？ 全屏是Activity？ NO Activity跟Fragment一样，都是View的容器而已，最红呈现的都是View
+
+[Android动画之原理篇（四）](http://gityuan.com/2015/09/06/android-anaimator-4/)
+
+Android中动画，视图更新，Input事件都是通过VSYNC信号来控制的，都是在VSYNC到来之后，才会更新
+
+Choreographer Choreographer 编导，加个塞子，将自己要处理的事件优先级提到最高，等到事件到来，唤醒
+
+
+#    VSYNC事件分发原理
+
+首先注册到底层硬件或者软件模拟模块，之后，收信号，不断地刷新，处理问题，UI绘制完成，也要等到信号到来，没完成，要等下一个信号
+
+参考文档  http://blog.csdn.net/yangwen123/article/details/16985119
+Android VSync信号产生过程源码分析http://blog.csdn.net/yangwen123/article/details/16969907
+
+# Looper的addFd是为了，原来的唤醒的，后来的唤醒与执行，尤其是input的socket   mDataChannel->getFd()，其实VSYNC信号，用的也是DataChannel
+
+收到 后，用DisplayEventReceiver，
+
+不断的产生终端，
+                  
 # 	参考文档
 
 [ GUI系统之SurfaceFlinger(11)SurfaceComposerClient](http://blog.csdn.net/xuesen_lin/article/details/8954957)                 
@@ -1167,4 +1565,6 @@ By Mingming](http://light3moon.com/2015/01/28/Android%20Binder%20%E5%88%86%E6%9E
 [Android 匿名共享内存驱动源码分析](http://blog.csdn.net/yangwen123/article/details/9318319)       
 [ Android窗口管理服务WindowManagerService的简要介绍和学习计划](http://blog.csdn.net/luoshengyang/article/details/8462738)                      
 [Android4.2.2 SurfaceFlinger之图形渲染queueBuffer实现和VSYNC的存在感](http://blog.csdn.net/gzzaigcnforever/article/details/22046141)          
-[Android6.0 显示系统GraphicBuffer分配内存](http://www.voidcn.com/blog/kc58236582/article/p-6238474.html)         
+[Android6.0 显示系统GraphicBuffer分配内存](http://www.voidcn.com/blog/kc58236582/article/p-6238474.html)   
+[InputManagerService分析一：IMS的启动与事件传递](http://blog.csdn.net/lilian0118/article/details/28617185)        
+[Android 5.0(Lollipop)事件输入系统(Input System)](http://blog.csdn.net/jinzhuojun/article/details/41909159)      
