@@ -1530,7 +1530,9 @@ VYNC主要处理的是动画，图形绘制、触摸事件这三种场景
  
 *  View动画原理 http://www.cnblogs.com/kross/p/4087780.html] 一句话 ，基于VSYNC不断的重绘
 *  属性动画  基于VSYNC不断的重绘
-*  窗口动画  http://blog.csdn.net/luoshengyang/article/details/8611754
+*  窗口动画 窗口动画并不会导致Activity主线程，不断的重绘视图，而是在WMS自己控制 [Android窗口管理服务WindowManagerService显示窗口动画的原理分析](http://blog.csdn.net/luoshengyang/article/details/8611754)    [ Android6.0 WMS（十一） WMS窗口动画生成及播放](http://blog.csdn.net/kc58236582/article/details/54377886)      
+
+
 
 Activity全屏？ 全屏是Activity？ NO Activity跟Fragment一样，都是View的容器而已，最红呈现的都是View
 
@@ -1552,7 +1554,7 @@ Android VSync信号产生过程源码分析http://blog.csdn.net/yangwen123/artic
 
 收到 后，用DisplayEventReceiver，
 
-不断的产生终端，
+不断的产生中断，
                   
 # 	参考文档
 
