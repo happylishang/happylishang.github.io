@@ -35,3 +35,9 @@ Android的窗口管理是该系统最复杂的一块，涉及了WindowManagerSer
 
 
 直观的理解窗口管理：View如何从新建到显示到窗口（不要考虑Activity，跟它没啥关系，Actvity不是View，只是更好显示View的一个辅助组件），先简述下View的新建与添加显示：首先Client新建View对象，当然这里只是简单的Java类，并没有开始绘制真正的图形，之后Client向WindowManagerService登记，其实就是添加显示，并标记自己的位于的图层，WindowManagerService接着想SurfaceFlinger服务申请抽象的图层，获取抽象Surface绘图表面，之后Client利用Surface向SurfaceFlinger申请绘图内存，这部分内存是C/S共享的，获取到内存后Client绘制图形到内存，绘制完成，通知SurfaceFlinger显示到屏幕上。
+
+# 动效及触摸事件的处理都在UI线程
+
+所以，尽量不要在UI线程做太复杂的处理，否则会卡顿或者掉帧，VSYNC信号到来的时候，如果UI没准备好，就会掉帧。
+
+

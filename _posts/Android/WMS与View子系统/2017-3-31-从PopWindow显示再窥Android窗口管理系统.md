@@ -6,19 +6,17 @@ image:
 
 ---
 
-
 PopupWindow#invokePopup源码如下：
 
-private void invokePopup(WindowManager.LayoutParams p) {
-        if (mContext != null) {
-            p.packageName = mContext.getPackageName();
-        }
-        mPopupView.setFitsSystemWindows(mLayoutInsetDecor);
-        setLayoutDirectionFromAnchor();
-        mWindowManager.addView(mPopupView, p);
-    }
+	private void invokePopup(WindowManager.LayoutParams p) {
+	        if (mContext != null) {
+	            p.packageName = mContext.getPackageName();
+	        }
+	        mPopupView.setFitsSystemWindows(mLayoutInsetDecor);
+	        setLayoutDirectionFromAnchor();
+	        mWindowManager.addView(mPopupView, p);
+	    }
 
-分析： 
 该方法也很简单，主要是调用了WindowManager#addView方法来添加对话框视图。从而PopupWindow对话框显示在Activity应用窗口之上了。
 
 
@@ -160,4 +158,30 @@ LayoutParams中token是WMS用来处理tokenmap跟,而IWindow主要是用来处�
 
 WMS 究竟管理什么呢？有人说WingdowManagerService也可以成为SurfaceManagerService，为何？
 
+
+如果有背景，则会在contentView外面包一层PopupViewContainer之后作为mPopupView，如果没有背景，则直接用contentView作为mPopupView。
+而这个PopupViewContainer是一个内部私有类，它继承了FrameLayout，在其中重写了Key和Touch事件的分发处理 
+
+        if (mBackground != null) {
+            final ViewGroup.LayoutParams layoutParams = mContentView.getLayoutParams();
+            int height = ViewGroup.LayoutParams.MATCH_PARENT;
+            if (layoutParams != null &&
+                    layoutParams.height == ViewGroup.LayoutParams.WRAP_CONTENT) {
+                height = ViewGroup.LayoutParams.WRAP_CONTENT;
+            }
+
+            // when a background is available, we embed the content view
+            // within another view that owns the background drawable
+            PopupViewContainer popupViewContainer = new PopupViewContainer(mContext);
+            PopupViewContainer.LayoutParams listParams = new PopupViewContainer.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, height
+            );
+            popupViewContainer.setBackgroundDrawable(mBackground);
+            popupViewContainer.addView(mContentView, listParams);
+
+            mPopupView = popupViewContainer;
+        } else {
+            mPopupView = mContentView;
+        }
+        
     

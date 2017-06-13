@@ -458,7 +458,7 @@ Android Framework 把窗口分为三种类型，应用窗口，子窗口以及�
 # 为什么Dialog的Token不能为空
 
 Dialog的窗口类型同Activity类型是应用窗口，所以TOken不能为null，否则wms会出错，
-popwindow也是个独立的窗口，有个windowstate但是，它必须 依附父窗口，这个父窗口不必是Actvity，但是token不能为null，这也是为了管理子window
+popwindow也是个独立的窗口，有个windowstate但是，它必须依附父窗口，这个父窗口不必是Actvity，但是token不能为null，这也是为了管理子window
 Toast类系统窗口，可以为null，也可以不为null，系统窗口不走应用窗口的管理逻辑，所以为所谓Token是什么，跟随类型，
 
 # detach from window 与Attach window的时机
@@ -497,6 +497,7 @@ Toast类系统窗口，可以为null，也可以不为null，系统窗口不走�
       } 
                
  ViewRootImpl 在收到要删除窗口的命令后，会执行以下操作，详细见源码分析：
+ 
 （1）判断是否可以立即删除窗口，否则会等下次 UI 操作时执行；
 （2）确认需要删除窗口时，会执行 doDie 方法，通过 dispatchDetachedFromWindow 通知 View 树，窗口要被删除了；
 （3）dispatchDetachedFromWindow 执行以下操作
@@ -1229,7 +1230,7 @@ ViewrootImpl本来就是ViewParent，在setView的时候，被assign给DecorView
         }
     }
  
- 重绘哪一部分？不能每次都重绘整个View吧？   
+ 重绘哪一部分？不能每次都重绘整个View吧？，只会如果不调用requestlayout只会重绘自己，不会重新布局。TextView源码中，经过测量，如果TextView尺寸发生了改变，就需要重新布局，尺寸没变自然不需要重新布局。
  
      void doTraversal() {
         if (mTraversalScheduled) {
