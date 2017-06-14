@@ -6,7 +6,16 @@ image:
 
 ---
 
-PopupWindow#invokePopup源码如下：
+PopupWindow与Dialog、Activity不同，PopupWindow不属于独立的窗口，如果稍微了解WMS就会知道，Dialog、Activity都属于应用窗口，而PopupWindow属于子窗口，本文就来分析下PopWindow的原理。
+
+* PopWindow同Activity的区别是：PopWindow没有自己的WindowToke，它必须依附到其他窗口。
+* PopWindow同Dialog的区别是：PopWindow所依附的窗口没有限制，但是Dialog依附的窗口必须是Activity。
+* PopWindow同系统窗口的区别是：系统窗口可以独立存在，但是PopWindow不可以，系统窗口可以使PopWindow的父窗口，反过来却不行。
+
+PopupWindow使用一般是如下：
+
+
+PopupWindow invokePopup源码如下：
 
 	private void invokePopup(WindowManager.LayoutParams p) {
 	        if (mContext != null) {
