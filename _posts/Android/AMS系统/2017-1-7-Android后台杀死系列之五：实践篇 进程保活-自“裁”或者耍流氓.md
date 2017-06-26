@@ -636,7 +636,37 @@ startForeground(ID， new Notification())，可以将Service变成前台服务�
 	    }
 	}
 
- 
+#  添加Manifest文件属性值为android:persistent=“true” 
+
+需要系统签名，ROM定制
+
+
+# START_STICKY与START_REDELIVER_INTENT都能导致重新创建，等待一段时间后，受时间跟次数的限制：原理 延迟发送消息
+
+    private final boolean scheduleServiceRestartLocked(ServiceRecord r,   boolean allowCancel) {
+     mAm.mHandler.removeCallbacks(r.restarter);
+        mAm.mHandler.postAtTime(r.restarter, r.nextRestartTime);  
+        
+        
+        
+        1、  START_STICKY
+
+                 在运行onStartCommand后service进程被kill后，那将保留在开始状态，但是不保留那些传入的intent。不久后service就会再次尝试重新创建，因为保留在开始状态，在创建     service后将保证调用onstartCommand。如果没有传递任何开始命令给service，那将获取到null的intent
+
+          2、  START_NOT_STICKY
+
+                 在运行onStartCommand后service进程被kill后，并且没有新的intent传递给它。Service将移出开始状态，并且直到新的明显的方法（startService）调用才重新创建。因为如果没有传递任何未决定的intent那么service是不会启动，也就是期间onstartCommand不会接收到任何null的intent。
+
+           3、  START_REDELIVER_INTENT
+
+                在运行onStartCommand后service进程被kill后，系统将会再次启动service，并传入最后一个intent给onstartCommand。直到调用stopSelf(int)才停止传递intent。如果在被kill后还有未处理好的intent，那被kill后服务还是会自动启动。因此onstartCommand不会接收到任何null的intent。
+
+          客户端也可以使用bindService来保持跟service持久关联。谨记：如果使用这种方法，那么将不会调用onstartCommand（跟startService不一样，下面例子注释也有解析，大家可试试）。客户端将会在onBind回调中接收到IBinder接口返回的对象。通常IBinder作为一个复杂的接口通常是返回aidl数据。
+
+         Service也可以混合start和bind一起使用。
+         
+         
+               
 # 总结 
 
 **所有流氓手段的进程保活，都是下策**，建议不要使用，本文只是分析实验用。当APP退回后台，优先级变低，就应该适时释放内存，以提高系统流畅度，依赖流氓手段提高优先级，还不释放内存，保持不死的，都是作死。
