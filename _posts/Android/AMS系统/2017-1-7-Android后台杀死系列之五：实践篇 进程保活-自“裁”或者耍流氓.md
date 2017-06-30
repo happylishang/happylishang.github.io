@@ -610,7 +610,69 @@ startForeground(ID， new Notification())，可以将Service变成前台服务�
 
     startService(new Intent(MainActivity.this, PairServiceA.class));
 
-这个方案一般都没问题，因为Binder讣告是系统中Binder框架自带的，除非一次性全部杀死所有父子进程，这个没测试过。
+这个方案一般都没问题，因为Binder讣告是系统中Binder框架自带的，除非一次性全部杀死所有父子进程，这个没测试过。这种方案虽然无法改变优先级，但是从最近的任务列表删除的时候，仍然无法杀死该进程，原因如下：
+
+此时APP内至少两个进程A\B ,并且AB相互通过bindService绑定，此时就是互为客户端，在oom_adj中有这么一种计算逻辑，如果进程A的Service被B通过bind绑定，那么A的优先级可能会受到B的影响，因为在计算A的时候需要先计算B，但是B同样是A的Service，反过来有需要计算A，如果不加额外的判断，就会出现死循环，AMS是通过一个计数来标识的：**mAdjSeq == app.adjSeq**。于是流程就是这样 
+
+*  计算A：发现依赖B
+* 计算B：发现依赖A
+* 计算A：发现A正在计算，直接返回已经计算到一半A的优先级
+
+上面的流程能保证不出现死循环，并且由于A只计算了一半，所以A的很多东西没有更新，所以B拿到的A就是之前的数值，比如 curProcState、curSchedGroup:
+
+    private final int computeOomAdjLocked(ProcessRecord app, int cachedAdj, ProcessRecord TOP_APP,
+            boolean doingAll, long now) {
+        if (mAdjSeq == app.adjSeq) {
+            // This adjustment has already been computed.
+            return app.curRawAdj;
+        }
+        ....
+          for (int is = app.services.size()-1;
+                is >= 0 && (adj > ProcessList.FOREGROUND_APP_ADJ
+                        || schedGroup == Process.THREAD_GROUP_BG_NONINTERACTIVE
+                        || procState > ActivityManager.PROCESS_STATE_TOP);
+                is--) {
+            ServiceRecord s = app.services.valueAt(is);
+           ...
+            for (int conni = s.connections.size()-1;
+                    conni >= 0 && (adj > ProcessList.FOREGROUND_APP_ADJ
+                            || schedGroup == Process.THREAD_GROUP_BG_NONINTERACTIVE
+                            || procState > ActivityManager.PROCESS_STATE_TOP);
+                    conni--) {
+                ArrayList<ConnectionRecord> clist = s.connections.valueAt(conni);
+                for (int i = 0;
+                        i < clist.size() && (adj > ProcessList.FOREGROUND_APP_ADJ
+                                || schedGroup == Process.THREAD_GROUP_BG_NONINTERACTIVE
+                                || procState > ActivityManager.PROCESS_STATE_TOP);
+                        i++) {
+                    ConnectionRecord cr = clist.get(i);
+
+                    if (cr.binding.client == app) {
+                        // Binding to ourself is not interesting.
+                        continue;
+                    }
+                    if ((cr.flags&Context.BIND_WAIVE_PRIORITY) == 0) {
+                        ProcessRecord client = cr.binding.client;
+                        // 这里会不会出现死循环的问题呢？ A需要B的计算、B需要A的计算，这个圆环也许就是为什么
+                        // 无法左滑删除的原因 循环的，
+                        <!--关键点1 -->
+                        int clientAdj = computeOomAdjLocked(client, cachedAdj,
+                                TOP_APP, doingAll, now);
+
+                        int clientProcState = client.curProcState;
+                        if (clientProcState >= ActivityManager.PROCESS_STATE_CACHED_ACTIVITY) {
+                            clientProcState = ActivityManager.PROCESS_STATE_CACHED_EMPTY;
+                        }
+                       <!--关键点2-->
+								...
+                        if ((cr.flags&Context.BIND_NOT_FOREGROUND) == 0) {
+                            if (client.curSchedGroup == Process.THREAD_GROUP_DEFAULT) {
+                                schedGroup = Process.THREAD_GROUP_DEFAULT;
+                            }
+                    ...        
+			}
+
+上面的代码中：关键点1是循环计算的入口，关键点2是无法删除的原因所在，由于A没及时更新，导致schedGroup = Process.THREAD_GROUP_DEFAULT，反过来也让A保持schedGroup = Process.THREAD_GROUP_DEFAULT。A B 都无法左滑删除。
  
 # 广播或者Service原地复活的进程保活
 
@@ -665,8 +727,39 @@ startForeground(ID， new Notification())，可以将Service变成前台服务�
 
          Service也可以混合start和bind一起使用。
          
-         
-               
+ 
+
+       ProcessRecord中的意义
+       
+*     int maxAdj;                 // Maximum OOM adjustment for this process
+*     int curRawAdj;              // Current OOM unlimited adjustment for this process
+*     int setRawAdj;              // Last set OOM unlimited adjustment for this process
+*     
+*     int curAdj;                 // Current OOM adjustment for this process
+*     int setAdj;                 // Last set OOM adjustment for this process
+*     
+*     int curSchedGroup;          // Currently desired scheduling class
+*     int setSchedGroup;          // Last set to background scheduling class
+*     
+*     int curProcState = PROCESS_STATE_NONEXISTENT; // Currently computed process state
+*     int repProcState = PROCESS_STATE_NONEXISTENT; // Last reported process state
+*     int setProcState = PROCESS_STATE_NONEXISTENT; // Last set process state in process tracker
+*     int pssProcState = PROCESS_STATE_NONEXISTENT; // Currently requesting pss for
+      
+ 
+  场景：App启动了两个进程A B，两个进程相互通过bindService绑定，这种情况下，A B oom_adj的计算为什么没有出现死循环呢？ 
+
+这个时候，从最近的任务列表也无法左滑杀死进程，因为schedGroup = Process.THREAD_GROUP_DEFAULT，好奇是怎么计算的，看源码没看明白。
+
+    private final int computeOomAdjLocked(ProcessRecord app, int cachedAdj, ProcessRecord TOP_APP,
+            boolean doingAll, long now) {
+        if (mAdjSeq == app.adjSeq) {
+            // This adjustment has already been computed.
+            return app.curRawAdj;
+        }
+        
+因为开头的mAdjSeq ，这个序列号是在updateOomAdj生成的，不会因为computeOomAdj而改变，如果A计算过了，在本次updateOomAdj时候，循环用到了A的computeOomAdj，就会直接返回A的curRawAdj
+              
 # 总结 
 
 **所有流氓手段的进程保活，都是下策**，建议不要使用，本文只是分析实验用。当APP退回后台，优先级变低，就应该适时释放内存，以提高系统流畅度，依赖流氓手段提高优先级，还不释放内存，保持不死的，都是作死。
