@@ -709,9 +709,8 @@ startForeground(ID， new Notification())，可以将Service变成前台服务�
      mAm.mHandler.removeCallbacks(r.restarter);
         mAm.mHandler.postAtTime(r.restarter, r.nextRestartTime);  
         
-        
-        
-        1、  START_STICKY
+               
+      	  1、  START_STICKY
 
                  在运行onStartCommand后service进程被kill后，那将保留在开始状态，但是不保留那些传入的intent。不久后service就会再次尝试重新创建，因为保留在开始状态，在创建     service后将保证调用onstartCommand。如果没有传递任何开始命令给service，那将获取到null的intent
 
@@ -729,27 +728,104 @@ startForeground(ID， new Notification())，可以将Service变成前台服务�
          
  
 
-       ProcessRecord中的意义
+ProcessRecord中一些参数的意义的意义
        
 *     int maxAdj;                 // Maximum OOM adjustment for this process
 *     int curRawAdj;              // Current OOM unlimited adjustment for this process
-*     int setRawAdj;              // Last set OOM unlimited adjustment for this process
-*     
+*     int setRawAdj;              // Last set OOM unlimited adjustment for this process  
 *     int curAdj;                 // Current OOM adjustment for this process
 *     int setAdj;                 // Last set OOM adjustment for this process
-*     
+
+adj主要用来给LMKD服务，让内核曾选择性的处理后台杀死，curRawAdj是本地updateOomAdj计算出的临时值，setRawAdj是上一次计算出兵设定好的oom值，两者都是未经过二次调整的数值，curAdj与setAdj是经过调整之后的adj。
+    
 *     int curSchedGroup;          // Currently desired scheduling class
 *     int setSchedGroup;          // Last set to background scheduling class
-*     
+
+curSchedGroup与setSchedGroup是AMS管理进程的一个参考，定义在ProcessList.java中，从名字上看与任务调度有关系，答案也确实如此，取值有如下三种，不同版本略有不同，这里是7.0，
+
+    // Activity manager's version of Process.THREAD_GROUP_BG_NONINTERACTIVE
+    static final int SCHED_GROUP_BACKGROUND = 0;
+    // Activity manager's version of Process.THREAD_GROUP_DEFAULT
+    static final int SCHED_GROUP_DEFAULT = 1;
+    // Activity manager's version of Process.THREAD_GROUP_TOP_APP
+    static final int SCHED_GROUP_TOP_APP = 2;
+    
+AMS只能杀死后台进程，只有setSchedGroup==ProcessList.SCHED_GROUP_BACKGROUND的进程才被AMS看做后台进程，才可以被杀死，否则AMS无权杀死。
+
+		 <!--参考代码1-->
+	  if (app.waitingToKill != null && app.curReceivers.isEmpty()
+	                    && app.setSchedGroup == ProcessList.SCHED_GROUP_BACKGROUND) {
+	                app.kill(app.waitingToKill, true);
+	                success = false;
+	            } 
+        
+       <!--参考代码2-->    
+        // Kill the running processes.
+        for (int i = 0; i < procsToKill.size(); i++) {
+            ProcessRecord pr = procsToKill.get(i);
+            if (pr.setSchedGroup == ProcessList.SCHED_GROUP_BACKGROUND
+                    && pr.curReceivers.isEmpty()) {
+                pr.kill("remove task", true);
+            } else {
+                // We delay killing processes that are not in the background or running a receiver.
+                pr.waitingToKill = "remove task";
+            }
+        }
+        
+以上两个场景：场景一是AMS计算oomAdj并清理进程 ，场景二的代表：从最近的任务列表删除进程。   
+         
 *     int curProcState = PROCESS_STATE_NONEXISTENT; // Currently computed process state
 *     int repProcState = PROCESS_STATE_NONEXISTENT; // Last reported process state
 *     int setProcState = PROCESS_STATE_NONEXISTENT; // Last set process state in process tracker
 *     int pssProcState = PROCESS_STATE_NONEXISTENT; // Currently requesting pss for
-      
- 
-  场景：App启动了两个进程A B，两个进程相互通过bindService绑定，这种情况下，A B oom_adj的计算为什么没有出现死循环呢？ 
 
-这个时候，从最近的任务列表也无法左滑杀死进程，因为schedGroup = Process.THREAD_GROUP_DEFAULT，好奇是怎么计算的，看源码没看明白。
+ProcState 主要是为AMS服务，AMS依据procState判断进程当前的状态以及重要程度，对应的值位于ActivityManager.java中，主要作用是：决定进程的缓存等级以及缓存进程的生死。
+
+	<!--参考代码1-->
+	switch (app.curProcState) {
+	                    case ActivityManager.PROCESS_STATE_CACHED_ACTIVITY:
+	                    case ActivityManager.PROCESS_STATE_CACHED_ACTIVITY_CLIENT:
+	                        mNumCachedHiddenProcs++;
+	                        numCached++;
+	                        if (numCached > cachedProcessLimit) {
+	                            app.kill("cached #" + numCached, true);
+	                        }
+	                        break;
+	                    case ActivityManager.PROCESS_STATE_CACHED_EMPTY:
+	                        if (numEmpty > ProcessList.TRIM_EMPTY_APPS
+	                                && app.lastActivityTime < oldTime) {
+	                            app.kill("empty for "
+	                                    + ((oldTime + ProcessList.MAX_EMPTY_TIME - app.lastActivityTime)
+	                                    / 1000) + "s", true);
+	                        } else {
+	                            numEmpty++;
+	                            if (numEmpty > emptyProcessLimit) {
+	                                app.kill("empty #" + numEmpty, true);
+	                            }
+	                        }
+	                        break;
+	                    default:
+	                        mNumNonCachedProcs++;
+	                        break;
+                }
+                
+	<!--参考代码2-->
+	if ((app.curProcState >= ActivityManager.PROCESS_STATE_IMPORTANT_BACKGROUND
+	                            || app.systemNoUi) && app.pendingUiClean) {
+	                        final int level = ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN;
+	                        if (app.trimMemoryLevel < level && app.thread != null) {
+	                            try {
+	                                app.thread.scheduleTrimMemory(level);
+	                            } catch (RemoteException e) {
+	                            }
+	                        }
+	                        app.pendingUiClean = false;
+	                    }
+                    
+                    
+# 无法从最近的任务列表杀死微信、微博原理
+
+App启动了两个进程A B，两个进程相互通过bindService绑定，这种情况下，A B oom_adj的计算为什么没有出现死循环呢？ 这个时候，从最近的任务列表也无法左滑杀死进程，因为schedGroup = Process.THREAD_GROUP_DEFAULT。
 
     private final int computeOomAdjLocked(ProcessRecord app, int cachedAdj, ProcessRecord TOP_APP,
             boolean doingAll, long now) {
@@ -758,7 +834,7 @@ startForeground(ID， new Notification())，可以将Service变成前台服务�
             return app.curRawAdj;
         }
         
-因为开头的mAdjSeq ，这个序列号是在updateOomAdj生成的，不会因为computeOomAdj而改变，如果A计算过了，在本次updateOomAdj时候，循环用到了A的computeOomAdj，就会直接返回A的curRawAdj
+因为开头的mAdjSeq ，这个序列号是在updateOomAdj生成的，不会因为computeOomAdj而改变，如果A计算过了，在本次updateOomAdj时候，循环用到了A的computeOomAdj，就会直接返回A的curRawAdj。
               
 # 总结 
 
