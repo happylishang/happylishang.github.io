@@ -698,34 +698,162 @@ startForeground(ID， new Notification())，可以将Service变成前台服务�
 	    }
 	}
 
-#  添加Manifest文件属性值为android:persistent=“true” 
-
-需要系统签名，ROM定制
 
 
-# START_STICKY与START_REDELIVER_INTENT都能导致重新创建，等待一段时间后，受时间跟次数的限制：原理 延迟发送消息
+# 通过START_STICKY与START_REDELIVER_INTENT实现被杀唤醒
 
-    private final boolean scheduleServiceRestartLocked(ServiceRecord r,   boolean allowCancel) {
-     mAm.mHandler.removeCallbacks(r.restarter);
-        mAm.mHandler.postAtTime(r.restarter, r.nextRestartTime);  
+通过startService启动的Service，如果没用呗stopService结束掉，在进程被杀掉之后，是有可能重新启动的，实现方式：
+
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        return START_STICKY;//或者START_REDELIVER_INTENT
+    }
+
+当然，前提是该进程可以被杀掉（无论被AMS还是LMDK），用户主动杀死（最近任务列表或者退出应用），都一定会通过Binder讣告机制回调:
+
+   
+    private final void handleAppDiedLocked(ProcessRecord app,
+            boolean restarting, boolean allowRestart) {
+        int pid = app.pid;
+        boolean kept = cleanUpApplicationRecordLocked(app, restarting, allowRestart, -1);
+        ...
+       }
+
+进而调用cleanUpApplicationRecordLocked函数进行一系列清理及通知工作，这里先看Service相关的工作：
+
+	  private final boolean cleanUpApplicationRecordLocked(ProcessRecord app,
+	            boolean restarting, boolean allowRestart, int index) {
+	        ...
+			 // 这里先出处理service
+	        mServices.killServicesLocked(app, allowRestart);
+	        ...
+      }   
+
+这里传入的allowRestart==true，也就说：允许重新启动Service：
+
+    final void killServicesLocked(ProcessRecord app, boolean allowRestart) {
+ 
+        ...
+        ServiceMap smap = getServiceMap(app.userId);
+       // Now do remaining service cleanup.
+        for (int i=app.services.size()-1; i>=0; i--) {
+            ServiceRecord sr = app.services.valueAt(i);
+            if (!app.persistent) {
+                app.services.removeAt(i);
+            }
+            ...
+            if (allowRestart && sr.crashCount >= 2 && (sr.serviceInfo.applicationInfo.flags
+                    &ApplicationInfo.FLAG_PERSISTENT) == 0) {
+                bringDownServiceLocked(sr);
+            } else if (!allowRestart
+                    || !mAm.mUserController.isUserRunningLocked(sr.userId, 0)) {
+                bringDownServiceLocked(sr);
+            } else {
+               <!--关键点1 先进行判定，如果有需要将重启的消息发送到消息队列等待执行-->
+                boolean canceled = scheduleServiceRestartLocked(sr, true);
+               // 受时间跟次数的限制 sr.stopIfKilled  
+              <!--关键点2 二次确认，如果不应该启动Service，就将重启Service的消息移除-->
+               if (sr.startRequested && (sr.stopIfKilled || canceled)) {
+                    if (sr.pendingStarts.size() == 0) {
+                        sr.startRequested = false;
+                        if (!sr.hasAutoCreateConnections()) {
+                            bringDownServiceLocked(sr);
+                        }
+               ...
+     }
+ 
+先看关键点1：如果允许重新启动，并且APP Crash的次数小于两次，就视图将为结束的Service重新唤起，其实就是调用scheduleServiceRestartLocked，发送消息，等待唤醒，关键点2是二次确认下，是不是需要被唤醒，如果不需要就将上面的消息移除，并进行一定的清理工作，这里的sr.stopIfKilled，其实主要跟onStartCommand返回值有关系：
+
+	 void serviceDoneExecutingLocked(ServiceRecord r, int type, int startId, int res) {
+	        boolean inDestroying = mDestroyingServices.contains(r);
+	        if (r != null) {
+	            if (type == ActivityThread.SERVICE_DONE_EXECUTING_START) {
+	                r.callStart = true;
+	                switch (res) {
+	                    case Service.START_STICKY_COMPATIBILITY:
+	                    case Service.START_STICKY: {
+	                        r.findDeliveredStart(startId, true);
+	                        r.stopIfKilled = false;
+	                        break;
+	                    }
+	                    case Service.START_NOT_STICKY: {
+	                        r.findDeliveredStart(startId, true);
+	                        if (r.getLastStartId() == startId) {
+	                            r.stopIfKilled = true;
+	                        }
+	                        break;
+	                    }
+	                    case Service.START_REDELIVER_INTENT: {
+	                        ServiceRecord.StartItem si = r.findDeliveredStart(startId, false);
+	                        if (si != null) {
+	                            si.deliveryCount = 0;
+	                            si.doneExecutingCount++;
+	                            r.stopIfKilled = true;
+	                        }
+	                        break;
+	                    }
+	                    
+所以，如果onStartCommand返回的是Service.START_STICKY，在被杀死后是会重新启动的，有必要的话，还会重启进程：
+
+    private final boolean scheduleServiceRestartLocked(ServiceRecord r,
+            boolean allowCancel) {
+        boolean canceled = false;
+		 ...
+		 <!--关键点1-->
+        mAm.mHandler.removeCallbacks(r.restarter);
+        mAm.mHandler.postAtTime(r.restarter, r.nextRestartTime);
+        r.nextRestartTime = SystemClock.uptimeMillis() + r.restartDelay;
+        return canceled;
+    }
+
+看关键点1，其实就是发送一个重新启动Service的消息，之后就会重新启动Service。
+
+    private class ServiceRestarter implements Runnable {
+        private ServiceRecord mService;
+
+        void setService(ServiceRecord service) {
+            mService = service;
+        }
+
+        public void run() {
+            synchronized(mAm) {
+                performServiceRestartLocked(mService);
+            }
+        }
+    }
+    
+再看下几个标志的意义：
+             
+1、  START_STICKY
+
+在运行onStartCommand后service进程被kill后，那将保留在开始状态，但是不保留那些传入的intent。不久后service就会再次尝试重新创建，因为保留在开始状态，在创建     service后将保证调用onstartCommand。如果没有传递任何开始命令给service，那将获取到null的intent
+
+2、  START_NOT_STICKY
+
+在运行onStartCommand后service进程被kill后，并且没有新的intent传递给它。Service将移出开始状态，并且直到新的明显的方法（startService）调用才重新创建。因为如果没有传递任何未决定的intent那么service是不会启动，也就是期间onstartCommand不会接收到任何null的intent。
+
+3、  START_REDELIVER_INTENT
+
+在运行onStartCommand后service进程被kill后，系统将会再次启动service，并传入最后一个intent给onstartCommand。直到调用stopSelf(int)才停止传递intent。如果在被kill后还有未处理好的intent，那被kill后服务还是会自动启动。因此onstartCommand不会接收到任何null的intent。
+
+
+  
         
-               
-      	  1、  START_STICKY
-
-                 在运行onStartCommand后service进程被kill后，那将保留在开始状态，但是不保留那些传入的intent。不久后service就会再次尝试重新创建，因为保留在开始状态，在创建     service后将保证调用onstartCommand。如果没有传递任何开始命令给service，那将获取到null的intent
-
-          2、  START_NOT_STICKY
-
-                 在运行onStartCommand后service进程被kill后，并且没有新的intent传递给它。Service将移出开始状态，并且直到新的明显的方法（startService）调用才重新创建。因为如果没有传递任何未决定的intent那么service是不会启动，也就是期间onstartCommand不会接收到任何null的intent。
-
-           3、  START_REDELIVER_INTENT
-
-                在运行onStartCommand后service进程被kill后，系统将会再次启动service，并传入最后一个intent给onstartCommand。直到调用stopSelf(int)才停止传递intent。如果在被kill后还有未处理好的intent，那被kill后服务还是会自动启动。因此onstartCommand不会接收到任何null的intent。
-
-          客户端也可以使用bindService来保持跟service持久关联。谨记：如果使用这种方法，那么将不会调用onstartCommand（跟startService不一样，下面例子注释也有解析，大家可试试）。客户端将会在onBind回调中接收到IBinder接口返回的对象。通常IBinder作为一个复杂的接口通常是返回aidl数据。
-
-         Service也可以混合start和bind一起使用。
          
+
+# Nexus5手机无法从最近的任务列表杀死微信、微博的原理
+
+App启动了两个进程A B，两个进程相互通过bindService绑定，这种情况下，A B oom_adj的计算为什么没有出现死循环呢？ 这个时候，从最近的任务列表也无法左滑杀死进程，因为schedGroup = Process.THREAD_GROUP_DEFAULT。
+
+    private final int computeOomAdjLocked(ProcessRecord app, int cachedAdj, ProcessRecord TOP_APP,
+            boolean doingAll, long now) {
+        if (mAdjSeq == app.adjSeq) {
+            // This adjustment has already been computed.
+            return app.curRawAdj;
+        }
+        
+因为开头的mAdjSeq ，这个序列号是在updateOomAdj生成的，不会因为computeOomAdj而改变，如果A计算过了，在本次updateOomAdj时候，循环用到了A的computeOomAdj，就会直接返回A的curRawAdj。
  
 
 ProcessRecord中一些参数的意义的意义
@@ -736,8 +864,67 @@ ProcessRecord中一些参数的意义的意义
 *     int curAdj;                 // Current OOM adjustment for this process
 *     int setAdj;                 // Last set OOM adjustment for this process
 
-adj主要用来给LMKD服务，让内核曾选择性的处理后台杀死，curRawAdj是本地updateOomAdj计算出的临时值，setRawAdj是上一次计算出兵设定好的oom值，两者都是未经过二次调整的数值，curAdj与setAdj是经过调整之后的adj。
-    
+adj主要用来给LMKD服务，让内核曾选择性的处理后台杀死，curRawAdj是本地updateOomAdj计算出的临时值，setRawAdj是上一次计算出兵设定好的oom值，两者都是未经过二次调整的数值，curAdj与setAdj是经过调整之后的adj，这里有个小问题，为什么前台服务进程的oom_adj打印出来是1，但是在AMS登记的curAdj却是2呢？
+
+
+	 oom: max=16 curRaw=2 setRaw=2 cur=2 set=2
+    curSchedGroup=-1 setSchedGroup=-1 systemNoUi=false trimMemoryLevel=0
+    curProcState=4 repProcState=4 pssProcState=-1 setProcState=4 lastStateTime=-37s554ms
+
+AMS传递给LMKD服务的adj确实是2，LMKD用2计算出的oom_score_adj=117 （1000*oom_adj/17） 也是准确的数值 ,那为什么proc/pid/oom_adj中的数值是1呢？应该是**反向取整**导致的，高版本的内核都不在使用oom_adj，而是用oom_score_adj，oom_adj是一个向前兼容。
+
+<!--为何只记录了oom_score_adj-->
+	static void cmd_procprio(int pid, int uid, int oomadj) {
+	    struct proc *procp;
+	    char path[80];
+	    char val[20];
+	
+	    if (oomadj < OOM_DISABLE || oomadj > OOM_ADJUST_MAX) {
+	        ALOGE("Invalid PROCPRIO oomadj argument %d", oomadj);
+	        return;
+	    }
+	
+		// 这里只记录oom_score_adj
+	    snprintf(path, sizeof(path), "/proc/%d/oom_score_adj", pid);
+	    snprintf(val, sizeof(val), "%d", lowmem_oom_adj_to_oom_score_adj(oomadj));
+	    writefilestring(path, val);
+	    <!--use_inkernel_interface = 1-->
+	     if (use_inkernel_interface)
+        return;
+        ....
+     }
+ 
+ use_inkernel_interface标识其他几个oom_adj，oom_score跟随 oom_score_adj变化。oom_adj=（oom_score_adj*17/1000）,取整的话，正好小了1；看如下解释：
+ 
+ 
+
+	The value of /proc/<pid>/oom_score_adj is added to the badness score before oom_adj；
+	
+	For backwards compatibility with previous kernels, /proc/<pid>/oom_adj may also
+	be used to tune the badness score.  Its acceptable values range from -16
+	(OOM_ADJUST_MIN) to +15 (OOM_ADJUST_MAX) and a special value of -17
+	(OOM_DISABLE) to disable oom killing entirely for that task.  Its value is
+	scaled linearly with /proc/<pid>/oom_score_adj.
+	
+oom_adj的存在是为了和旧版本的内核兼容，并且随着oom_score_adj线性变化，如果更改其中一个，另一个会自动跟着变化，在内核中变化方式为：
+
+* 写oom_score_adj时，内核里都记录在变量 task->signal->oom_score_adj 中；
+* 读oom_score_adj时，从内核的变量 task->signal->oom_score_adj 中读取；
+* 写oom_adj时，也是记录到变量 task->signal->oom_score_adj 中，会根据oom_adj值按比例换算成oom_score_adj。
+* 读oom_adj时，也是从内核变量 task->signal->oom_score_adj 中读取，只不过显示时又按比例换成oom_adj的范围。
+
+
+所以，就会产生如下精度丢失的情况：
+
+	# echo 9 > /proc/556/oom_adj
+	# cat /proc/556/oom_score_adj
+	  529
+	# cat /proc/556/oom_adj
+	  8
+
+这也是为什么Android中明明算出来的oom_adj=1（2），在proc/pid/oom_adj总记录的确实0（1）。
+  
+   
 *     int curSchedGroup;          // Currently desired scheduling class
 *     int setSchedGroup;          // Last set to background scheduling class
 
@@ -823,19 +1010,11 @@ ProcState 主要是为AMS服务，AMS依据procState判断进程当前的状态�
 	                    }
                     
                     
-# 无法从最近的任务列表杀死微信、微博原理
+#  添加Manifest文件属性值为android:persistent=“true” 
 
-App启动了两个进程A B，两个进程相互通过bindService绑定，这种情况下，A B oom_adj的计算为什么没有出现死循环呢？ 这个时候，从最近的任务列表也无法左滑杀死进程，因为schedGroup = Process.THREAD_GROUP_DEFAULT。
+**这种做法需要系统签名，一般是在定制ROM的时候，手机厂家自身的APP才能获取的权限。
+**              
 
-    private final int computeOomAdjLocked(ProcessRecord app, int cachedAdj, ProcessRecord TOP_APP,
-            boolean doingAll, long now) {
-        if (mAdjSeq == app.adjSeq) {
-            // This adjustment has already been computed.
-            return app.curRawAdj;
-        }
-        
-因为开头的mAdjSeq ，这个序列号是在updateOomAdj生成的，不会因为computeOomAdj而改变，如果A计算过了，在本次updateOomAdj时候，循环用到了A的computeOomAdj，就会直接返回A的curRawAdj。
-              
 # 总结 
 
 **所有流氓手段的进程保活，都是下策**，建议不要使用，本文只是分析实验用。当APP退回后台，优先级变低，就应该适时释放内存，以提高系统流畅度，依赖流氓手段提高优先级，还不释放内存，保持不死的，都是作死。
