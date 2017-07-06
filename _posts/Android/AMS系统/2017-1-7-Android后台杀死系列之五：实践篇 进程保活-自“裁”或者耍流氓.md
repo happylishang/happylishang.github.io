@@ -1036,4 +1036,5 @@ ProcState 主要是为AMS服务，AMS依据procState判断进程当前的状态�
 [按"Home"键回到桌面的过程](http://book.51cto.com/art/201109/291309.htm)       
 [Android low memory killer 机制](https://my.oschina.net/wolfcs/blog/288259)           
 [应用内存优化之OnLowMemory&OnTrimMemory](http://www.cnblogs.com/xiajf/p/3993599.html)  
+[2.1. linux OOM 机制分析 oom_adj不一致](http://learning-kernel.readthedocs.io/en/latest/mem-management.html)
 
