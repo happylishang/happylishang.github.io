@@ -614,7 +614,7 @@ startForeground(ID， new Notification())，可以将Service变成前台服务�
 
 此时APP内至少两个进程A\B ,并且AB相互通过bindService绑定，此时就是互为客户端，在oom_adj中有这么一种计算逻辑，如果进程A的Service被B通过bind绑定，那么A的优先级可能会受到B的影响，因为在计算A的时候需要先计算B，但是B同样是A的Service，反过来有需要计算A，如果不加额外的判断，就会出现死循环，AMS是通过一个计数来标识的：**mAdjSeq == app.adjSeq**。于是流程就是这样 
 
-*  计算A：发现依赖B
+* 计算A：发现依赖B
 * 计算B：发现依赖A
 * 计算A：发现A正在计算，直接返回已经计算到一半A的优先级
 
