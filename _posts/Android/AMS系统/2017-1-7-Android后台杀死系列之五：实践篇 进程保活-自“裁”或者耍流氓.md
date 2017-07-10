@@ -610,13 +610,13 @@ startForeground(ID， new Notification())，可以将Service变成前台服务�
 
     startService(new Intent(MainActivity.this, PairServiceA.class));
 
-这个方案一般都没问题，因为Binder讣告是系统中Binder框架自带的，除非一次性全部杀死所有父子进程，这个没测试过。这种方案虽然无法改变优先级，但是从最近的任务列表删除的时候，仍然无法杀死该进程，原因如下：
+这个方案一般都没问题，因为Binder讣告是系统中Binder框架自带的，除非一次性全部杀死所有父子进程，这个没测试过。这种方案虽然无法改变优先级，但是**从最近的任务列表删除的时候，仍然无法杀死该进程**，原因如下：
 
 此时APP内至少两个进程A\B ,并且AB相互通过bindService绑定，此时就是互为客户端，在oom_adj中有这么一种计算逻辑，如果进程A的Service被B通过bind绑定，那么A的优先级可能会受到B的影响，因为在计算A的时候需要先计算B，但是B同样是A的Service，反过来有需要计算A，如果不加额外的判断，就会出现死循环，AMS是通过一个计数来标识的：**mAdjSeq == app.adjSeq**。于是流程就是这样 
 
-* 计算A：发现依赖B
-* 计算B：发现依赖A
-* 计算A：发现A正在计算，直接返回已经计算到一半A的优先级
+* 计算A：发现依赖B，去计算B
+* 计算B：发现依赖A，回头计算A
+* 计算A：发现A正在计算，直接返回已经计算到一半的A优先级
 
 上面的流程能保证不出现死循环，并且由于A只计算了一半，所以A的很多东西没有更新，所以B拿到的A就是之前的数值，比如 curProcState、curSchedGroup:
 
@@ -835,28 +835,10 @@ startForeground(ID， new Notification())，可以将Service变成前台服务�
 
 3、  START_REDELIVER_INTENT
 
-在运行onStartCommand后service进程被kill后，系统将会再次启动service，并传入最后一个intent给onstartCommand。直到调用stopSelf(int)才停止传递intent。如果在被kill后还有未处理好的intent，那被kill后服务还是会自动启动。因此onstartCommand不会接收到任何null的intent。
-
-
-  
-        
+在运行onStartCommand后service进程被kill后，系统将会再次启动service，并传入最后一个intent给onstartCommand。直到调用stopSelf(int)才停止传递intent。如果在被kill后还有未处理好的intent，那被kill后服务还是会自动启动。因此onstartCommand不会接收到任何null的intent。       
          
 
-# Nexus5手机无法从最近的任务列表杀死微信、微博的原理
-
-App启动了两个进程A B，两个进程相互通过bindService绑定，这种情况下，A B oom_adj的计算为什么没有出现死循环呢？ 这个时候，从最近的任务列表也无法左滑杀死进程，因为schedGroup = Process.THREAD_GROUP_DEFAULT。
-
-    private final int computeOomAdjLocked(ProcessRecord app, int cachedAdj, ProcessRecord TOP_APP,
-            boolean doingAll, long now) {
-        if (mAdjSeq == app.adjSeq) {
-            // This adjustment has already been computed.
-            return app.curRawAdj;
-        }
-        
-因为开头的mAdjSeq ，这个序列号是在updateOomAdj生成的，不会因为computeOomAdj而改变，如果A计算过了，在本次updateOomAdj时候，循环用到了A的computeOomAdj，就会直接返回A的curRawAdj。
- 
-
-ProcessRecord中一些参数的意义的意义
+#  ProcessRecord中一些参数的意义的意义
        
 *     int maxAdj;                 // Maximum OOM adjustment for this process
 *     int curRawAdj;              // Current OOM unlimited adjustment for this process

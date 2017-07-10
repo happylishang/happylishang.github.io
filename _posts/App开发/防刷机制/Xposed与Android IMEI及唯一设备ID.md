@@ -5,7 +5,6 @@
 
 > 杨从安（数盟网络CEO）： 设备数据的规模性实际上是我们认为会不断扩大自己技术优势的地方。APP推广反作弊一个非常核心的指标就是设备识别的准确度， 这个指标很大程度上依赖于后台的真实设备数据库。打个比方，我们获取了一台小米手机的IMIE码和其他硬件信息，然后跟我们后台的数据库做校验，如果**数据匹配**，那就可以确定这部手机确实是小米公司正式发售的产品；如果不匹配，那这部手机有可能就是改码手机，需要重点监测。**截止2016年5月，我们累积覆盖去重设备超过5.46亿，占中国活跃安卓设备的95%以上。这个数据库确保了我们对存量用户的识别能力达到96%，**异常设备识别误差小于1.04%，这个精度是目前业界最高的。
  
-
 > 这个是可以的， 也是其他的产品不能比较的。 具备可校验性，以确保ID的可靠。 这个的生成具有自己的规则，可以判断是否由数盟下发、其对应的app、开发者等信息等。无论是数盟还是数盟客户在拿到这个ID后，都可以很方便的去校验出这个ID是否是正
 
 
@@ -51,41 +50,21 @@
 
 硬件参数信息：
 
-![431499323461_.pic_hd.jpg](http://upload-images.jianshu.io/upload_images/1460468-438f641a1a574521.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+ 
  
 ![431499323461_.pic.jpg](http://upload-images.jianshu.io/upload_images/1460468-fa523b01e778c3fc.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-![441499323463_.pic_hd.jpg](http://upload-images.jianshu.io/upload_images/1460468-2b471a02c8fbb476.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
- 
-
 ![441499323463_.pic.jpg](http://upload-images.jianshu.io/upload_images/1460468-e605d688b76e73e1.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-![451499323464_.pic_hd.jpg](http://upload-images.jianshu.io/upload_images/1460468-c067e3771db0a9cc.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-![451499323464_.pic.jpg](http://upload-images.jianshu.io/upload_images/1460468-c81f0dee9e9dcc52.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-![461499323465_.pic_hd.jpg](http://upload-images.jianshu.io/upload_images/1460468-244d77cc9755aaca.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
  
-
+![451499323464_.pic.jpg](http://upload-images.jianshu.io/upload_images/1460468-c81f0dee9e9dcc52.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+ 
 ![461499323465_.pic.jpg](http://upload-images.jianshu.io/upload_images/1460468-f072f24aebc79c08.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-![471499323466_.pic_hd.jpg](http://upload-images.jianshu.io/upload_images/1460468-cecaa894d2e6edf9.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
 
 ![471499323466_.pic.jpg](http://upload-images.jianshu.io/upload_images/1460468-077dea1818a6c9ce.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-![481499323471_.pic_hd.jpg](http://upload-images.jianshu.io/upload_images/1460468-dd7f967b771bf895.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
- 
-
 ![481499323471_.pic.jpg](http://upload-images.jianshu.io/upload_images/1460468-64e9e9fa66fbe17d.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-![491499323472_.pic_hd.jpg](http://upload-images.jianshu.io/upload_images/1460468-7eaaf74636551172.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-
 ![491499323472_.pic.jpg](http://upload-images.jianshu.io/upload_images/1460468-49f0f544e9be7cb5.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-![501499323475_.pic_hd.jpg](http://upload-images.jianshu.io/upload_images/1460468-0a9ac004c39ef8af.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
 
 
 # 实现方法
@@ -94,10 +73,31 @@
 * adb命令
 * Native服务
 
+
+# 反Hook，将被Hook的接口给还原
+
+            @Override
+            public java.lang.String getbDeviceId(java.lang.String callingPackage) throws android.os.RemoteException {
+                android.os.Parcel _data = android.os.Parcel.obtain();
+                android.os.Parcel _reply = android.os.Parcel.obtain();
+                java.lang.String _result;
+                try {
+                    _data.writeInterfaceToken(DESCRIPTOR);
+                    _data.writeString(callingPackage);
+                    mRemote.transact(Stub.TRANSACTION_getbDeviceId, _data, _reply, 0);
+                    _reply.readException();
+                    _result = _reply.readString();
+                } finally {
+                    _reply.recycle();
+                    _data.recycle();
+                }
+                return _result;
+            }
+
 [Android ADB命令大全(通过ADB命令查看wifi密码、MAC地址、设备信息、操作文件、查看文件、日志信息、卸载、启动和安装APK等)](https://zmywly8866.github.io/2015/01/24/all-adb-command.html)     
 
 
-一下命令不需要权限
+# 不需要root权限的adb命令
 
 获取IMEI
 
@@ -113,3 +113,7 @@
 
 	 adb get-serialno
 	  
+
+# Native服务
+
+Native服务需要与服务Code对应上，但是不同版本，不同手机厂Code不一样，底层怎么定位是个问题：AIDL服务生成的CODE是根据其文件函数声明的顺序，
