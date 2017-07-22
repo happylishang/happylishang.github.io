@@ -12,6 +12,8 @@
 
 ## 甄别的特征值与权重
 
+**所有通过Java类直接取到的数据都能作假**
+
 * 手机型号（1）
 * 手机Android版本（2）
 * 基带版本（10）
@@ -19,7 +21,7 @@
 * 版本号（3）
 * IP地址（20）
 * 序列号（30）
-* IMEI（30）
+* IMEI（30）只有带有无线通信模块的才有
 * ICCID（20）
 * 传感器信息
 
@@ -76,6 +78,11 @@
 
 # 反Hook，将被Hook的接口给还原
 
+xposed框架并不改变原来的代码，只是将自己的代码给Hook进去，所以原来的函数都是没被改变的。这个是绕过Hook的关键，如果通过Hook改变了系统服务，那我们也没办法，因为Android对于硬件的访问基本都是通过封装服务，然后给Client调用，直接访问不太现实，比如获取IMEI，本质上是通过向芯片发送AT命令获取数据，理论上可以通过Adb来处理，但是由于不同的芯片对应AT命令集合应该不一样，另外在获取数据的时候，对应的串口名称也可能不同，有的是tty，有的是ttyUSB0，所以不太现实。
+
+Xposed的做法一般是Hook服务的代理，比如Hook掉TelephoneManager中的getbDeviceId方法，但是如果能将方法给还原，还是可以拿到数据的，Binder通信的关键是知道Transaction ID，跟通信数据，知道这些，我们就能自己实现Binder的跨进程通信，绕过被Hook的函数，adb shell service call iphonesubinfo 1其实也是同样的原理。
+
+
             @Override
             public java.lang.String getbDeviceId(java.lang.String callingPackage) throws android.os.RemoteException {
                 android.os.Parcel _data = android.os.Parcel.obtain();
@@ -94,8 +101,15 @@
                 return _result;
             }
 
-[Android ADB命令大全(通过ADB命令查看wifi密码、MAC地址、设备信息、操作文件、查看文件、日志信息、卸载、启动和安装APK等)](https://zmywly8866.github.io/2015/01/24/all-adb-command.html)     
 
+
+
+Xposed之类的Hook不太可能直接Hook掉系统服务，只能Hook系统服务的代理，因为根据AIDL生成的系统服务接口是有ID号的，很难一一对应，所以核心是找到真正的系统服务代理。
+
+[Xposed原理 深入理解Android（三）：Xposed详解](http://www.infoq.com/cn/articles/android-in-depth-xposed)       
+[Android热修复升级探索——追寻极致的代码热替换](https://yq.aliyun.com/articles/74598?t=t1)
+[Android ADB命令大全(通过ADB命令查看wifi密码、MAC地址、设备信息、操作文件、查看文件、日志信息、卸载、启动和安装APK等)](https://zmywly8866.github.io/2015/01/24/all-adb-command.html)    
+[ART深度探索开篇：从Method Hook谈起] (http://weishu.me/2017/03/20/dive-into-art-hello-world/)
 
 # 不需要root权限的adb命令
 
@@ -116,4 +130,19 @@
 
 # Native服务
 
-Native服务需要与服务Code对应上，但是不同版本，不同手机厂Code不一样，底层怎么定位是个问题：AIDL服务生成的CODE是根据其文件函数声明的顺序，
+Native服务需要与服务Code对应上，但是不同版本，不同手机厂Code不一样，底层怎么定位是个问题：AIDL服务生成的CODE是根据其文件函数声明的顺序。
+
+# AT命令
+
+AT命令不知道会不会跟不同的基带模块关系过于密切，如果密切，可能不同的芯片需要不同的命令，这些命令怎么统一的呢？应该跟每个手机厂商有关系。每个芯片有自己的AT命令库.不同芯片的3G模块所支持的AT 指令集会有差异，具体需要查看对应规格书。并且AT命令对应的串口也不一定能够着找到有的名字是tty，有的是ttyUSB0。
+
+
+
+# MAC地址 比较靠谱，但是一定要获取真实的MAC
+
+#  可能的问题
+
+*  版本兼容：不同的版本获取IMEI的实现可能不同
+* 只是针对Xposed的Hook处理，不能保证一定准确，如果ROM层或者服务层作假，就没有办法
+* IMEI的需要Phone权限，如果不给可能获取不到，平板之类的没有无线通信模块的设备没哟IMEI
+* 序列号
