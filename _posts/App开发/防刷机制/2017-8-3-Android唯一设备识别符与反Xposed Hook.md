@@ -5,7 +5,6 @@ description: "Android"
 
 ---
 
-# Android中常用的设备标识符
 
 APP开发中常需要获取Android的Deviceid，以应对防刷，目前常用的几个设备识别码主要有IMEI（国际移动设备身份码 International Mobile Equipment Identity）或者MEID（Mobile Equipment IDentifier），这两者也是常说的DeviceId，不过Android6.0之后需要权限才能获取，而且，在Java层这个ID很容易被Hook，可能并不靠谱，另外也可以通过MAC地址或者蓝牙地址，序列号等，暂列如下：
 
