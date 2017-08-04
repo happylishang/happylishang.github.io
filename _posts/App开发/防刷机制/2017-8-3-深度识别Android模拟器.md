@@ -86,4 +86,5 @@ ARM与PC的X86在架构上有很大区别，ARM采用的哈弗架构将指令存
 # 参考文档
 
 [QEMU emulation detection](https://wiki.koeln.ccc.de/images/d/d5/Openchaos_qemudetect.pdf)       
-[DEXLabs](http://www.dexlabs.org/blog/btdetect)
+[DEXLabs](http://www.dexlabs.org/blog/btdetect)         
+[利用cache特性检测Android模拟器](http://www.evil0x.com/posts/14360.html)       
