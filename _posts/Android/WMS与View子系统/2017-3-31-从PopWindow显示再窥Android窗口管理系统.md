@@ -537,17 +537,17 @@ Android 中所有的视图都是通过 Window 来呈现的，不管是 Activity�
 
 那有什么后果呢？难道无法移除了吗？不应该吧，还是处理了的 ,照样处理onDetachedFromWindow回调：并没有导致Dialog不被回收，也许只是一个提醒，Google也不可能留
 
-   @Override
-    public void onDetachedFromWindow() {
-        super.onDetachedFromWindow();
-    }
+	   @Override
+	    public void onDetachedFromWindow() {
+	        super.onDetachedFromWindow();
+	    }
     
 
 他们都是靠着Activity的WindowManager 进行隐藏的？ 没有隐藏的入口，交给统一的管理，内存泄漏？ 并没发现
     
-
+### View的Context来自何处 ，为什么FragmentDialog中View获取的Context不能添加Dialog
                                                                           
 # 参考文档
 
-[Android对话框Dialog，PopupWindow，Toast的实现机制  ](http://blog.csdn.net/feiduclear_up/article/details/49080587)      
+[Android对话框Dialog，PopupWindow，Toast的实现机制](http://blog.csdn.net/feiduclear_up/article/details/49080587)      
 [Android窗口机制（五）最终章：WindowManager.LayoutParams和Token以及其他窗口Dialog，Toast](http://www.jianshu.com/p/bac61386d9bf)       
