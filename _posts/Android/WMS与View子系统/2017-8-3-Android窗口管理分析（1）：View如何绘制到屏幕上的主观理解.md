@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Android窗口管理分析（1）：窗口管理及主观理解
+title: Android窗口管理分析（1）：View如何绘制到屏幕上的主观理解
 category: Android
 image: http://upload-images.jianshu.io/upload_images/1460468-76a055cbca80ba44.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 
