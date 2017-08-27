@@ -1,19 +1,102 @@
 ---
 layout: post
-title: 从addView到View的显示过程
+title: Android窗口管理分析（3）：WMS窗口的组织形式
 category: Android
 image: 
 
 ---
 
-日常开发中经常会遇到这样的问题，比如Dialog在新建的时候，必须要用Activity的Context，而不能用Application的Context，不能以PopupWindow中View为锚点弹出子PopupWindow，这是为什么呢？其实这里面就牵扯都Android的窗口组织形式，本文主要分析窗口的组织形式，只管来说包含一下几点：
+Activity中弹出的所有PopupWindow会随着Activity的隐藏而隐藏，对于Dialog也是如此，这多少有些分组的概念在里面，Activity中弹出的PopupWindow都是属于Activity的子窗口，子窗口的显示状态受父窗口的影响。一些常见的问题都同窗口的分组有关系，比如为什么新建Dialog的时候必须要用Activity的Context，而不能用Application的Context；在PopupWindow中，不能以它的View为锚点弹出子PopupWindow？其实这里面就牵扯都Android的窗口组织管理形式，本文主要包含一下几点：
 
 *  窗口的分组管理
-* 窗口的Z次序管理：分配、调整等
-* 窗口分组及次序调整对于SurfaceFlinger的影响
+*  窗口的Z次序管理：分配、调整等
+*  窗口分组及次序调整对于SurfaceFlinger的影响
 
-先看窗口的分组，子窗口一定是以父窗口的
+先看窗口的分组，之间简单介绍了窗口类型，应用窗口，子窗口、系统窗口，既然是分组，我们主要以应用窗口跟子窗口为分析对象，与窗口一一对应的数据结构是WindowState，而与窗口分组对应的数据结构是WindowToken，可以看一下两者数据结构模型：
 
+
+	class WindowToken {
+	
+		final WindowManagerService service;
+		final IBinder token;
+		final int windowType;
+		final boolean explicit;
+		AppWindowToken appWindowToken;
+		final WindowList windows = new WindowList();
+		...
+	}
+
+	final class WindowState implements WindowManagerPolicy.WindowState {
+	    static final String TAG = "WindowState";
+	
+	    final WindowManagerService mService;
+	    final WindowManagerPolicy mPolicy;
+	    final Context mContext;
+	    final Session mSession;
+	    final IWindow mClient;
+	    ...
+	    WindowToken mToken;
+	    WindowToken mRootToken;
+	    AppWindowToken mAppToken;
+	    AppWindowToken mTargetAppToken;
+	    ...
+	    }
+
+可以看到WindowToken包含一个 WindowList windows = new WindowList()，而WindowState有一个WindowToken mToken，也就是WindowToken包含一个WindowState列表，而每个WindowState附属一个WindowToken窗口组，示意图如下：
+	    
+![WindowToken与WindowState关系.jpg](http://upload-images.jianshu.io/upload_images/1460468-8e9cfc3cc05ba860.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+不过这里还有一个比较特殊的WindowToken：AppWindowToken，它是WMS为应用窗口生成的WindowToken，每个Activity及其上面弹出的Dialog同属一AppWindowToken对应的窗口分组，AppWindowToken是在AMS直接往WMS中添加的，其键值key是ActivityRecord中的IApplicationToken
+ binder对象，添加时机是在resumeTopActivity的时候，这里只关心AppWindowToken中的startingWindow字段，它的值一定是Activity对应的WindowState，作用也很明显，就是当Activity显示或者隐藏的时候，要同步更新Activity内部的Dialog，以及对应的PopupWindow组：
+
+	class AppWindowToken extends WindowToken {
+	    ...
+	    WindowState startingWindow;
+	    ...
+	    }
+
+首先来看一下Activity及Dialog使用的AppWindowToken添加，之后在看PopupWindow子窗口类的添加。
+
+## Activity WindowToken（AppWindowToken）的添加
+
+    @Override
+    public void addAppToken(int addPos, IApplicationToken token, int taskId, int stackId,
+            int requestedOrientation, boolean fullscreen, boolean showForAllUsers, int userId,
+            int configChanges, boolean voiceInteraction, boolean launchTaskBehind) {
+        long inputDispatchingTimeoutNanos;
+        try {
+            inputDispatchingTimeoutNanos = token.getKeyDispatchingTimeout() * 1000000L;
+        } catch (RemoteException ex) {   }
+
+        synchronized(mWindowMap) {
+            AppWindowToken atoken = findAppWindowToken(token.asBinder());
+            if (atoken != null) {
+                Slog.w(TAG, "Attempted to add existing app token: " + token);
+                return;
+            }
+            atoken = new AppWindowToken(this, token, voiceInteraction);
+            atoken.inputDispatchingTimeoutNanos = inputDispatchingTimeoutNanos;
+            atoken.appFullscreen = fullscreen;
+            atoken.showForAllUsers = showForAllUsers;
+            atoken.requestedOrientation = requestedOrientation;
+            atoken.layoutConfigChanges = (configChanges &
+                    (ActivityInfo.CONFIG_SCREEN_SIZE | ActivityInfo.CONFIG_ORIENTATION)) != 0;
+            atoken.mLaunchTaskBehind = launchTaskBehind;
+            Task task = mTaskIdToTask.get(taskId);
+            if (task == null) {
+                task = createTaskLocked(taskId, stackId, userId, atoken);
+            }
+            task.addAppToken(addPos, atoken);
+            mTokenMap.put(token.asBinder(), atoken);
+            // Application tokens start out hidden.
+            atoken.hidden = true;
+            atoken.hiddenRequested = true;
+        }
+    }
+       
+## PopupWindow子窗口的WindowToken的添加
+
+    
 本文主要分析
 
 在View显示中，我所遇到的主观问题：
