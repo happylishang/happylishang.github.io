@@ -52,7 +52,7 @@ Activity中弹出的所有PopupWindow会随着Activity的隐藏而隐藏，对�
 	class AppWindowToken extends WindowToken {
 	    ...
 	    WindowState startingWindow;
-	    ...
+
 	    }
 
 首先来看一下Activity及Dialog使用的AppWindowToken添加，之后在看PopupWindow子窗口类的添加。
