@@ -6,7 +6,62 @@ image:
 
 ---
 
-Activity中弹出的所有PopupWindow会随着Activity的隐藏而隐藏，对于Dialog也是如此，这多少有些分组的概念在里面，Activity中弹出的PopupWindow都是属于Activity的子窗口，子窗口的显示状态受父窗口的影响。一些常见的问题都同窗口的分组有关系，比如为什么新建Dialog的时候必须要用Activity的Context，而不能用Application的Context；在PopupWindow中，不能以它的View为锚点弹出子PopupWindow？其实这里面就牵扯都Android的窗口组织管理形式，本文主要包含一下几点：
+在Android系统中，窗口是有分组概念的，例如，Activity中弹出的所有PopupWindow会随着Activity的隐藏而隐藏，可以说这些都附属于Actvity的子窗口分组，对于Dialog也同样如此，只不过Dialog与Activity属于同一个分组。之间已经简单介绍了窗口类型划分：应用窗口、子窗口、系统窗口，Activity与Dialog都属于应用窗口，而PopupWindow属于子窗口，Toast、输入法等属于系统窗口。只有应用窗口与系统窗口可以作为父窗口，子窗口不能作为子窗口的父窗口，也就说Activity与Dialog或者系统窗口中可以弹出PopupWindow，但是PopupWindow不能在自己内部弹出PopupWindow子窗口。日常开发中，一些常见的问题都同窗口的分组有关系，比如为什么新建Dialog的时候必须要用Activity的Context，而不能用Application的；为什么不能以PopupWindow的View为锚点弹出子PopupWindow？其实这里面就牵扯都Android的窗口组织管理形式，本文主要包含一下几点：
+
+*  窗口的分组管理 ：应用窗口、子窗口组、系统窗口组
+*  窗口的Z次序管理：窗口的分配序号、次序调整等
+*  窗口分组及次序调整对于SurfaceFlinger的影响
+
+在[WMS窗口添加一文](http://www.jianshu.com/p/e4b19fc36a0e)中分析过,窗口的添加是通过WindowManagerGlobal.addView()来完成 函数原型如下
+
+	public void addView(View view, ViewGroup.LayoutParams params,
+	            Display display, Window parentWindow)
+            
+
+前三个参数是必不可少的，view、params、display，其中display表示要输出的显示设备，先不考虑。view 就是APP要添加到WindowManagerGlobal管理的View，而 params是WindowManager.LayoutParams，主要用来描述窗口属性，WindowManager.LayoutParams有两个很重要的参数type与token，
+
+    public static class LayoutParams extends ViewGroup.LayoutParams
+            implements Parcelable {
+      ...
+      public int type;
+      ...
+      public IBinder token = null;
+      
+      }
+      
+type用来描述窗口的类型，而token其实是标志窗口的分组，token相同的窗口属于同一分组，后面会知道这个token其实是WMS在APP端对应的一个WindowToken的键值。这里先看一下type参数，之前曾添加过Toast窗口，它的type值是TYPE_TOAST，标识是一个系统提示窗口，下面先简单看下三种窗口类型的Type对应的值，首先看一下应用窗口
+
+窗口TYPE值           |窗口类型      |  
+--------------------|------------------| 
+FIRST_APPLICATION_WINDOW = 1 | 开始应用程序窗口    | 
+TYPE_BASE_APPLICATION=1|所有程序窗口的base窗口，其他应用程序窗口都显示在它上面  |
+ TYPE_APPLICATION    =2 |普通应用程序窗口，token必须设置为Activity的token  |
+TYPE_APPLICATION_STARTING =3|应用程序启动时所显示的窗口|
+LAST_APPLICATION_WINDOW = 99|结束应用程序窗口|
+
+ 再看下子窗口类型
+ 
+ 窗口TYPE值           |窗口类型      |  
+--------------------|------------------| 
+FIRST_SUB_WINDOW = 1000 | SubWindows子窗口，子窗口的Z序和坐标空间都依赖于他们的宿主窗口    | 
+TYPE_APPLICATION_PANEL =1000| 面板窗口，显示于宿主窗口的上层 |
+ TYPE_APPLICATION_MEDIA    =1001 |媒体窗口（例如视频），显示于宿主窗口下层|
+TYPE_APPLICATION_SUB_PANEL =1002|应用程序窗口的子面板，显示于所有面板窗口的上层|
+TYPE_APPLICATION_ATTACHED_DIALOG = 1003 |对话框，类似于面板窗口，绘制类似于顶层窗口，而不是宿主的子窗口|
+TYPE_APPLICATION_MEDIA_OVERLAY =1004|媒体信息，显示在媒体层和程序窗口之间，需要实现半透明效果|
+LAST_SUB_WINDOW=1999 |结束子窗口|
+
+最后看几个系统窗口类型，
+
+ 窗口TYPE值          |窗口类型           |  
+--------------------|------------------| 
+FIRST_SYSTEM_WINDOW = 2000 | 系统窗口| 
+TYPE_STATUS_BAR     = FIRST_SYSTEM_WINDOW| 状态栏|
+TYPE_SYSTEM_ALERT   = FIRST_SYSTEM_WINDOW+3 |系统提示，出现在应用程序窗口之上|
+TYPE_TOAST          = FIRST_SYSTEM_WINDOW+5|显示Toast|
+
+
+这里有一个需要直观理解的问题是：**窗口如何分组归类的，Dialog如何确定是附属与那个Activity的，PopupWindow是附属那个Activity或者其他父窗口的**。日常开发中，一些常见的问题都同窗口的分组有关系，比如为什么新建Dialog的时候必须要用Activity的Context，而不能用Application的Context；在PopupWindow中，不能以它的View为锚点弹出子PopupWindow？其实这里面就牵扯都Android的窗口组织管理形式，本文主要包含一下几点：
 
 *  窗口的分组管理
 *  窗口的Z次序管理：分配、调整等
@@ -55,23 +110,25 @@ Activity中弹出的所有PopupWindow会随着Activity的隐藏而隐藏，对�
 
 	    }
 
-首先来看一下Activity及Dialog使用的AppWindowToken添加，之后在看PopupWindow子窗口类的添加。
+首先来看一下Activity及Dialog使用的AppWindowToken添加，之后在看PopupWindow子窗口类的添加，
 
 ## Activity WindowToken（AppWindowToken）的添加
+
+Activity使我们最常见的视图呈现方式，在日常开发中Activity可以看做我们Dialog、PopupWindow对象窗口的依附点，
 
     @Override
     public void addAppToken(int addPos, IApplicationToken token, int taskId, int stackId,
             int requestedOrientation, boolean fullscreen, boolean showForAllUsers, int userId,
             int configChanges, boolean voiceInteraction, boolean launchTaskBehind) {
         long inputDispatchingTimeoutNanos;
+        
         try {
             inputDispatchingTimeoutNanos = token.getKeyDispatchingTimeout() * 1000000L;
-        } catch (RemoteException ex) {   }
+        } catch (RemoteException ex) {}
 
         synchronized(mWindowMap) {
             AppWindowToken atoken = findAppWindowToken(token.asBinder());
             if (atoken != null) {
-                Slog.w(TAG, "Attempted to add existing app token: " + token);
                 return;
             }
             atoken = new AppWindowToken(this, token, voiceInteraction);
