@@ -264,7 +264,7 @@ WindowManagerGloble会新建一个ViewRootImpl，里面有个关键对象 mWindo
 
 函数很长，只看几个关键的点
 
-*  关键点1： 确定窗口的类型，对于PopupWindow 属于TYPE_APPLICATION_PANEL = FIRST_SUB_WINDOW
+* 关键点1： 确定窗口的类型，对于PopupWindow 属于TYPE_APPLICATION_PANEL = FIRST_SUB_WINDOW
 * 关键点2：  判断是否对于当前窗口添加过，一个视图不能重复添加两次
 * 关键点3： 如果添加的窗口是子窗口，那么父窗口必须已经存在，否则会抛出异常
 * 关键点4与5： 查找当前窗口对应的WindowToken分组，对于应用窗口一定可以找到，除非窗口是系统窗口或者子窗口。
