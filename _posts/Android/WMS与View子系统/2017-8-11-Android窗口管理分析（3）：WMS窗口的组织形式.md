@@ -2,7 +2,7 @@
 layout: post
 title: Android窗口管理分析（3）：WMS窗口的组织形式
 category: Android
-image: http://upload-images.jianshu.io/upload_images/1460468-8e9cfc3cc05ba860.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
+image: http://upload-images.jianshu.io/upload_images/1460468-26d924e59a4b00f8.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 
 ---
 
@@ -551,26 +551,58 @@ showAsDropDown有3个关键点，关键点1是生成WindowManager.LayoutParams�
 
 ## 窗口的Z次序管理：窗口的分配序号、次序调整等
 
-窗口在手机中有一个Z-order，这个值是在WMS赋值的，看下它的分配跟调整
+虽然我们看到的手机屏幕只是一个二维平面X*Y，但其实Android系统是有隐形的Z坐标轴的，其方向与手机屏幕垂直，与我们的实现平行，所以并不能感知到。
 
-getSystemService的区分点：
+![Z order.jpg](http://upload-images.jianshu.io/upload_images/1460468-26d924e59a4b00f8.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-* 如果是Activity：调用自己的getSystemService， 那就是Activity自己的WindowManagerImpl
-* 如果是Application：调用ContextImpl的getSystemService，获得一般的WindowManagerImpl
-* 如果是Diaglog：那么获得一般是直接或者间接的调用Activity的getSystemService
+前面分析了窗口分组的时候涉及了两个对象WindowState与Windtoken，但仅限分组，分组无法决定窗口的显示的Z-order，那么再WMS是怎么管理所有窗口的Z-order的？  在WMS中窗口被抽象成WindowState，因此WindowState内部一定有属性来标志这个窗口的Z-order，实现也确实如此，WindowState采用三个个int值mBaseLayer+ mSubLayer + mLayer 来标志窗口所处的位置，前两个主要是根据窗口类型确定窗口位置，mLayer才是真正的值，定义如下：
 
-ViewRootImpl在构建方法里，会初始化一个AttachInfo实例，把它的Session、W类、mWindowToken等对象赋值给AttachInfo，AttachInfo中的mWindowToken、mWindow都是指向ViewRootImpl中的mWindow(W类实例)。当一个View attach到窗口后，ViewRootImpl会执行performTraversals，如果发现是首次调用会，会调用dispatchAttachedToWindow把自己的mAttachInfo递归传递给各个View，告诉View树现在已经被添加到WMS了，可以显示了，每个View的mAttachInfo都被赋值为ViewRootImp的mAttachInfo。
+	final class WindowState implements WindowManagerPolicy.WindowState {
+	    
+	    final WindowList mChildWindows = new WindowList();
+	    final int mBaseLayer;
+	    final int mSubLayer;
+	     <!--最终Z次序的赋值-->
+       int mLayer;
+	    
+	    }
+	    
+从名字很容知道mBaseLayer是标志窗口的主次序，面向的是一个窗口组，而mSubLayer主要面向单独窗口，要来标志一个窗口在一组窗口中的位置，对两者来说值越大，窗口越靠前，从此final属性知道，两者的值是不能修改的，而mLayer可以修改，对于系统窗口，一般不会同时显示两个，因此，可以用主序决定，比较特殊的就是Activity与子窗口，首先子窗口的主序肯定是父窗口决定的，子窗口只关心次序就行。而父窗口的主序却相对麻烦，比如对于应用窗口来说，他们的主序都是一样的，因此还要有一个其他的维度来作为参考，比如对于Activity，他们主序都是一样的，怎么定他们真正的Z呢？其实Activity的顺序是由AMS保证的，主要这个顺序定了，WMS端Activity窗口的顺序也是定了，这样下来次序都定了。
+    
+	WindowState(WindowManagerService service, Session s, IWindow c, WindowToken token,
+	           WindowState attachedWindow, int appOp, int seq, WindowManager.LayoutParams a,
+	           int viewVisibility, final DisplayContent displayContent) {
+	        ...
+	        	<!--关键点1  子窗口类型的Z order-->
+	        if ((mAttrs.type >= FIRST_SUB_WINDOW &&
+	                mAttrs.type <= LAST_SUB_WINDOW)) {
+	            mBaseLayer = mPolicy.windowTypeToLayerLw(
+	                    attachedWindow.mAttrs.type) * WindowManagerService.TYPE_LAYER_MULTIPLIER
+	                    + WindowManagerService.TYPE_LAYER_OFFSET;
+	            mSubLayer = mPolicy.subWindowTypeToLayerLw(a.type);
+	            mAttachedWindow = attachedWindow;	            final WindowList childWindows = mAttachedWindow.mChildWindows;
+	            final int numChildWindows = childWindows.size();
+	            if (numChildWindows == 0) {
+	                childWindows.add(this);
+	            } else {
+	             ...
+	        } else {
+	        	<!--关键点2  普通窗口类型的Z order-->
+	            mBaseLayer = mPolicy.windowTypeToLayerLw(a.type)
+	                    * WindowManagerService.TYPE_LAYER_MULTIPLIER
+	                    + WindowManagerService.TYPE_LAYER_OFFSET;
+	            mSubLayer = 0;
+	            mAttachedWindow = null;
+	            mLayoutAttached = false;
+	        }
+	       ...
+	    }
+	    
+由于窗口所能选择的类型是确定的，因此mBaseLayer与mSubLayer所能选择的值只有固定几个，那么很明显这两个参数不能精确的确定Z-order，还会有其他微调的手段，但是也仅限微调，在系统层面，决定了不同类型窗口所处的位置，比如系统Toast类型的窗口一定处于应用窗口之上，不过我们比较关系Activity类的窗口如何确定Z-order的，在new WindowState之后，只是粗略的确定了窗口的次序，mLayer才是最终确定的位置，最终通过setLayer设置到SurfaceFlinger端，这样SurfaceFlinger端也会知道所有图层的Z-order。
 
-        AttachInfo(IWindowSession session, IWindow window, Display display,
-                ViewRootImpl viewRootImpl, Handler handler, Callbacks effectPlayer) {
-            mSession = session;
-            mWindow = window;
-            mWindowToken = window.asBinder();
-            mDisplay = display;
-            mViewRootImpl = viewRootImpl;
-            mHandler = handler;
-            mRootCallbacks = effectPlayer;
-        }
+## 窗口分组及次序调整对于SurfaceFlinger的影响
+
+SurfaceFlinger在图层混排的时候应该不会混排所有的窗口，只会混排可见的窗口，比如有多个全屏Activity的时候，SurfaceFlinger只会处理最上面的
 
  
 # Toast的token为null， 
@@ -593,6 +625,28 @@ Android Framework 把窗口分为三种类型，应用窗口，子窗口以及�
 （6）在调用 WindowManagerImpl 的 addView 之前，如果没有给 token 赋值，则会走默认的 token 赋值逻辑。默认的 token 赋值逻辑是这样的，如果 mParentWindow 不为空，则会调用其 adjustLayoutParamsForSubWindow 方法。在 adjustLayoutParamsForSubWindow 方法中，如果当前要添加的窗口是，应用窗口，如果其 token 为空，则会把当前 PhoneWindow 的 mToken 赋值给 token。如果是子窗口，则会把当前 PhonwWindow 对应的 DecorView 的 mAttachInfo 中的 mWindowToken 赋值给 token。而 View 中的 AttachInfo mAttachIno 来自 ViewRootImpl 的 mAttachInfo。因此这个 token 本质就是父窗口的 ViewRootImpl 中的 W 类对象。
 	
 # 为什么Dialog的Token不能为空
+
+
+getSystemService的区分点：
+
+* 如果是Activity：调用自己的getSystemService， 那就是Activity自己的WindowManagerImpl
+* 如果是Application：调用ContextImpl的getSystemService，获得一般的WindowManagerImpl
+* 如果是Diaglog：那么获得一般是直接或者间接的调用Activity的getSystemService
+
+ViewRootImpl在构建方法里，会初始化一个AttachInfo实例，把它的Session、W类、mWindowToken等对象赋值给AttachInfo，AttachInfo中的mWindowToken、mWindow都是指向ViewRootImpl中的mWindow(W类实例)。当一个View attach到窗口后，ViewRootImpl会执行performTraversals，如果发现是首次调用会，会调用dispatchAttachedToWindow把自己的mAttachInfo递归传递给各个View，告诉View树现在已经被添加到WMS了，可以显示了，每个View的mAttachInfo都被赋值为ViewRootImp的mAttachInfo。
+
+        AttachInfo(IWindowSession session, IWindow window, Display display,
+                ViewRootImpl viewRootImpl, Handler handler, Callbacks effectPlayer) {
+            mSession = session;
+            mWindow = window;
+            mWindowToken = window.asBinder();
+            mDisplay = display;
+            mViewRootImpl = viewRootImpl;
+            mHandler = handler;
+            mRootCallbacks = effectPlayer;
+        }
+
+
 
 Dialog的窗口类型同Activity类型是应用窗口，所以TOken不能为null，否则wms会出错，
 popwindow也是个独立的窗口，有个windowstate但是，它必须依附父窗口，这个父窗口不必是Actvity，但是token不能为null，这也是为了管理子window
