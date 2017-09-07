@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Android四大组件之Activity的组织与管理
+title: Android四大组件之Activity的启动模式
 image: http://upload-images.jianshu.io/upload_images/1460468-36db25ce302017c8.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 
 ---
