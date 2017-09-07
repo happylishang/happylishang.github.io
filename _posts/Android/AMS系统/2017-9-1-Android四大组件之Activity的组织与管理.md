@@ -2,40 +2,41 @@
 layout: post
 title: Android四大组件之Activity的组织与管理
 category: Android
+image:http://upload-images.jianshu.io/upload_images/1460468-36db25ce302017c8.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 
 ---
 
-面试的时候，面试官经常跟你随便侃侃Activity的启动模式，但Activity启动牵扯的知识点其实是很多，并非能单单用四个启动模式就能概括的，而且默认的启动模式的表现会随着Intent Flag的设置而改变，因此侃Activity启动模式大多走流程装逼，最多结合项目遇到的问题，随便刁难一下面试者，并不太容易把控，也许最后，面试官跟面试者的答案都是错了，比如在Service中必须通过设置FLAG_ACTIVITY_NEW_TASK才能启动Activity，这个时候启动Activit会有什么样的表现呢？就这一个问题，答案就要分好几个场景：
+面试的时候，面试官经常跟你随便侃侃Activity的启动模式，但Activity启动牵扯的知识点其实很多，并非能单单用四个启动模式就能概括的，默认的启动模式的表现会随着Intent Flag的设置而改变，因此侃Activity启动模式大多走流程装逼，最多结合项目遇到的问题，随便刁难一下面试者，并不太容易把控，也许最后，面试官跟面试者的答案都是错了，比如在Service中必须通过设置FLAG_ACTIVITY_NEW_TASK才能启动Activity，这个时候启动Activit会有什么样的表现呢？就这一个问题，答案就要分好几个场景：
 
-* Activity是否存在，已经Activity的taskAffinity属性
-* 如果存在，要看Activity是否存在其taskAffinity的Task
+* Activity的taskAffinity属性的Task栈是否存在
+* 如果存在，要看Activity是否存已经在其taskAffinity的Task
 * 如果在其taskAffinity的Task，要看是不是其rootActivity
 * 如果是其rootActivity，要看启动该Activity的Intent是否相等
 
-不同场景，所表现的行为都会有所不同，在着比如singleInstance属性，如果设置了，大家都知道只有一个实例，将来再启动会复用，但是如果使用Intent.FLAG_ACTIVITY_CLEAR_TASK来启动的时候，其实会重建，并非完全遵守singleInstance的说明，还有不同Flag在叠加使用时候也会有不同的表现，单一而定Activity启动模式其实是很难的。到底了解到哪一步才能算通透一些呢？本文主要解决这个问题，但是也仅仅是涉及部分，跟多组合跟场景涉及的问题要自己看源码或者实验来解决了。
+不同场景，所表现的行为都会有所不同，再比如singleInstance属性，如果设置了，大家都知道只有一个实例，将来再启动会复用，但是如果使用Intent.FLAG_ACTIVITY_CLEAR_TASK来启动的时候，其实会重建，并非完全遵守singleInstance的说明，还有不同Flag在叠加使用时候也会有不同的表现，单一而论Activity启动模式其实是很难的。本文也仅仅是涉及部分启动模式及Flag，更多组合跟场景要自己看源码或者实验来解决了。
 
-## 基本launchmode
+## 简单基本launchmode
 
-本文假定大家对于Activity的Task栈已经有初步了解，首先，看一下Activity有四种启动模式及常见的立即
+本文假定大家对于Activity的Task栈已经有初步了解，首先，看一下Activity常见的四种启动模式及大众理解，这也是面试时最长问的：
 
 * standard：标准启动模式（默认启动模式），每次都会启动一个新的activity实例。
-* singleTop：单独使用使用这种模式时，如果**当前任务栈顶**是该Activity实例，就重用栈顶实例，而不新建，并回调该实例onNewIntent()方法，否则走新建流程。
+* singleTop：单独使用使用这种模式时，如果**Activity实例位于当前任务栈顶**，就重用栈顶实例，而不新建，并回调该实例onNewIntent()方法，否则走新建流程。
 * singleTask：这种模式启动的Activity**只会存在相应的Activity的taskAffinit任务栈中**，同一时刻系统中只会存在一个实例，已存在的实例被再次启动时，会重新唤起该实例，并清理当前Task任务栈该实例之上的所有Activity，同时回调onNewIntent()方法。
 * singleInstance：这种模式启动的Activity独自占用一个Task任务栈，同一时刻系统中只会存在一个实例，已存在的实例被再次启动时，只会唤起原实例，并回调onNewIntent()方法。
 
-需要说明的是**上面的场景是用于从Activity启动Activity，并且采用的都是默认Intent，没有额外添加任何Flag**，否则表现就可能跟上面的表现不一致，尤其要注意的是FLAG_ACTIVITY_NEW_TASK Flag，从源码中看，可以依靠FLAG_ACTIVITY_NEW_TASK分为两派。
+需要说明的是：**上面的场景仅仅适用于Activity启动Activity，并且采用的都是默认Intent，没有额外添加任何Flag**，否则表现就可能跟上面的完全不一致，尤其要注意的是FLAG_ACTIVITY_NEW_TASK的使用，后面从源码中看，依靠FLAG_ACTIVITY_NEW_TASK其实可以分为两派。
 
 ## Intent.FLAG_ACTIVITY_NEW_TASK分析
 
-从源码来看，Intent.FLAG_ACTIVITY_NEW_TASK是启动模式中最关键的一个Flag，依据该Flag启动模式可以分成两类，设置了该属性的与未设置该属性的，对于非Activity启动的Activity（比如Service或者通知中启动的Activity）需要显示的设置Intent.FLAG_ACTIVITY_NEW_TASK，而singleTask及singleInstance在AMS中被预处理体系后，其实是隐形的设置了Intent.FLAG_ACTIVITY_NEW_TASK，而启动模式是standard及singletTop的Activity不会被设置Intent.FLAG_ACTIVITY_NEW_TASK，除非通过显示的intent setFlag进行设置。
+从源码来看，Intent.FLAG_ACTIVITY_NEW_TASK是启动模式中最关键的一个Flag，依据该Flag启动模式可以分成两类，设置了该属性的与未设置该属性的，对于非Activity启动的Activity（比如Service或者通知中启动的Activity）需要显示的设置Intent.FLAG_ACTIVITY_NEW_TASK，而singleTask及singleInstance在AMS中被预处理后，隐形的设置了Intent.FLAG_ACTIVITY_NEW_TASK，而启动模式是standard及singletTop的Activity不会被设置Intent.FLAG_ACTIVITY_NEW_TASK，除非通过显示的intent setFlag进行设置。
 
-FLAG_ACTIVITY_NEW_TASK这个属性更多的关注点是在Task，大多数情况下，需要将Activity引入到自己taskAffinity的Task中，**Intent.FLAG_ACTIVITY_NEW_TASK的初衷是在Activity目标的Task中启动**，非Activity启动Activity都必须添加Intent.FLAG_ACTIVITY_NEW_TASK才行，以Service启动的Activity为例， 
+FLAG_ACTIVITY_NEW_TASK这个属性更多的关注点是在Task，大多数情况下，需要将Activity引入到自己taskAffinity的Task中，**Intent.FLAG_ACTIVITY_NEW_TASK的初衷是在Activity目标taskAffinity的Task中启动**，非Activity启动Activity都必须添加Intent.FLAG_ACTIVITY_NEW_TASK才行，以Service启动的Activity为例：
 
 	  Intent intent = new Intent(BackGroundService.this, A.class);
 	  intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 	  startActivity(intent);    
 	        
-这种情况很有意思，如果目标Activity实例或者Task不存在，则一定会新建Activity，并将目标Task移动到前台，但是如果Activity存在，却并不一定不重建，也并不一定将来可见。这里假定A是standard的Activity，如果A已经有一个实例，并且实例所在的堆栈的taskAffinity跟A的taskAffinity一致，这个时候要看这个task的根Activity是不是A，如果是A，还要看A的intent是不是跟当前的启动的intent相等，如果都满足，只要将task可见即可。否则，就需要新建A，并根据A的task栈的存在情况而选择直接入栈还是新建栈。但是，如果Intent想要的启动的Activity的目标堆栈存在，那就将整个堆栈往前迁移，如果位于顶部的Task栈正好是目标Activity的Task栈，那就不做任何处理，连onNewIntent都不会回调，怎么判断目标的Activity的Task栈同找到的栈一致呢？**如果找不到目标Task自然会启动Task，如果目标task栈根Activit的intent同新将要启动的Activit相同，就不启动新Activity，否则启动Activity**。
+这种情况很有意思，如果目标Activity实例或者Task不存在，则一定会新建Activity，并将目标Task移动到前台，但是如果Activity存在，却并不一定复用，也不一定可见。这里假定A是standard的Activity，如果已经有一个A实例，并且所在的堆栈的taskAffinity跟A的taskAffinity一致，这个时候要看这个task的根Activity是不是A，如果是A，还要看A的intent是不是跟当前的启动的intent相等，如果都满足，只要将task可见即可。否则，就需要新建A，并根据A的task栈的存在情况而选择直接入栈还是新建栈。但是，如果Intent想要的启动的Activity的目标堆栈存在，那就将整个堆栈往前迁移，如果位于顶部的Task栈正好是目标Activity的Task栈，那就不做任何处理，连onNewIntent都不会回调，怎么判断目标的Activity的Task栈同找到的栈一致呢？**如果找不到目标Task自然会启动Task，如果目标task栈根Activit的intent同新将要启动的Activit相同，就不启动新Activity，否则启动Activity**。
 
 ![Service 通过 FLAG_ACTIVITY_NEW_TASK.jpg](http://upload-images.jianshu.io/upload_images/1460468-36db25ce302017c8.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
@@ -86,7 +87,7 @@ The currently running instance of activity B in the above example will either re
 
 ### Intent.FLAG_ACTIVITY_SINGLE_TOP
 
-Intent.FLAG_ACTIVITY_SINGLE_TOP多用来做辅助作用，跟launchmode中的singleTop作用一样，那就是在Task栈顶有的话，就不新建，栈顶没有的话，就新建，这里的Task可能是目标栈，也可能是当前Task栈。
+Intent.FLAG_ACTIVITY_SINGLE_TOP多用来做辅助作用，跟launchmode中的singleTop作用一样，在Task栈顶有的话，就不新建，栈顶没有的话，就新建，这里的Task可能是目标栈，也可能是当前Task栈，配合FLAG_ACTIVITY_NEW_TASK及FLAG_ACTIVITY_CLEAR_TOP都会有很有意思的效果。
 
 
 ## 源码分析
@@ -284,7 +285,7 @@ Intent.FLAG_ACTIVITY_SINGLE_TOP多用来做辅助作用，跟launchmode中的sin
     }
 
 
-## 为什么非Activity启动Activity要强制规定使用参数FLAG_ACTIVITY_NEW_TASK
+### 为什么非Activity启动Activity要强制规定使用参数FLAG_ACTIVITY_NEW_TASK
 
 从源码上说，ContextImpl在前期做了检查，如果没添加Intent.FLAG_ACTIVITY_NEW_TASK就抛出异常，
 
@@ -302,6 +303,13 @@ Intent.FLAG_ACTIVITY_SINGLE_TOP多用来做辅助作用，跟launchmode中的sin
     
 为什么要这么呢？其实直观很好理解，如果不是在Activity中启动的，那就可以看做不是用户主动的行为，也就说这个界面可能出现在任何APP之上，如果不用Intent.FLAG_ACTIVITY_NEW_TASK将其限制在自己的Task中，那用户可能会认为该Activity是当前可见APP的页面，这是不合理的。举个例子：我们在听音乐，这个时候如果邮件Service突然要打开一个Activity，如果不用Intent.FLAG_ACTIVITY_NEW_TASK做限制，那用户可能认为这个Activity是属于音乐APP的，因为用户点击返回的时候，可能会回到音乐，而不是邮件（如果邮件之前就有界面）。
                         
+
+# 总结 
+
+以上分析只是针对一个版本的Android，并且只涉及部分Flag，要完全理解各种组合就更麻烦了，所以所，如果面试官问题Activity启动模式的话，随便侃侃还可以，但是要以此来鄙视你，那你有90%的概率，可以怼回去，怎么怼，随便组合一下，问面试官会有什么结果，^_^；
+
+![让你装逼](http://upload-images.jianshu.io/upload_images/1460468-af9f1129243d1269.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
                         
 # 参考文档
 
