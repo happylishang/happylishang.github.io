@@ -12,7 +12,7 @@ image: http://upload-images.jianshu.io/upload_images/1460468-26d924e59a4b00f8.jp
 *  窗口的分组管理 ：应用窗口、子窗口组、系统窗口组
 *  Activity、Dialg应用窗口及PopWindow子窗口的添加原理跟注意事项
 *  窗口的Z次序管理：窗口的分配序号、次序调整等
-*  窗口分组及次序调整对于SurfaceFlinger的影响
+*  WMS中窗口次序分配如何影响SurfaceFlinger服务
 
 
 在[WMS窗口添加一文](http://www.jianshu.com/p/e4b19fc36a0e)中分析过,窗口的添加是通过WindowManagerGlobal.addView()来完成 函数原型如下
@@ -567,7 +567,7 @@ showAsDropDown有3个关键点，关键点1是生成WindowManager.LayoutParams�
 	    
 	    }
 	    
-从名字很容知道mBaseLayer是标志窗口的主次序，面向的是一个窗口组，而mSubLayer主要面向单独窗口，要来标志一个窗口在一组窗口中的位置，对两者来说值越大，窗口越靠前，从此final属性知道，两者的值是不能修改的，而mLayer可以修改，对于系统窗口，一般不会同时显示两个，因此，可以用主序决定，比较特殊的就是Activity与子窗口，首先子窗口的主序肯定是父窗口决定的，子窗口只关心次序就行。而父窗口的主序却相对麻烦，比如对于应用窗口来说，他们的主序都是一样的，因此还要有一个其他的维度来作为参考，比如对于Activity，他们主序都是一样的，怎么定他们真正的Z呢？其实Activity的顺序是由AMS保证的，主要这个顺序定了，WMS端Activity窗口的顺序也是定了，这样下来次序都定了。
+从名字很容知道mBaseLayer是标志窗口的主次序，面向的是一个窗口组，而mSubLayer主要面向单独窗口，要来标志一个窗口在一组窗口中的位置，对两者来说值越大，窗口越靠前，从此final属性知道，两者的值是不能修改的，而mLayer可以修改，对于系统窗口，一般不会同时显示两个，因此，可以用主序决定，比较特殊的就是Activity与子窗口，首先子窗口的主序肯定是父窗口决定的，子窗口只关心次序就行。而父窗口的主序却相对麻烦，比如对于应用窗口来说，他们的主序都是一样的，因此还要有一个其他的维度来作为参考，比如**对于Activity，主序都是一样的，怎么定他们真正的Z-order呢？其实Activity的顺序是由AMS保证的，这个顺序定了，WMS端Activity窗口的顺序也是定了，这样下来次序也方便定了**。
     
 	WindowState(WindowManagerService service, Session s, IWindow c, WindowToken token,
 	           WindowState attachedWindow, int appOp, int seq, WindowManager.LayoutParams a,
@@ -598,63 +598,89 @@ showAsDropDown有3个关键点，关键点1是生成WindowManager.LayoutParams�
 	       ...
 	    }
 	    
-由于窗口所能选择的类型是确定的，因此mBaseLayer与mSubLayer所能选择的值只有固定几个，那么很明显这两个参数不能精确的确定Z-order，还会有其他微调的手段，但是也仅限微调，在系统层面，决定了不同类型窗口所处的位置，比如系统Toast类型的窗口一定处于应用窗口之上，不过我们比较关系Activity类的窗口如何确定Z-order的，在new WindowState之后，只是粗略的确定了窗口的次序，mLayer才是最终确定的位置，最终通过setLayer设置到SurfaceFlinger端，这样SurfaceFlinger端也会知道所有图层的Z-order。
+由于窗口所能选择的类型是确定的，因此mBaseLayer与mSubLayer所能选择的值只有固定几个，很明显这两个参数不能精确的确定Z-order，还会有其他微调的手段，也仅限微调，**在系统层面，决定了不同类型窗口所处的位置，比如系统Toast类型的窗口一定处于所有应用窗口之上**，不过我们最关心的是Activity类的窗口如何确定Z-order的，在new WindowState之后，只是粗略的确定了Activity窗口的次序，看一下添加窗口的示意代码：
 
-## 窗口分组及次序调整对于SurfaceFlinger的影响
+	addWindow(){
+	    <!--1-->
+	    new WindowState
+	    <!--2-->
+	    addWindowToListInOrderLocked(win, true);
+	    <!--3-->
+	    assignLayersLocked(displayContent.getWindowList());
+	 	}
 
-SurfaceFlinger在图层混排的时候应该不会混排所有的窗口，只会混排可见的窗口，比如有多个全屏Activity的时候，SurfaceFlinger只会处理最上面的
+新建state对象之后，Z-order还要通过addWindowToListInOrderLocked及assignLayersLocked才能确定，addWindowToListInOrderLocked主要是根据窗口的Token找到归属，插入到对应Token的WindowState列表，如果是子窗口还要插入到父窗口的对应位置中：
 
- 
-# Toast的token为null， 
+![次序确定.jpg](http://upload-images.jianshu.io/upload_images/1460468-0022179c69462bf3.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-如果自己写就算 token非空也不收影响，因为是系统窗口。
-
-Application 的Token为 getSystemService，所以如果Dialog用Application的context就会崩溃
-
-1）在 Window System 中，分为两部分的内容，一部分是运行在系统服务进程（WmS 所在进程）的 WmS 及相关类，另一部分是运行在应用进程的 WindowManagerImpl, WindowManagerGlobal，ViewRootImpl 等相关类。WmS 用 WindowState 来描述一个窗口，而应用进程用 ViewRootImpl，WindowManager.LayoutParms 来描述一个窗口的相关内容。
-
-（2）对于 WmS 来讲，窗口对应一个 View 对象，而不是 Window 对象。添加一个窗口，就是通过 WindowManager 的 addView 方法。同样的，移除一个窗口，就是通过 removeView 方法。更新一个窗口的属性，通过 updateViewLayout 方法。
-
-（3）Window 类描述是一类具有某种通用特性的窗口，其实现类是 PhoneWindow。Activity 对应的窗口，以及 Dialog 对应的窗口，会对应一个 PhoneWindow 对象。PhoneWindow 类把一些操作的统一处理了，例如长按，按”Back”键等。
-
-Android Framework 把窗口分为三种类型，应用窗口，子窗口以及系统窗口。不同类型的窗口，在执行添加窗口操作时，对于 WindowManager.LayoutParams 中的参数 token 具有不同的要求。应用窗口，LayoutParams 中的 token，必须是某个有效的 Activity 的 mToken。而子窗口，LayoutParams 中的 token，必须是父窗口的 ViewRootImpl 中的 W 对象。系统窗口，有些系统窗口不需要 token，有些系统窗口的 token 必须满足一定的要求。
-
-**只能通过 Context.getSystemServer 来获取 WindowManager（即获取一个 WindowManagerImpl 的实例）。如果这个 context 是 Activity，则直接返回了 Activity 的 mWindowManager，其 WindowManagerImpl.mParentWindow 就是这个 Activity 本身对应的 PhoneWindow。如果这个 context 是 Application，或者 Service，则直接返回一个 WindowManagerImpl 的实例，而且 mParentWindow 为 null。
-**
-
-（6）在调用 WindowManagerImpl 的 addView 之前，如果没有给 token 赋值，则会走默认的 token 赋值逻辑。默认的 token 赋值逻辑是这样的，如果 mParentWindow 不为空，则会调用其 adjustLayoutParamsForSubWindow 方法。在 adjustLayoutParamsForSubWindow 方法中，如果当前要添加的窗口是，应用窗口，如果其 token 为空，则会把当前 PhoneWindow 的 mToken 赋值给 token。如果是子窗口，则会把当前 PhonwWindow 对应的 DecorView 的 mAttachInfo 中的 mWindowToken 赋值给 token。而 View 中的 AttachInfo mAttachIno 来自 ViewRootImpl 的 mAttachInfo。因此这个 token 本质就是父窗口的 ViewRootImpl 中的 W 类对象。
+插入到特定位置后其实Z-order就确定了，接下来就是通过assignLayersLocked为WindowState分配真正的Z-order mLayer,
 	
-# 为什么Dialog的Token不能为空
+	   private final void assignLayersLocked(WindowList windows) {
+	        int N = windows.size();
+	        int curBaseLayer = 0;
+	        int curLayer = 0;
+	        int i;
 
+	        boolean anyLayerChanged = false;
+		        for (i=0; i<N; i++) {
+	            final WindowState w = windows.get(i);
+	            final WindowStateAnimator winAnimator = w.mWinAnimator;
+	            boolean layerChanged = false;
+	            int oldLayer = w.mLayer;
+	            if (w.mBaseLayer == curBaseLayer || w.mIsImWindow
+	                    || (i > 0 && w.mIsWallpaper)) {
+	                <!--通过偏移量-->
+	                curLayer += WINDOW_LAYER_MULTIPLIER;
+	                w.mLayer = curLayer;
+	            } else {
+	                curBaseLayer = curLayer = w.mBaseLayer;
+	                w.mLayer = curLayer;
+	            }
+	            if (w.mLayer != oldLayer) {
+	                layerChanged = true;
+	                anyLayerChanged = true;
+	            }
+	            ...
+	    }
+    
+mLayer最终确定后，窗口的次序也就确定了，这个顺序要最终通过后续的relayout更新到SurfaceFlinger服务，之后，SurfaceFlinger在图层混排的时候才知道如何处理。
 
-getSystemService的区分点：
+## WMS中窗口次序分配如何影响SurfaceFlinger服务
 
-* 如果是Activity：调用自己的getSystemService， 那就是Activity自己的WindowManagerImpl
-* 如果是Application：调用ContextImpl的getSystemService，获得一般的WindowManagerImpl
-* 如果是Diaglog：那么获得一般是直接或者间接的调用Activity的getSystemService
+SurfaceFlinger在图层混排的时候应该不会混排所有的窗口，只会混排可见的窗口，比如有多个全屏Activity的时候，SurfaceFlinger只会处理最上面的，那么SurfaceFlinger如何知道哪些窗口可见哪些不可见呢？前文分析了WMS分配Z-order之后，要通过setLayer更新到SurfaceFlinger，接下来看具体流程，创建SurfaceControl之后，会创建一次事务，确定Surface的次序：
 
-ViewRootImpl在构建方法里，会初始化一个AttachInfo实例，把它的Session、W类、mWindowToken等对象赋值给AttachInfo，AttachInfo中的mWindowToken、mWindow都是指向ViewRootImpl中的mWindow(W类实例)。当一个View attach到窗口后，ViewRootImpl会执行performTraversals，如果发现是首次调用会，会调用dispatchAttachedToWindow把自己的mAttachInfo递归传递给各个View，告诉View树现在已经被添加到WMS了，可以显示了，每个View的mAttachInfo都被赋值为ViewRootImp的mAttachInfo。
+	   SurfaceControl.openTransaction();
+	            try {
+	                mSurfaceX = left;
+	                mSurfaceY = top;
+		                try {
+	                    mSurfaceControl.setPosition(left, top);
+	                    mSurfaceLayer = mAnimLayer;
+	                    final DisplayContent displayContent = w.getDisplayContent();
+	                    if (displayContent != null) {
+	                        mSurfaceControl.setLayerStack(displayContent.getDisplay().getLayerStack());
+	                    }
+	                    <!--设置次序-->
+	                    mSurfaceControl.setLayer(mAnimLayer);
+	                    mSurfaceControl.setAlpha(0);
+	                    mSurfaceShown = false;
+	                } catch (RuntimeException e) {
+	                    mService.reclaimSomeSurfaceMemoryLocked(this, "create-init", true);
+	                }
+	                mLastHidden = true;
+	            } finally {
+	                SurfaceControl.closeTransaction();
+	            }
+	        }
+        
+这里通过openTransaction与closeTransaction保证一次事务的完整性，中间就Surface次序的调整，closeTransaction会与SurfaceFlinger通信，通知SurfaceFlinger更新Surface信息，这其中就包括Z-order。
 
-        AttachInfo(IWindowSession session, IWindow window, Display display,
-                ViewRootImpl viewRootImpl, Handler handler, Callbacks effectPlayer) {
-            mSession = session;
-            mWindow = window;
-            mWindowToken = window.asBinder();
-            mDisplay = display;
-            mViewRootImpl = viewRootImpl;
-            mHandler = handler;
-            mRootCallbacks = effectPlayer;
-        }
+# 总结
 
-
-
-Dialog的窗口类型同Activity类型是应用窗口，所以TOken不能为null，否则wms会出错，
-popwindow也是个独立的窗口，有个windowstate但是，它必须依附父窗口，这个父窗口不必是Actvity，但是token不能为null，这也是为了管理子window
-Toast类系统窗口，可以为null，也可以不为null，系统窗口不走应用窗口的管理逻辑，所以为所谓Token是什么，跟随类型，
- 
+本文简要分析了Android窗口的分组，以及WMS窗口次序的确定，最后简单提及了一下窗口次序如何更新到SurfaceFlinger服务的，也方便将来理解图层合成。
                     
 # 	参考文档
-
+[ Android6.0 SurfaceControl分析（二）SurfaceControl和SurfaceFlinger通信](http://blog.csdn.net/kc58236582/article/details/65445141)       
 [ GUI系统之SurfaceFlinger(11)SurfaceComposerClient](http://blog.csdn.net/xuesen_lin/article/details/8954957)                 
 [ Skia深入分析1——skia上下文](http://blog.csdn.net/jxt1234and2010/article/details/42572559)        
 [ Android图形显示系统——概述](http://blog.csdn.net/jxt1234and2010/article/details/44164691)           

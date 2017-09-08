@@ -81,7 +81,7 @@ The currently running instance of activity B in the above example will either re
 
 **如果topActivity是目标Activity，就直接回调topActivity的onNewIntent，无论topActivity是不是在目标Task中**
 
-![Intent.FLAG_ACTIVITY_CLEAR_TOP| FLAG_ACTIVITY_NEW_TASK|singleTop|top.jpg](http://upload-images.jianshu.io/upload_images/1460468-f0c7117556b4ccb1.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+![Intent.FLAG_ACTIVITY_CLEAR_TOP| FLAG_ACTIVITY_NEW_TASK|singleTop|top.jpg](http://upload-images.jianshu.io/upload_images/1460468-8520b6969eeaad12.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 
 ### Intent.FLAG_ACTIVITY_SINGLE_TOP
