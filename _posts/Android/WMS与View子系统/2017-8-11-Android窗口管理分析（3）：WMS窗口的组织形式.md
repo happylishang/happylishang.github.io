@@ -9,7 +9,7 @@ image: http://upload-images.jianshu.io/upload_images/1460468-26d924e59a4b00f8.jp
 
 在Android系统中，窗口是有分组概念的，例如，Activity中弹出的所有PopupWindow会随着Activity的隐藏而隐藏，可以说这些都附属于Actvity的子窗口分组，对于Dialog也同样如此，只不过Dialog与Activity属于同一个分组。之间已经简单介绍了窗口类型划分：应用窗口、子窗口、系统窗口，Activity与Dialog都属于应用窗口，而PopupWindow属于子窗口，Toast、输入法等属于系统窗口。只有应用窗口与系统窗口可以作为父窗口，子窗口不能作为子窗口的父窗口，也就说Activity与Dialog或者系统窗口中可以弹出PopupWindow，但是PopupWindow不能在自己内部弹出PopupWindow子窗口。日常开发中，一些常见的问题都同窗口的分组有关系，比如为什么新建Dialog的时候必须要用Activity的Context，而不能用Application的；为什么不能以PopupWindow的View为锚点弹出子PopupWindow？其实这里面就牵扯都Android的窗口组织管理形式，本文主要包含一下几点：
 
-*  窗口的分组管理 ：应用窗口、子窗口组、系统窗口组
+*  窗口的分组管理 ：应用窗口组、子窗口组、系统窗口组
 *  Activity、Dialg应用窗口及PopWindow子窗口的添加原理跟注意事项
 *  窗口的Z次序管理：窗口的分配序号、次序调整等
 *  WMS中窗口次序分配如何影响SurfaceFlinger服务
