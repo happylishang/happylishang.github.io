@@ -1,3 +1,10 @@
+---
+layout: post
+title: "targetSdkVersion对 Android权限检查API checkSelfPermission的影响"
+category: android
+ 
+
+---
 
 Android6.0之后，权限分为install时的权限跟运行时权限，如果我们的targetSdkVersion>=23，install权限同runtime权限是分开的，app也要针对6.0已经做适配，没什么大问题，无论运行在旧版本还是6.0之后的手机上都ok，这也是Google推荐的适配方案。但是如果targetSdkVersion < 23 ,在6.0之后的手机上就会遇到一些问题，因为在这种情况下默认权限是全部授予的，但是可能会被用户手动取消，而Context的checkSelfPermission权限检查接口也会失效，因为这个API接口6.0之后用的是runtime-permission的模型，而targetSdkVersion < 23 时候，app只有intalled的权限，其granted值一直是true，也可以看做是全部是授权了的，就算在设置里面取消授权也不会影响installed权限的granted，而Context的checkSelfPermission的接口却是用granted这个值作为授权与否的参考，所以如果用这个接口，那得到的一定是授权了，是不准确的，如下：targetSdkVersion < 23的时候，package信息中的权限包含app申请的全部权限,
 
@@ -134,7 +141,7 @@ mAppSupportsRuntimePermissions定义在AppPermissionGroup中，6.0之后权限�
        return true;
     }
  
- 可以看出6.0之后的手机，针对targetSdkVersion是否高于23做了不同处理，如果targetSdkVersion>=23支持动态权限管理，那就更新动态权限，并将其持久化到runtime-permission.xml中，并更新其granted值，如果targetSdkVersion<23 ,也即是不知道6.0的动态管理，那就只更新AppOps，这是4.3引入的老的动态权限管理模型，不过这里主要是将权限持久化到appops.xml中，不过对于其granted的值是没有做任何更新的，仅仅是更新了packages.xml中的flag，这个flag可以配合appops.xml标识是否被授权（对于targetSdkVersion<23的适用），以上就是为什么context checkSelfPermission会失效的原因，涉及代码很多，不一一列举，对于取消授权revokeRuntimePermissions函数，模型一样，不在赘述，那下面看第二个问题，如何检查targetSdkVersion<23 app 在6.0以上手机的权限呢？ Google给了一个兼容类PermissionChecker，这个类可以间接的都AppOpsService那一套逻辑，获取到权限是否被授予。
+ 可以看出6.0之后的手机，针对targetSdkVersion是否高于23做了不同处理，如果targetSdkVersion>=23支持动态权限管理，那就更新动态权限，并将其持久化到runtime-permission.xml中，并更新其granted值，如果targetSdkVersion<23 ,也即是不知道6.0的动态管理，那就只更新AppOps，这是4.3引入的老的动态权限管理模型，不过这里主要是将权限持久化到appops.xml中，不过对于其granted的值是没有做任何更新的，仅仅是更新了packages.xml中的flag，这个flag可以配合appops.xml标识是否被授权（对于targetSdkVersion<23的适用），以上就是为什么context checkSelfPermission会失效的原因，涉及代码很多，不一一列举，对于取消授权revokeRuntimePermissions函数，模型一样，不在赘述，那下面看第二个问题，如何检查targetSdkVersion<23 app 在6.0以上手机的权限呢？ Google给了一个兼容类PermissionChecker，这个类可以间接使用AppOpsService那一套逻辑，获取到权限是否被授予。
  
 # targetSdkVersion < 23 的时候，如何判断6.0的手机是否被授权 
 
@@ -231,130 +238,150 @@ targetSdkVersion < 23的时候，6.0权限检查API失效了，不过通过上�
         }
     }
     
-UidState可以看做每个应用对应的全下模型，这里的数据是有一部分是从appops.xml恢复回来，也有部分是在更新权限时候加进去的，这部分变化最终都要持久化到appops.xml中去，
+UidState可以看做每个应用对应的权限模型，这里的数据是有一部分是从appops.xml恢复回来，也有部分是在更新权限时候加进去的，这部分变化最终都要持久化到appops.xml中去，不过持久化比较滞后，一般要等到手机更新权限后30分钟才会持久化到appops.xml中，这里的数据一般是在启动的时候被恢复重建，在启动ActivityManagerService服务的时候，会在其构造函数总启动AppOpsService服务:
 
-* checkOp(String op, int uid, String packageName) 只读取不做记录，权限不通过会抛异常 
-* noteOp(String op, int uid, String packageName) 和checkOp基本相同，但是在检验后会做记录。
-* checkOpNoThrow(String op, int uid, String packageName) 和checkOp类似，但是权限错误，不会抛出SecurityException，而是返回AppOpsManager.MODE_ERRORED.
-* noteOpNoThrow(String op, int uid, String packageName) 类似noteOp，但不会抛出SecurityException。
-文件写到哪里去？ 
-    
-data/system/users/0/runtime-permissions.xml 不会记录targetSdkVersion<23的权限信息，这种情况下，app所有的权限信息都是持久化在data/system/packages.xml文件中，并且不支持更新，也就是说，如果用6.0的那种检查方法，那一直是赋予的，可以看到信息都在packages.xml中，并且这个文件中的权限赋予信息granted一直是true，这也就解释了为什么采用6.0的checkpermission会一直返回true，因为6.0以后，敏感权限与普通权限都是走的动态权限管理的那一套，如果targetSdkVersion<23那就认为所有的权限都是普通权限，默认全是true，而在这个时候所有的动态权限操作都是持久化到appops.xml文件中去的，也就是设置里面的看到的。
+    public ActivityManagerService(Context systemContext) {
+    ...
+        mAppOpsService = new AppOpsService(new File(systemDir, "appops.xml"), mHandler);
+    ...}    
 
-        <perms>
-            <item name="android.permission.READ_EXTERNAL_STORAGE" granted="true" flags="0" />
-            <item name="android.permission.READ_PHONE_STATE" granted="true" flags="8" />
-            <item name="android.permission.WRITE_EXTERNAL_STORAGE" granted="true" flags="0" />
-            <item name="android.permission.READ_CONTACTS" granted="true" flags="0" />
-        </perms>
-        
-至于权限更新的时候，仍然走的不是6.0的那套逻辑，虽然很乱，但是不得不说，对于APP开发的兼容还是很好的，还是存在两套，只不过，另一套作为鸡肋的陪衬而已，没有完全割除干净，不过这里仍然有一个很神奇的地方，我们仍然可以用compileSdkVersion>23的进行编译，在targetSdkVersion=22的app里动态申请权限，不过走的就是Android原来的那套不太完善的4.3动态权限管理系统，而做的兼容处理可能就是flag，flags==0，表示是授权，其他是未授权。设置里面的东西，会持久化到packages.xml
- 
+在AppOpsService的构造函数中会将持久化到appops.xml中的权限信息恢复出来，并存到内存中去，
 
- 
-###  6.0手机上运行时权限的判断  mAppSupportsRuntimePermissions 是否支持呢？
- 
-     public boolean areRuntimePermissionsGranted(String[] filterPermissions) {
-        if (LocationUtils.isLocationGroupAndProvider(mName, mPackageInfo.packageName)) {
-            return LocationUtils.isLocationEnabled(mContext);
-        }
-        final int permissionCount = mPermissions.size();
-        for (int i = 0; i < permissionCount; i++) {
-            Permission permission = mPermissions.valueAt(i);
-            if (filterPermissions != null
-                    && !ArrayUtils.contains(filterPermissions, permission.getName())) {
-                continue;
-            }
-            if (mAppSupportsRuntimePermissions) {
-                if (permission.isGranted()) {
-                    return true;
-                }
-            } else if (permission.isGranted() && (permission.getAppOp() == null(没有操作过)
-                    || permission.isAppOpAllowed())) {
-                <!--如果targetSdkVersion<23-->
-                return true;
-            }
-        }
-        return false;
+    public AppOpsService(File storagePath, Handler handler) {
+        mFile = new AtomicFile(storagePath);
+        mHandler = handler;
+        // 新建的时候就会读取
+        readState();
     }
 
+readState就是将持久化的UidState数据给重新读取出来，如下mFile其实就是appops.xml的文件对象
 
-持久化数据的恢复
+    void readState() {
+        synchronized (mFile) {
+            synchronized (this) {
+                FileInputStream stream;
+                try {
+                    stream = mFile.openRead();
+                } catch (FileNotFoundException e) {
+                }
+                boolean success = false;
+                mUidStates.clear();
+                try {
+                    XmlPullParser parser = Xml.newPullParser();
+                    parser.setInput(stream, StandardCharsets.UTF_8.name());
+                    int type;
+                    int outerDepth = parser.getDepth();
+                    while ((type = parser.next()) != XmlPullParser.END_DOCUMENT
+                            && (type != XmlPullParser.END_TAG || parser.getDepth() > outerDepth)) {
+                        if (type == XmlPullParser.END_TAG || type == XmlPullParser.TEXT) {
+                            continue;
+                        }
+                        String tagName = parser.getName();
+                        if (tagName.equals("pkg")) {
+                            readPackage(parser);
+                        } else if (tagName.equals("uid")) {
+                            readUidOps(parser);
+                        } else {
+                            XmlUtils.skipCurrentTag(parser);
+                        }
+                    }
+                    success = true;
+                ...}
+                
+读取之后，当用户操作权限的时候，也会随机的更新这里的标记，只看下targetSdkVersion<23的，
 
-
-    public static AppPermissionGroup create(Context context, PackageInfo packageInfo,
-            PackageItemInfo groupInfo, List<PermissionInfo> permissionInfos,
-            UserHandle userHandle) {
-
-        AppPermissionGroup group = new AppPermissionGroup(context, packageInfo, groupInfo.name,
-                groupInfo.packageName, groupInfo.loadLabel(context.getPackageManager()),
-                loadGroupDescription(context, groupInfo), groupInfo.packageName, groupInfo.icon,
-                userHandle);
-        ...
-
-        final int permissionCount = packageInfo.requestedPermissions.length;
-        for (int i = 0; i < permissionCount; i++) {
-            String requestedPermission = packageInfo.requestedPermissions[i];
-         ...
-            // 注意看这里的allowed，这里肯定是启动或者安装的时候进行加载的                     
-            final boolean appOpAllowed = appOp != null
-                    && context.getSystemService(AppOpsManager.class).checkOpNoThrow(appOp,
-                    packageInfo.applicationInfo.uid, packageInfo.packageName)
-                    == AppOpsManager.MODE_ALLOWED;
-                    
-          }
-
-这里的数据，怎么处理的
+	   public boolean grantRuntimePermissions(boolean fixedByTheUser, String[] filterPermissions) {
+	        final int uid = mPackageInfo.applicationInfo.uid;
+	
+	        for (Permission permission : mPermissions.values()) {
+	            if (filterPermissions != null
+	                    && !ArrayUtils.contains(filterPermissions, permission.getName())) {
+	                continue;
+	            }
+	            <!--关键点1 如果支持，也即是targetSdkVersion>23那走6.0动态权限管理那一套-->
+	            if (mAppSupportsRuntimePermissions) {
+					...
+	            } else {
+	                if (!permission.isGranted()) {
+	                    continue;
+	                }
+	                int killUid = -1;
+	                int mask = 0;
+	                if (permission.hasAppOp()) {
+	                    if (!permission.isAppOpAllowed()) {
+	                        permission.setAppOpAllowed(true);
+	                        <!--关键点3 设置为AppOpsManager.MODE_ALLOWED-->
+	                        mAppOps.setUidMode(permission.getAppOp(), uid, AppOpsManager.MODE_ALLOWED);
+	                        killUid = uid;
+	                    }
+	                }
+	                if (mask != 0) {
+	                    mPackageManager.updatePermissionFlags(permission.getName(),
+	                            mPackageInfo.packageName, mask, 0, mUserHandle);
+	                }
+	            }
+	        }
+	       return true;
+	    }
+	    
+拿授权的场景来说，其实关键就是 mAppOps.setUidMode(permission.getAppOp(), uid, AppOpsManager.MODE_ALLOWED)函数，这个函数会更新AppOpsService中对于权限的标记，并将权限是否授予的信息持久化到appops.xml及packages.xml，不同版本可能有差别，有可能需要appops.xml跟packages.xml配合才能确定是否授予权限，具体没深究，有兴趣可以自行分析。
 
     @Override
-    public int checkOperation(int code, int uid, String packageName) {
-        verifyIncomingUid(uid);
-        verifyIncomingOp(code);
-        synchronized (this) {
-            if (isOpRestricted(uid, code, packageName)) {
-                return AppOpsManager.MODE_IGNORED;
-            }
-            code = AppOpsManager.opToSwitch(code);
-            UidState uidState = getUidStateLocked(uid, false);
-            if (uidState != null && uidState.opModes != null) {
-                final int uidMode = uidState.opModes.get(code);
-                if (uidMode != AppOpsManager.MODE_ALLOWED) {
-                    return uidMode;
-                }
-            }
-            Op op = getOpLocked(code, uid, packageName, false);
-            if (op == null) {
-                return AppOpsManager.opToDefaultMode(code);
-            }
-            return op.mode;
+    public void setUidMode(int code, int uid, int mode) {
+        if (Binder.getCallingPid() != Process.myPid()) {
+            mContext.enforcePermission(android.Manifest.permission.UPDATE_APP_OPS_STATS,
+                    Binder.getCallingPid(), Binder.getCallingUid(), null);
         }
-    }
+        verifyIncomingOp(code);
+        code = AppOpsManager.opToSwitch(code);
 
-# adb shell dumpsys appops 查看命令
+        synchronized (this) {
+            final int defaultMode = AppOpsManager.opToDefaultMode(code);
+           <!--更新操作权限-->
+            UidState uidState = getUidStateLocked(uid, false);
+            if (uidState == null) {
+                if (mode == defaultMode) {
+                    return;
+                }
+                uidState = new UidState(uid);
+                uidState.opModes = new SparseIntArray();
+                uidState.opModes.put(code, mode);
+                mUidStates.put(uid, uidState);
+                scheduleWriteLocked();
+            } else if (uidState.opModes == null) {
+                if (mode != defaultMode) {
+                    uidState.opModes = new SparseIntArray();
+                    uidState.opModes.put(code, mode);
+                    scheduleWriteLocked();
+                }
+            } else {
+                if (uidState.opModes.get(code) == mode) {
+                    return;
+                }
+                if (mode == defaultMode) {
+                    uidState.opModes.delete(code);
+                    if (uidState.opModes.size() <= 0) {
+                        uidState.opModes = null;
+                    }
+                } else {
+                    uidState.opModes.put(code, mode);
+                }
+                <!--持久化到appops.xml-->
+                scheduleWriteLocked();
+            }
+        }
+      ...
+    }
     
-    
-###  持久化到appops.xml中，更新appops.xml滞后 
+这里有一点注意：scheduleWriteLocked并不是立即执行写操作，而是比更新内存滞后，一般滞后30分钟
 
     static final long WRITE_DELAY = DEBUG ? 1000 : 30*60*1000;
 
-30分钟才会去更新 ，内存中都是最新的 ，如果直接删除，然后意外重启，比如reboot bootloader，那么你的所有权限将会被清空，经过验证，是合理的，也就说，targetSdkVersion<23的情况下，Android6.0以上的手机，它的权限操作是持久化在appops.xml中的，如果还没来得及持久化，一般关机的时候，会持久化一次，如果异常关机，就会丢失，但是同runtime-permission分离，不过runtime-permission的持久化同这个是一致的，异常关机也会丢失，不信可以试验一下 
- 
-	 <pkg n="com.snail.labaffinity">
-		<uid n="10084" p="false">
-			<op n="0" r="1507791144179" />
-			<op n="1" r="1507791144180" />
-			<op n="4" r="1507791144178" />
-			<op n="11" t="1507791150963" pu="0" />
-			<op n="13" t="1507791144180" />
-			<op n="26" r="1507791144180" />
-			<op n="45" t="1507791154995" d="14561" />
-			<op n="51" t="1507791144175" />
-			<op n="59" t="1507789244941" r="1507791302296" pu="0" />
-			<op n="60" t="1507789244941" r="1507791144177" pu="0" />
-		</uid>
-	</pkg>
-   	    
-# 解决方案
+30分钟才会去更新 ，不过内存中都是最新的 ，如果直接删除appops.xml，然后意外重启，比如adb reboot bootloader，那么你的所有AppOpsService权限标记将会被清空，经过验证，是符合预期的，也就说，targetSdkVersion<23的情况下，Android6.0以上的手机，它的权限操作是持久化在appops.xml中的，一般关机的时候，会持久化一次，如果还没来得及持久化，异常关机，就会丢失，这点同runtime-permission类似，异常关机也会丢失，不信可以试验一下 。
+
+# 对于targetSdkVersion<23检查6.0权限情况的解决方案
+	
+针对targetSdkVersion做如下兼容即可
 	    
 	public boolean selfPermissionGranted(Context context, String permission) {
 
@@ -368,4 +395,7 @@ data/system/users/0/runtime-permissions.xml 不会记录targetSdkVersion<23的�
 		}
 		return ret;
 	}	    
-    
+
+# 总结
+
+Android6.0系统其实支持两种动态管理，runtime-permission及被阉割的AppOpsService，当targetSdkVersion>23的时候，采用rumtime-permission，当 targetSdkVersion<23的时候，两者兼有，其实targetSdkVersion<23的时候，仍然可以动态申请6.0的权限，前提是你要采用23之后的compileSdkVersion，只有这样才能用响应的API，不过还是推荐升级targetSdkVersion，这才是正道。
