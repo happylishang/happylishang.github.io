@@ -1,16 +1,13 @@
 ---
 layout: post
-title: Android窗口管理分析（4）：View绘制图层内存的分配
+title: Android窗口管理分析（4）：Android View绘制图层内存的分配、传递、使用
 category: Android
 image: http://upload-images.jianshu.io/upload_images/1460468-103d49829291e1f7.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 
 ---
 
-阅读本文之前，不妨先思考一个问题，APP端View视图的数据是如何传递SurfaceFlinger服务的呢？Android系统中，View绘制的数据最终是按照一帧一帧显示到屏幕的，而每一帧都会占用一定的存储空间，在APP端执行draw的时候，数据很明显是要绘制到APP的进程空间，但是视图窗口要经过SurfaceFlinger图层混排才会生成最终的帧，而SurfaceFlinger又运行在独立的服务进程，那么View视图的数据是如何在两个进程间传递的呢，普通的Binder通信肯定不行，因为Binder不太适合这种数据量比较大的通信，那么View数据的通信采用的是什么IPC手段呢？答案就是共享内存，更精确的说是匿名共享内存。共享内存Linux自带的一种IPC机制，Android直接使用了该模型，在绘制图形的时候，APP进程同SurfaceFlinger共用一块内存，两者采用生产者/消费者模型进行同步，APP端绘制完毕，通知SurfaceFlinger端合成，再输出到硬件进行显示，当然，个中细节会更复杂写，但是流程大概如此，本文不会太过深究各种技术，重点在于描述View绘制共享内存的分配跟管理。
+前文[Android匿名共享内存（Ashmem）原理](http://www.jianshu.com/p/d9bc9c668ba6)分析了Android系统的匿名共享内存，它最主要的作用就是View视图绘制，Android视图是按照一帧一帧显示到屏幕的，而每一帧都会占用一定的存储空间，通过AshmemAPP与SurfaceFlinger共享绘图数据，提高性能，本文就看Android是怎么利用Ashmem分配绘制内存跟绘制的：
 
- ![View绘制与共享内存.jpg](http://upload-images.jianshu.io/upload_images/1460468-103d49829291e1f7.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-如此以来，就不需要再次进行数据传递，只要合理的处理同步机制，便可以高效的传递数据，之后的分析按三步走：分配、使用、释放。
 
 ## View绘制内存的分配
 
@@ -264,6 +261,7 @@ mCore其实就是上面的BufferQueueCore，mCore->mAllocator = new GraphicBuffe
 	{
 	    GraphicBufferAllocator& allocator = GraphicBufferAllocator::get();
 	    uint32_t outStride = 0;
+	    <!--请求分配内存-->
 	    status_t err = allocator.allocate(inWidth, inHeight, inFormat, inUsage,
 	            &handle, &outStride, mId, std::move(requestorName));
 	    if (err == NO_ERROR) {
@@ -324,15 +322,278 @@ std::make_unique是C++高版本引入的构造智能指针更优秀的方法：
 	    mDevice = std::make_unique<Gralloc1::Device>(device);
 	}
 
-这里的device就是利用hw_get_module及gralloc1_open获取到的硬件抽象层device，hw_get_module装载HAL模块，
+这里的device就是利用hw_get_module及gralloc1_open获取到的硬件抽象层device，hw_get_module装载HAL模块，不过过多分析，总之这里会加载相应的.so文件gralloc.default.so，它实现位于 hardware/libhardware/modules/gralloc.cpp中，最后将device映射的函数操作加载进来，而这里我们关心的是allocate函数，这里先分析普通图形缓冲区的分配，它最终会调用gralloc_alloc_buffer()利用匿名共享内存进行分配，之前的文章[Android匿名共享内存（Ashmem）原理](http://www.jianshu.com/p/d9bc9c668ba6)分析了Android是如何通过匿名共享内存进行通信的，这里就直接用了：
+	
+	static int gralloc_alloc_buffer(alloc_device_t* dev,
+	        size_t size, int usage, buffer_handle_t* pHandle)
+	{
+	    int err = 0;
+	    int fd = -1;
+	    size = roundUpToPageSize(size);
+	    // 创建共享内存，并且设定名字跟size
+	    fd = ashmem_create_region("gralloc-buffer", size);
+	    if (err == 0) {
+	        private_handle_t* hnd = new private_handle_t(fd, size, 0);
+	        gralloc_module_t* module = reinterpret_cast<gralloc_module_t*>(
+	                dev->common.module);
+	         // 执行mmap，将内存映射到自己的进程
+	        err = mapBuffer(module, hnd);
+	        if (err == 0) {
+	            *pHandle = hnd;
+	        }
+	    }
+	
+	    return err;
+	}
 
+mapBuffer会进一步调用ashmem的驱动，在tmpfs新建文件，同时开辟虚拟内存，
 
+	int mapBuffer(gralloc_module_t const* module,
+		        private_handle_t* hnd)
+		{
+		    void* vaddr; 
+		    // vaddr有个毛用？
+		    return gralloc_map(module, hnd, &vaddr);
+		}
+	
+	static int gralloc_map(gralloc_module_t const* module,
+	        buffer_handle_t handle,
+	        void** vaddr)
+	{
+	    private_handle_t* hnd = (private_handle_t*)handle;
+	    if (!(hnd->flags & private_handle_t::PRIV_FLAGS_FRAMEBUFFER)) {
+	        size_t size = hnd->size;
+	        void* mappedAddress = mmap(0, size,
+	                PROT_READ|PROT_WRITE, MAP_SHARED, hnd->fd, 0);
+	        if (mappedAddress == MAP_FAILED) {
+	            return -errno;
+	        }
+	        hnd->base = intptr_t(mappedAddress) + hnd->offset;
+	    }
+	    *vaddr = (void*)hnd->base;
+	    return 0;
+	}
 
-## 使用
+# View绘制内存的传递
 
-## 释放
-                    
+在另一端unflatten的时候，会将共享内存给映射到目标进程
+
+    virtual status_t requestBuffer(int bufferIdx, sp<GraphicBuffer>* buf) {
+        Parcel data, reply;
+        data.writeInterfaceToken(IGraphicBufferProducer::getInterfaceDescriptor());
+        data.writeInt32(bufferIdx);
+        status_t result =remote()->transact(REQUEST_BUFFER, data, &reply);
+        if (result != NO_ERROR) {
+            return result;
+        }
+        bool nonNull = reply.readInt32();
+        if (nonNull) {
+            *buf = new GraphicBuffer();
+            reply.read(**buf);
+        }
+        result = reply.readInt32();
+        return result;
+    }
+    
+private_handle_t对象用来抽象图形缓冲区，其中存储着与共享内存对应tmpfs文件的fd，GraphicBuffer对象会通过序列化，将这个fd会利用Binder通信传递给App进程，APP端获取到fd之后，便可以同mmap将共享内存映射到自己的进程空间，进而进行图形绘制。
+
+	status_t GraphicBuffer::flatten(void* buffer, size_t size,
+	        int fds[], size_t count) const
+	{
+	    size_t sizeNeeded = GraphicBuffer::getFlattenedSize();
+	    if (size < sizeNeeded) return NO_MEMORY;
+	
+	    size_t fdCountNeeded = GraphicBuffer::getFdCount();
+	    if (count < fdCountNeeded) return NO_MEMORY;
+	
+	    int* buf = static_cast<int*>(buffer);
+	    buf[0] = 'GBFR';
+	    buf[1] = width;
+	    buf[2] = height;
+	    buf[3] = stride;
+	    buf[4] = format;
+	    buf[5] = usage;
+	    buf[6] = 0;
+	    buf[7] = 0;
+	
+	    if (handle) {
+	        buf[6] = handle->numFds;
+	        buf[7] = handle->numInts;
+	        native_handle_t const* const h = handle;
+	        memcpy(fds,     h->data,             h->numFds*sizeof(int));
+	        memcpy(&buf[8], h->data + h->numFds, h->numInts*sizeof(int));
+	    }
+	
+	    return NO_ERROR;
+	}
+
+等到APP端的反序列化的时候
+
+Parcel的read函数
+
+	status_t Parcel::read(Flattenable& val) const  
+	{  
+	    // size  
+	    const size_t len = this->readInt32();  
+	    const size_t fd_count = this->readInt32();  
+	    // payload  
+	    void const* buf = this->readInplace(PAD_SIZE(len));  
+	    if (buf == NULL)  
+	        return BAD_VALUE;  
+	    int* fds = NULL;  
+	    if (fd_count) {  
+	        fds = new int[fd_count];  
+	    }  
+	    status_t err = NO_ERROR;  
+	    for (size_t i=0 ; i<fd_count && err==NO_ERROR ; i++) {  
+	        fds[i] = dup(this->readFileDescriptor());  
+	        if (fds[i] < 0) err = BAD_VALUE;  
+	    }  
+	    if (err == NO_ERROR) {  
+	        err = val.unflatten(buf, len, fds, fd_count);  
+	    }  
+	    if (fd_count) {  
+	        delete [] fds;  
+	    }  
+	    return err;  
+	}  
+	   
+进而调用GraphicBuffer::unflatten：
+		
+	status_t GraphicBuffer::unflatten(void const* buffer, size_t size,
+	        int fds[], size_t count)
+	{
+	    if (size < 8*sizeof(int)) return NO_MEMORY;
+	
+	    int const* buf = static_cast<int const*>(buffer);
+	    if (buf[0] != 'GBFR') return BAD_TYPE;
+	
+	    const size_t numFds  = buf[6];
+	    const size_t numInts = buf[7];
+	
+	    const size_t sizeNeeded = (8 + numInts) * sizeof(int);
+	    if (size < sizeNeeded) return NO_MEMORY;
+	
+	    size_t fdCountNeeded = 0;
+	    if (count < fdCountNeeded) return NO_MEMORY;
+	
+	    if (handle) {
+	        free_handle();
+	    }
+	
+	    if (numFds || numInts) {
+	        width  = buf[1];
+	        height = buf[2];
+	        stride = buf[3];
+	        format = buf[4];
+	        usage  = buf[5];
+	        native_handle* h = native_handle_create(numFds, numInts);
+	        memcpy(h->data,          fds,     numFds*sizeof(int));
+	        memcpy(h->data + numFds, &buf[8], numInts*sizeof(int));
+	        handle = h;
+	    } else {
+	        width = height = stride = format = usage = 0;
+	        handle = NULL;
+	    }
+	
+	    mOwner = ownHandle;
+		<!--将共享内存映射当前内存空间-->
+	    if (handle != 0) {
+	        status_t err = mBufferMapper.registerBuffer(handle);
+	    }
+	
+	    return NO_ERROR;
+	}
+	
+	struct private_module_t HAL_MODULE_INFO_SYM = {
+	    .base = {
+	        .common = {
+	            .tag = HARDWARE_MODULE_TAG,
+	            .version_major = 1,
+	            .version_minor = 0,
+	            .id = GRALLOC_HARDWARE_MODULE_ID,
+	            .name = "Graphics Memory Allocator Module",
+	            .author = "The Android Open Source Project",
+	            .methods = &gralloc_module_methods
+	        },
+	        .registerBuffer = gralloc_register_buffer,
+	        .unregisterBuffer = gralloc_unregister_buffer,
+	        .lock = gralloc_lock,
+	        .unlock = gralloc_unlock,
+	    },
+	    .framebuffer = 0,
+	    .flags = 0,
+	    .numBuffers = 0,
+	    .bufferMask = 0,
+	    .lock = PTHREAD_MUTEX_INITIALIZER,
+	    .currentBuffer = 0,
+	};
+
+最后会调用gralloc_register_buffer，
+
+	static int gralloc_register_buffer(gralloc_module_t const* module,
+	                                   buffer_handle_t handle)
+	{
+	    pthread_once(&sFallbackOnce, fallback_init);
+	    if (sFallback != NULL) {
+	        return sFallback->registerBuffer(sFallback, handle);
+	    }
+	
+	    D("gralloc_register_buffer(%p) called", handle);
+	
+	    private_module_t *gr = (private_module_t *)module;
+	    cb_handle_t *cb = (cb_handle_t *)handle;
+	    if (!gr || !cb_handle_t::validate(cb)) {
+	        ERR("gralloc_register_buffer(%p): invalid buffer", cb);
+	        return -EINVAL;
+	    }
+	
+	    if (cb->hostHandle != 0) {
+	        DEFINE_AND_VALIDATE_HOST_CONNECTION;
+	        D("Opening host ColorBuffer 0x%x\n", cb->hostHandle);
+	        rcEnc->rcOpenColorBuffer(rcEnc, cb->hostHandle);
+	    }
+	
+	    if (cb->ashmemSize > 0 && cb->mappedPid != getpid()) {
+	        void *vaddr;
+	        int err = map_buffer(cb, &vaddr);
+	        if (err) {
+	            return -err;
+	        }
+	        cb->mappedPid = getpid();
+	    }
+	
+	    return 0;
+	}
+
+终于我们用到tmpfs中文件对应的描述符fd
+
+	static int map_buffer(cb_handle_t *cb, void **vaddr)
+	{
+	    if (cb->fd < 0 || cb->ashmemSize <= 0) {
+	        return -EINVAL;
+	    }
+	
+	    void *addr = mmap(0, cb->ashmemSize, PROT_READ | PROT_WRITE,
+	                      MAP_SHARED, cb->fd, 0);
+	    if (addr == MAP_FAILED) {
+	        return -errno;
+	    }
+	
+	    cb->ashmemBase = intptr_t(addr);
+	    cb->ashmemBasePid = getpid();
+	
+	    *vaddr = addr;
+	    return 0;
+	}
+
+到这里内存传递成功，之后App端就可以应用这块内存进行图形绘制了。
+
+# View绘制内存的使用
+                   
 # 	参考文档
+[Android图形缓冲区分配过程源码分析](http://blog.csdn.net/yangwen123/article/details/12231687)
+[Android 图形系统之gralloc](https://www.wolfcstech.com/2017/09/21/android_graphics_gralloc/   )          
 [ Android6.0 SurfaceControl分析（二）SurfaceControl和SurfaceFlinger通信](http://blog.csdn.net/kc58236582/article/details/65445141)       
 [ GUI系统之SurfaceFlinger(11)SurfaceComposerClient](http://blog.csdn.net/xuesen_lin/article/details/8954957)                 
 [ Skia深入分析1——skia上下文](http://blog.csdn.net/jxt1234and2010/article/details/42572559)        
