@@ -606,3 +606,6 @@ If CONFIG_TMPFS is not set, the user visible part of tmpfs is not build. But the
 
 Android匿名共享内存是基于Linux共享内存的，都是在tmpfs文件系统上新建文件，并将其映射到不同的进程空间，从而达到共享内存的目的，只是Android在Linux的基础上进行了改造，借助Binder+文件描述符实现了共享内存的传递。
 
+# 参考文档
+
+[Android Binder 分析——匿名共享内存（Ashmem）](http://light3moon.com/2015/01/28/Android%20Binder%20%E5%88%86%E6%9E%90%E2%80%94%E2%80%94%E5%8C%BF%E5%90%8D%E5%85%B1%E4%BA%AB%E5%86%85%E5%AD%98%5BAshmem%5D/)
