@@ -590,7 +590,95 @@ Parcel的read函数
 到这里内存传递成功，之后App端就可以应用这块内存进行图形绘制了。
 
 # View绘制内存的使用
-                   
+
+回到之前的Surface lock函数，内存经过反序列化，拿到内存地址后，会封装一个ANativeWindow_Buffer返回给上层调用
+
+	status_t Surface::lock(
+	        ANativeWindow_Buffer* outBuffer, ARect* inOutDirtyBounds)
+	{
+	     ...
+	
+	        void* vaddr;
+	        <!--lock获取地址-->
+	        status_t res = backBuffer->lock(
+	                GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN,
+	                newDirtyRegion.bounds(), &vaddr);
+	
+	        if (res != 0) {
+	            err = INVALID_OPERATION;
+	        } else {
+	            mLockedBuffer = backBuffer;
+	            outBuffer->width  = backBuffer->width;
+	            outBuffer->height = backBuffer->height;
+	            outBuffer->stride = backBuffer->stride;
+	            outBuffer->format = backBuffer->format;
+
+					<!--关键点 设置虚拟内存的地址-->
+	            outBuffer->bits   = vaddr;
+	        }
+	    }
+	    return err;
+	}
+
+ANativeWindow_Buffer的数据结构如下，其中bits字段与虚拟内存地址对应，
+	
+	typedef struct ANativeWindow_Buffer {
+	    // The number of pixels that are show horizontally.
+	    int32_t width;
+	
+	    // The number of pixels that are shown vertically.
+	    int32_t height;
+	
+	    // The number of *pixels* that a line in the buffer takes in
+	    // memory.  This may be >= width.
+	    int32_t stride;
+	
+	    // The format of the buffer.  One of WINDOW_FORMAT_*
+	    int32_t format;
+	
+	    // The actual bits.
+	    void* bits;
+	    
+	    // Do not touch.
+	    uint32_t reserved[6];
+	} ANativeWindow_Buffer;
+	
+如何使用，看下Canvas的draw
+
+	
+	static void nativeLockCanvas(JNIEnv* env, jclass clazz,
+	        jint nativeObject, jobject canvasObj, jobject dirtyRectObj) {
+	    sp<Surface> surface(reinterpret_cast<Surface *>(nativeObject));
+	
+	    ...
+	    status_t err = surface->lock(&outBuffer, &dirtyBounds);
+	    ...
+	    <!--SkBitmap-->
+	    SkBitmap bitmap;
+	    ssize_t bpr = outBuffer.stride * bytesPerPixel(outBuffer.format);
+	    <!--为SkBitmap填充配置-->
+	    bitmap.setConfig(convertPixelFormat(outBuffer.format), outBuffer.width, outBuffer.height, bpr);
+	    <!--为SkBitmap填充格式-->
+	    if (outBuffer.format == PIXEL_FORMAT_RGBX_8888) {
+	        bitmap.setIsOpaque(true);
+	    }
+	    <!--为SkBitmap填充内存-->
+	    if (outBuffer.width > 0 && outBuffer.height > 0) {
+	        bitmap.setPixels(outBuffer.bits);
+	    } else {
+	        // be safe with an empty bitmap.
+	        bitmap.setPixels(NULL);
+	    }
+	
+		<!--创建native SkCanvas-->
+	    SkCanvas* nativeCanvas = SkNEW_ARGS(SkCanvas, (bitmap));
+	    swapCanvasPtr(env, canvasObj, nativeCanvas);
+	   ...
+	}
+
+对于2D绘图进而会用skia库填充改Bitmap对应的内存，如此完成绘制。
+
+     
 # 	参考文档
 [Android图形缓冲区分配过程源码分析](http://blog.csdn.net/yangwen123/article/details/12231687)
 [Android 图形系统之gralloc](https://www.wolfcstech.com/2017/09/21/android_graphics_gralloc/   )          
