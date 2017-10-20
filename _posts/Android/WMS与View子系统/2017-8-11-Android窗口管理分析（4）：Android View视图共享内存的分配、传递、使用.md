@@ -6,18 +6,18 @@ image: http://upload-images.jianshu.io/upload_images/1460468-103d49829291e1f7.jp
 
 ---
 
-前文[Android匿名共享内存（Ashmem）原理](http://www.jianshu.com/p/d9bc9c668ba6)分析了Android系统的匿名共享内存，它最主要的作用就是View视图绘制，Android视图是按照一帧一帧显示到屏幕的，而每一帧都会占用一定的存储空间，通过AshmemAPP与SurfaceFlinger共享绘图数据，提高性能，本文就看Android是怎么利用Ashmem分配绘制内存跟绘制的：
+前文[Android匿名共享内存（Ashmem）原理](http://www.jianshu.com/p/d9bc9c668ba6)分析了匿名共享内存，它最主要的作用就是View视图绘制，Android视图是按照一帧一帧显示到屏幕的，而每一帧都会占用一定的存储空间，通过Ashmem机制APP与SurfaceFlinger共享绘图数据，提高图形处理性能，本文就看Android是怎么利用Ashmem分配及绘制的：
 
 
-## View绘制内存的分配
+## View视图内存的分配
 
 前文[Window添加流程](http://www.jianshu.com/p/40776c123adb)中描述了：在添加窗口的时候，WMS会为APP分配一个WindowState，以标识当前窗口并用于窗口管理，同时向SurfaceFlinger端请求分配Layer抽象图层，在SurfaceFlinger分配Layer的时候创建了两个比较关键的Binder对象，用于填充WMS端Surface，一个是sp<IBinder> handle：是每个窗口标识的句柄，将来WMS同SurfaceFlinger通信的时候方便找到对应的图层。另一个是sp<IGraphicBufferProducer> gbp ：共享内存分配的关键对象，同时兼具Binder通信的功能，用来传递**指令**及**共享内存的句柄**，注意，这里只是抽象创建了对象，并未真正分配每一帧的内存，内存的分配要等到真正绘制的时候才会申请，首先看一下分配流程：
 
 * 分配的时机：什么时候分配
 * 分配的手段：如何分配
-* 传递的方式：共享内存的地址如何跨进程传递
+* 传递的方式：如何跨进程传递
 
-Surface被抽象成一块画布，只要拥有Surface就可以绘图，其根本原理就是Surface握有可以绘图的一块内存，这块内存是APP端在需要的时候，通过sp<IGraphicBufferProducer> gbp向SurfaceFlinger申请的，那么首先看一下APP端如何获得sp<IGraphicBufferProducer> gbp这个服务代理的，之后再看如何如何利用它申请内存，在WMS利用向SurfaceFlinger申请填充Surface的时候，会请求SurfaceFlinger分配这把剑，并将其句柄交给自己
+Surface被抽象成一块画布，只要拥有Surface就可以绘图，其根本原理就是Surface握有可以绘图的一块内存，这块内存是APP端在需要的时候，通过sp<IGraphicBufferProducer> gbp向SurfaceFlinger申请的，那么首先看一下APP端如何获得sp<IGraphicBufferProducer> gbp这个服务代理的，之后再看如何利用它申请内存，在WMS利用向SurfaceFlinger申请填充Surface的时候，会请求SurfaceFlinger分配这把剑，并将其句柄交给自己
 
 	sp<SurfaceControl> SurfaceComposerClient::createSurface(
 	        const String8& name,  uint32_t w, uint32_t h, PixelFormat format, uint32_t flags){
@@ -84,7 +84,7 @@ Surface被抽象成一块画布，只要拥有Surface就可以绘图，其根本
 
 	class BpGraphicBufferProducer : public BpInterface<IGraphicBufferProducer>{}
 
-IGraphicBufferProducer Binder实体在SurfaceFlinger中创建后，打包到Surface对象，并通过binder通信传递给APP端，之后利用Surface恢复出来，如下：
+IGraphicBufferProducer Binder实体在SurfaceFlinger中创建后，打包到Surface对象，并通过binder通信传递给APP端，APP段通过反序列化将其恢复出来，如下：
 
 	status_t Surface::readFromParcel(const Parcel* parcel, bool nameAlreadyRead) {
 	    if (parcel == nullptr) return BAD_VALUE;
@@ -107,7 +107,7 @@ IGraphicBufferProducer Binder实体在SurfaceFlinger中创建后，打包到Surf
 	    return OK;
 	}
 
-自此，APP端就获得了申请内存的能努力，BpGraphicBufferProducer真正发挥作用是在第一次绘图时，看一下ViewRootImpl中的draw
+自此，APP端就获得了申请内存的句柄BpGraphicBufferProducer，它真正发挥作用是在第一次绘图时，看一下ViewRootImpl中的draw
 
 	   private boolean drawSoftware(Surface surface, AttachInfo attachInfo, int xoff, int yoff,
 	            boolean scalingRequired, Rect dirty) {
@@ -161,7 +161,7 @@ surface.cpp的lock会进一步调用dequeueBuffer函数来请求分配内存：
 	   ...
 	}
 
-最终会调用BpGraphicBufferProducer的dequeueBuffer向服务端请求分配内存，这里用到了匿名共享内存的知识，在Linux中一切都是文件，可以将共享内存看成一个文件。分配成功之后，由于不是在当前进程申请的内存，需要同时映射到surface所在的进程(匿名共享内存)，其实就是获取当前进程可用的文件描述符，而binder驱动也支持fd的传递与转化，只需要跨进程传递文件描述符fd即可（为什么不传递文件名与路径呢？是不是因为是匿名共享内存tmpfs导致的？）。这里对应的Binder实体是BufferQueueProducer，先看下申请的逻辑：
+最终会调用BpGraphicBufferProducer的dequeueBuffer向服务端请求分配内存，这里用到了匿名共享内存的知识，在Linux中一切都是文件，共享内存也看成一个文件。分配成功之后，需要跨进程传递tmpfs临时文件的描述符fd。先看下申请的逻辑：
 	
 		class BpGraphicBufferProducer : public BpInterface<IGraphicBufferProducer>{
 	    virtual status_t dequeueBuffer(int *buf, sp<Fence>* fence, bool async,
@@ -190,7 +190,7 @@ surface.cpp的lock会进一步调用dequeueBuffer函数来请求分配内存：
 	    }
 	}
 
-在client侧，也就是BpGraphicBufferProducer侧，通过DEQUEUE_BUFFER后核心只返回了一个*buf = reply.readInt32();也就是数组mSlots的下标。看来，BufferQueue中应该也有个和mSlots对应的数组，也是32个，一一对应，继续分析server侧，即Bn侧:
+在client侧，也就是BpGraphicBufferProducer侧，通过DEQUEUE_BUFFER后核心只返回了一个*buf = reply.readInt32();其实是数组mSlots的下标，在BufferQueue中有个和mSlots对应的数组，也是32个，一一对应，
 
 	status_t BnGraphicBufferProducer::onTransact(
 	    uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags)
@@ -217,7 +217,7 @@ surface.cpp的lock会进一步调用dequeueBuffer函数来请求分配内存：
 	            return NO_ERROR;
 	}
 
-可以看到BnGraphicBufferProducer端获取到长宽及格式，之后利用BufferQueueProducer的dequeueBuffer来申请内存，内存可能已经申请，也可能未申请，未申请，则直接申请新内存，每个surface可以对应32块内存
+可以看到BnGraphicBufferProducer端获取到长宽及格式，之后利用BufferQueueProducer的dequeueBuffer来申请内存，内存可能已经申请，也可能未申请，未申请，则直接申请新内存，每个surface可以对应32块内存：
 		
 	status_t BufferQueueProducer::dequeueBuffer(int *outSlot,
 	        sp<android::Fence> *outFence, uint32_t width, uint32_t height,
@@ -246,11 +246,7 @@ mCore其实就是上面的BufferQueueCore，mCore->mAllocator = new GraphicBuffe
 	        PixelFormat inFormat, uint32_t inUsage, std::string requestorName)
 	    : BASE(), mOwner(ownData), mBufferMapper(GraphicBufferMapper::get()),
 	      mInitCheck(NO_ERROR), mId(getUniqueId()), mGenerationNumber(0){
-	    width  =
-	    height =
-	    stride =
-	    format =
-	    usage  = 0;
+		...
 	    handle = NULL;
 	    mInitCheck = initSize(inWidth, inHeight, inFormat, inUsage,
 	            std::move(requestorName));
@@ -293,36 +289,7 @@ mCore其实就是上面的BufferQueueCore，mCore->mAllocator = new GraphicBuffe
 	    return NO_ERROR;
 	}
 
-[参考文档 分配](http://www.voidcn.com/article/p-yxkmayqw-ev.html)       
-
-如何从硬件抽象层获取分配函数的
-
-	GraphicBufferAllocator::GraphicBufferAllocator()
-	  : mLoader(std::make_unique<Gralloc1::Loader>()),
-	    mDevice(mLoader->getDevice()) {}
-
-std::make_unique是C++高版本引入的构造智能指针更优秀的方法：
-    
-	Loader::Loader()
-	  : mDevice(nullptr)
-	{
-	    hw_module_t const* module;
-	    int err = hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &module);
-	    uint8_t majorVersion = (module->module_api_version >> 8) & 0xFF;
-	    uint8_t minorVersion = module->module_api_version & 0xFF;
-	    gralloc1_device_t* device = nullptr;
-	    if (majorVersion == 1) {
-	        gralloc1_open(module, &device);
-	    } else {
-	        if (!mAdapter) {
-	            mAdapter = std::make_unique<Gralloc1On0Adapter>(module);
-	        }
-	        device = mAdapter->getDevice();
-	    }
-	    mDevice = std::make_unique<Gralloc1::Device>(device);
-	}
-
-这里的device就是利用hw_get_module及gralloc1_open获取到的硬件抽象层device，hw_get_module装载HAL模块，不过过多分析，总之这里会加载相应的.so文件gralloc.default.so，它实现位于 hardware/libhardware/modules/gralloc.cpp中，最后将device映射的函数操作加载进来，而这里我们关心的是allocate函数，这里先分析普通图形缓冲区的分配，它最终会调用gralloc_alloc_buffer()利用匿名共享内存进行分配，之前的文章[Android匿名共享内存（Ashmem）原理](http://www.jianshu.com/p/d9bc9c668ba6)分析了Android是如何通过匿名共享内存进行通信的，这里就直接用了：
+上面代码的mDevice就是利用hw_get_module及gralloc1_open获取到的硬件抽象层device，hw_get_module装载HAL模块，会加载相应的.so文件gralloc.default.so，它实现位于 hardware/libhardware/modules/gralloc.cpp中，最后将device映射的函数操作加载进来。这里我们关心的是allocate函数，先分析普通图形缓冲区的分配，它最终会调用gralloc_alloc_buffer()利用匿名共享内存进行分配，之前的文章[Android匿名共享内存（Ashmem）原理](http://www.jianshu.com/p/d9bc9c668ba6)分析了Android是如何通过匿名共享内存进行通信的，这里就直接用了：
 	
 	static int gralloc_alloc_buffer(alloc_device_t* dev,
 	        size_t size, int usage, buffer_handle_t* pHandle)
@@ -376,7 +343,7 @@ mapBuffer会进一步调用ashmem的驱动，在tmpfs新建文件，同时开辟
 
 # View绘制内存的传递
 
-在另一端unflatten的时候，会将共享内存给映射到目标进程
+分配之后，会继续利用BpGraphicBufferProducer的requestBuffer，申请将共享内存给映射到当前进程：
 
     virtual status_t requestBuffer(int bufferIdx, sp<GraphicBuffer>* buf) {
         Parcel data, reply;
@@ -395,41 +362,7 @@ mapBuffer会进一步调用ashmem的驱动，在tmpfs新建文件，同时开辟
         return result;
     }
     
-private_handle_t对象用来抽象图形缓冲区，其中存储着与共享内存对应tmpfs文件的fd，GraphicBuffer对象会通过序列化，将这个fd会利用Binder通信传递给App进程，APP端获取到fd之后，便可以同mmap将共享内存映射到自己的进程空间，进而进行图形绘制。
-
-	status_t GraphicBuffer::flatten(void* buffer, size_t size,
-	        int fds[], size_t count) const
-	{
-	    size_t sizeNeeded = GraphicBuffer::getFlattenedSize();
-	    if (size < sizeNeeded) return NO_MEMORY;
-	
-	    size_t fdCountNeeded = GraphicBuffer::getFdCount();
-	    if (count < fdCountNeeded) return NO_MEMORY;
-	
-	    int* buf = static_cast<int*>(buffer);
-	    buf[0] = 'GBFR';
-	    buf[1] = width;
-	    buf[2] = height;
-	    buf[3] = stride;
-	    buf[4] = format;
-	    buf[5] = usage;
-	    buf[6] = 0;
-	    buf[7] = 0;
-	
-	    if (handle) {
-	        buf[6] = handle->numFds;
-	        buf[7] = handle->numInts;
-	        native_handle_t const* const h = handle;
-	        memcpy(fds,     h->data,             h->numFds*sizeof(int));
-	        memcpy(&buf[8], h->data + h->numFds, h->numInts*sizeof(int));
-	    }
-	
-	    return NO_ERROR;
-	}
-
-等到APP端的反序列化的时候
-
-Parcel的read函数
+private_handle_t对象用来抽象图形缓冲区，其中存储着与共享内存对应tmpfs文件的fd，GraphicBuffer对象会通过序列化，将这个fd会利用Binder通信传递给App进程，APP端获取到fd之后，便可以同mmap将共享内存映射到自己的进程空间，进而进行图形绘制。等到APP端对GraphicBuffer的反序列化的时候，会将共享内存mmap到当前进程空间：
 
 	status_t Parcel::read(Flattenable& val) const  
 	{  
@@ -463,47 +396,16 @@ Parcel的read函数
 	status_t GraphicBuffer::unflatten(void const* buffer, size_t size,
 	        int fds[], size_t count)
 	{
-	    if (size < 8*sizeof(int)) return NO_MEMORY;
-	
-	    int const* buf = static_cast<int const*>(buffer);
-	    if (buf[0] != 'GBFR') return BAD_TYPE;
-	
-	    const size_t numFds  = buf[6];
-	    const size_t numInts = buf[7];
-	
-	    const size_t sizeNeeded = (8 + numInts) * sizeof(int);
-	    if (size < sizeNeeded) return NO_MEMORY;
-	
-	    size_t fdCountNeeded = 0;
-	    if (count < fdCountNeeded) return NO_MEMORY;
-	
-	    if (handle) {
-	        free_handle();
-	    }
-	
-	    if (numFds || numInts) {
-	        width  = buf[1];
-	        height = buf[2];
-	        stride = buf[3];
-	        format = buf[4];
-	        usage  = buf[5];
-	        native_handle* h = native_handle_create(numFds, numInts);
-	        memcpy(h->data,          fds,     numFds*sizeof(int));
-	        memcpy(h->data + numFds, &buf[8], numInts*sizeof(int));
-	        handle = h;
-	    } else {
-	        width = height = stride = format = usage = 0;
-	        handle = NULL;
-	    }
-	
+	   ...
 	    mOwner = ownHandle;
 		<!--将共享内存映射当前内存空间-->
 	    if (handle != 0) {
 	        status_t err = mBufferMapper.registerBuffer(handle);
 	    }
-	
 	    return NO_ERROR;
 	}
+
+mBufferMapper.registerBuffer函数对应gralloc_register_buffer
 	
 	struct private_module_t HAL_MODULE_INFO_SYM = {
 	    .base = {
@@ -529,44 +431,23 @@ Parcel的read函数
 	    .currentBuffer = 0,
 	};
 
-最后会调用gralloc_register_buffer，
+最后会调用gralloc_register_buffer，通过mmap真正将tmpfs文件映射到进程空间：
 
 	static int gralloc_register_buffer(gralloc_module_t const* module,
 	                                   buffer_handle_t handle)
 	{
-	    pthread_once(&sFallbackOnce, fallback_init);
-	    if (sFallback != NULL) {
-	        return sFallback->registerBuffer(sFallback, handle);
-	    }
-	
-	    D("gralloc_register_buffer(%p) called", handle);
-	
-	    private_module_t *gr = (private_module_t *)module;
-	    cb_handle_t *cb = (cb_handle_t *)handle;
-	    if (!gr || !cb_handle_t::validate(cb)) {
-	        ERR("gralloc_register_buffer(%p): invalid buffer", cb);
-	        return -EINVAL;
-	    }
-	
-	    if (cb->hostHandle != 0) {
-	        DEFINE_AND_VALIDATE_HOST_CONNECTION;
-	        D("Opening host ColorBuffer 0x%x\n", cb->hostHandle);
-	        rcEnc->rcOpenColorBuffer(rcEnc, cb->hostHandle);
-	    }
-	
+	    ...
 	    if (cb->ashmemSize > 0 && cb->mappedPid != getpid()) {
 	        void *vaddr;
+	        <!--mmap-->
 	        int err = map_buffer(cb, &vaddr);
-	        if (err) {
-	            return -err;
-	        }
 	        cb->mappedPid = getpid();
 	    }
 	
 	    return 0;
 	}
 
-终于我们用到tmpfs中文件对应的描述符fd
+终于我们用到tmpfs中文件对应的描述符fd0->cb->fd
 
 	static int map_buffer(cb_handle_t *cb, void **vaddr)
 	{
@@ -576,28 +457,22 @@ Parcel的read函数
 	
 	    void *addr = mmap(0, cb->ashmemSize, PROT_READ | PROT_WRITE,
 	                      MAP_SHARED, cb->fd, 0);
-	    if (addr == MAP_FAILED) {
-	        return -errno;
-	    }
-	
 	    cb->ashmemBase = intptr_t(addr);
 	    cb->ashmemBasePid = getpid();
-	
 	    *vaddr = addr;
 	    return 0;
 	}
 
-到这里内存传递成功，之后App端就可以应用这块内存进行图形绘制了。
+到这里内存传递成功，App端就可以应用这块内存进行图形绘制了。
 
 # View绘制内存的使用
 
-回到之前的Surface lock函数，内存经过反序列化，拿到内存地址后，会封装一个ANativeWindow_Buffer返回给上层调用
+关于内存的使用，我们回到之前的Surface lock函数，内存经过反序列化，拿到内存地址后，会封装一个ANativeWindow_Buffer返回给上层调用：
 
 	status_t Surface::lock(
 	        ANativeWindow_Buffer* outBuffer, ARect* inOutDirtyBounds)
 	{
 	     ...
-	
 	        void* vaddr;
 	        <!--lock获取地址-->
 	        status_t res = backBuffer->lock(
@@ -645,11 +520,9 @@ ANativeWindow_Buffer的数据结构如下，其中bits字段与虚拟内存地�
 	
 如何使用，看下Canvas的draw
 
-	
 	static void nativeLockCanvas(JNIEnv* env, jclass clazz,
 	        jint nativeObject, jobject canvasObj, jobject dirtyRectObj) {
 	    sp<Surface> surface(reinterpret_cast<Surface *>(nativeObject));
-	
 	    ...
 	    status_t err = surface->lock(&outBuffer, &dirtyBounds);
 	    ...
@@ -676,10 +549,15 @@ ANativeWindow_Buffer的数据结构如下，其中bits字段与虚拟内存地�
 	   ...
 	}
 
-对于2D绘图进而会用skia库填充改Bitmap对应的内存，如此完成绘制。
+对于2D绘图，会用skia库会填充Bitmap对应的共享内存，如此即可完成绘制，本文不深入Skia库，有兴趣自行分析。绘制完成后，通过unlock直接通知SurfaceFlinger服务进行图层合成。
 
-     
+# 总结   
+
+Android View的绘制建立匿名共享内存的基础上，APP端与SurfaceFlinger通过共享内存的方式避免了View视图数据的拷贝，提高了系统同的视图处理能力。
+  
 # 	参考文档
+
+[参考文档 分配](http://www.voidcn.com/article/p-yxkmayqw-ev.html)       
 [Android图形缓冲区分配过程源码分析](http://blog.csdn.net/yangwen123/article/details/12231687)
 [Android 图形系统之gralloc](https://www.wolfcstech.com/2017/09/21/android_graphics_gralloc/   )          
 [ Android6.0 SurfaceControl分析（二）SurfaceControl和SurfaceFlinger通信](http://blog.csdn.net/kc58236582/article/details/65445141)       
