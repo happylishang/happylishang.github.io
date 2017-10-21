@@ -62,6 +62,6 @@ app空闲的时候
 
 ### 参考文章
 
-Dalvik虚拟机垃圾收集（GC）过程分析  <hhttp://blog.csdn.net/luoshengyang/article/details/41822747>
+Dalvik虚拟机垃圾收集（GC）过程分析  <http://blog.csdn.net/luoshengyang/article/details/41822747>
 
  
