@@ -1,3 +1,27 @@
+
+
+Content providers are one of the primary building blocks of Android applications, providing content to applications. They encapsulate data and provide it to applications through the single ContentResolver interface. A content provider is only required if you need to share data between multiple applications. For example, the contacts data is used by multiple applications and must be stored in a content provider. If you don't need to share data amongst multiple applications you can use a database directly via SQLiteDatabase.
+
+ContentProvider可以看做Android提供一个抽象接口层，用于访问表格类的存储媒介，当然也并非硬性限定，只是接口模型按照数据库表格来抽象的，至于底层存储媒介到底如何组织，完全看用户实习，也就是说ContentProvider自身是没有数据更新及操作能力，它只是将这种操作进行了统一及抽象。
+
+
+
+
+# 需求
+
+业务上来说想要将Activity放在单独进程，因为详情页容易因为内存占用多大而导致崩溃，如果放单独进程，可以不影响主进程，体验相对好一些。但是这里面会牵扯一些数据共享的问题，比如登陆数据，配置等等，而且可能随时都能更新。
+
+*  方案1 启动一个Service维护数据，其他的进程都通过binder通信来访问
+*  方案二，ContentProvider
+*  方案三，FileLock
+*  sp不行
+
+利用binder有个问题，我们binder的时候，回调是异步的，也就是要先绑定，等待绑定成功的通知才能获取数据，不能同步不阻塞获取数据
+
+那试着ContentProvider，它是同步的吗？
+
+
+
 在Android中，文件的访问默认是没有进程间互斥同步机制的，需要自己实现，而Android提供的就是ContentProvider，同理对于数据的访问也是，毕竟，数据库其实就是表格文件。那么ContentProvider到底是如何支持跨进程访问的呢？ SP
 
 ContentProvider：为存储和获取数据提供统一的接口，可以在不同的应用程序之间共享数据。 
