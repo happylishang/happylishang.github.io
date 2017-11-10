@@ -40,6 +40,7 @@ Setting this flag to true may improve performance by reducing the overhead of in
 # 访问
 # 增删查询 删除接口
 # 只提供抽象接口，底层到底接的是谁，Sql还是 文件，并不关心
+# ContentProvider不具有数据存储或者更新能力 它只是抽象了 表访问的接口，至于
 
 
 
