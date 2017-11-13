@@ -2,7 +2,7 @@
 
 在APP开发中，假如我们有这样一个需求，有个业务的Activity非常占用内存，很容易导致OOM崩溃，现在想要把这个Activity放到单独进程，但是，有些信息需要与主进程保持同步，比如登陆信息等，无论在哪个进程中的登陆了，都要同步到另一个进程中去。那么这个时候怎么做呢？
 
-* 第一种：之前在一个进程里面的时候，经常采用SharePreference来做，但是SharePreference不支持多进程，毕竟它是基于文件的，而Android对于文件的访问，默认是没有考虑同步互斥的，并且ContextImpl对SP对象做了缓存，并不好同步的不过可以通过FileLock来辅助实现，
+* 第一种：之前在一个进程里面的时候，经常采用SharePreference来做，但是SharePreference不支持多进程，毕竟它是基于文件的，而Android对于文件的访问，默认是没有考虑同步互斥的，并且ContextImpl对SP对象做了缓存，不好互斥同步，虽然可以通过FileLock来辅助实现，但同步仍然是一个问题
 * 第二种：通过Service，基于Binder通信完成跨进程数据的共享，它能够保证单进程访问数据，只不过这种方式，数据同步起来不太美观。
 * 第三种：就是基于Android提供的ContentProvider来实现，一般而言ContentProvider真正操作数据的进程只有一个，所以不会存在进程间同步互斥问题。
 
@@ -19,15 +19,6 @@ Content providers are one of the primary building blocks of Android applications
 
 ContentProvider可以看做Android提供一个抽象接口层，用于访问表格类的存储媒介，当然也并非硬性限定，只是接口模型按照数据库表格来抽象的，至于底层存储媒介到底如何组织，完全看用户实习，也就是说ContentProvider自身是没有数据更新及操作能力，它只是将这种操作进行了统一及抽象。
 
-
-
- 
-
-
-
-
-
-Android中最常用的进程通信工具就是Binder，ContentProvider就是基于它来实现的，只不过ContentProvider同时要接受AMS管理。
 
 # 启动 为什么ContentProvider会自动启动，而不用别的接口访问触发呢？
 
