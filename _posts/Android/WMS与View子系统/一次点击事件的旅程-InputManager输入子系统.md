@@ -6,14 +6,17 @@ category: [android]
 ---
 
 
+# 如何找到焦点窗口
+
+* 是否支持多窗口获得焦点
+* 输入法如何处理
+* 系统窗口如何处理
+
 ### Linux内核输入子系统
 
 触摸事件是由Linux内核的一个Input子系统来管理的(InputManager)，Linux子系统会在 /dev/input/ 这个路径下创建硬件输入设备节点(这里的硬件设备就是我们的触摸屏了)。当手指触动触摸屏时，硬件设备通过设备节点像内核(其实是InputManager管理)报告事件，InputManager 经过处理将此事件传给 Android系统的一个系统Service： WindowManagerService 。
 
- 
- <img src="http://stackvoid.com/album/2014-09-30-details-dispatch-onTouch-Event-in-Android-01.gif" width="800"/>
- 
- WindowManagerService调用dispatchPointer()从存放WindowState的z-order顺序列表中找到能接收当前touch事件的 WindowState，通过IWindow代理将此消息发送到IWindow服务端(IWindow.Stub子类)，这个IWindow.Stub属于ViewRoot(这个类继承Handler，主要用于连接PhoneWindow和WindowManagerService)，所以事件就传到了ViewRoot.dispatchPointer()中.
+WindowManagerService调用dispatchPointer()从存放WindowState的z-order顺序列表中找到能接收当前touch事件的 WindowState，通过IWindow代理将此消息发送到IWindow服务端(IWindow.Stub子类)，这个IWindow.Stub属于ViewRoot(这个类继承Handler，主要用于连接PhoneWindow和WindowManagerService)，所以事件就传到了ViewRoot.dispatchPointer()中.
  
  我们来看一下ViewRoot的dispatchPointer方法：、
  
@@ -136,6 +139,239 @@ Client
  InputReader 仅负责读取、并唤醒InputDispatch
  InputDispatch负责派发 ，
 
+
+     
+# WMS 与PhoneWindow与Touch事件
+
+SystemServer进程中新建InputManagerService
+
+	HandlerThread wmHandlerThread = new HandlerThread("WindowManager");  
+	wmHandlerThread.start();  
+	Handler wmHandler = new Handler(wmHandlerThread.getLooper());    
+	  
+	    inputManager = new InputManagerService(context, wmHandler);             
+	    wm = WindowManagerService.main(context, power, display, inputManager,  
+	            wmHandler, factoryTest != SystemServer.FACTORY_TEST_LOW_LEVEL,  
+	            !firstBoot, onlyCore);  
+	    ServiceManager.addService(Context.WINDOW_SERVICE, wm);  
+	    ServiceManager.addService(Context.INPUT_SERVICE, inputManager);  
+	  
+	    inputManager.setWindowManagerCallbacks(wm.getInputMonitor());  
+    inputManager.start(); 
+	
+InputManagerService的启动
+
+	static jint nativeInit(JNIEnv* env, jclass clazz,
+	        jobject serviceObj, jobject contextObj, jobject messageQueueObj) {
+	    sp<MessageQueue> messageQueue = android_os_MessageQueue_getMessageQueue(env, messageQueueObj);
+	    if (messageQueue == NULL) {
+	        jniThrowRuntimeException(env, "MessageQueue is not initialized.");
+	        return 0;
+	    }
+	
+	    NativeInputManager* im = new NativeInputManager(contextObj, serviceObj,
+	            messageQueue->getLooper());
+	    im->incStrong(0);
+	    return reinterpret_cast<jint>(im);
+	}
+	
+因为Java层的MessageQueue总是对应native层的NativeMessageQueue对象，所以首先先取得native层的messageQueue，并构造NativeInputManager对象：
+
+	public class InputManagerService extends IInputManager.Stub	
+	
+	
+	NativeInputManager::NativeInputManager(jobject contextObj,  
+	        jobject serviceObj, const sp<Looper>& looper) :  
+	        mLooper(looper) {  
+	    JNIEnv* env = jniEnv();  
+	  
+	    mContextObj = env->NewGlobalRef(contextObj);  
+	    mServiceObj = env->NewGlobalRef(serviceObj);  
+	  
+	    {  
+	        AutoMutex _l(mLock);  
+	        mLocked.systemUiVisibility = ASYSTEM_UI_VISIBILITY_STATUS_BAR_VISIBLE;  
+	        mLocked.pointerSpeed = 0;  
+	        mLocked.pointerGesturesEnabled = true;  
+	        mLocked.showTouches = false;  
+	    }  
+	  
+	    sp<EventHub> eventHub = new EventHub();  
+	    mInputManager = new InputManager(eventHub, this, this);  
+	} 
+	
+EventHub是监听的关键类，EventHub采用了管道，我们知道新版本的Looper采用了eventfd实现唤醒，而这里的EventHub还是采用管道
+	
+	EventHub::EventHub(void) :
+	        mBuiltInKeyboardId(NO_BUILT_IN_KEYBOARD), mNextDeviceId(1), mControllerNumbers(),
+	        mOpeningDevices(0), mClosingDevices(0),
+	        mNeedToSendFinishedDeviceScan(false),
+	        mNeedToReopenDevices(false), mNeedToScanDevices(true),
+	        mPendingEventCount(0), mPendingEventIndex(0), mPendingINotify(false) {
+	    acquire_wake_lock(PARTIAL_WAKE_LOCK, WAKE_LOCK_ID);
+	    mEpollFd = epoll_create(EPOLL_SIZE_HINT);
+	    mINotifyFd = inotify_init();
+	    int result = inotify_add_watch(mINotifyFd, DEVICE_PATH, IN_DELETE | IN_CREATE);
+	    struct epoll_event eventItem;
+	    memset(&eventItem, 0, sizeof(eventItem));
+	    eventItem.events = EPOLLIN;
+	    eventItem.data.u32 = EPOLL_ID_INOTIFY;
+	    result = epoll_ctl(mEpollFd, EPOLL_CTL_ADD, mINotifyFd, &eventItem);
+	    int wakeFds[2];
+	    result = pipe(wakeFds);
+	 	 mWakeReadPipeFd = wakeFds[0];
+	    mWakeWritePipeFd = wakeFds[1];
+	    result = fcntl(mWakeReadPipeFd, F_SETFL, O_NONBLOCK);
+	    result = fcntl(mWakeWritePipeFd, F_SETFL, O_NONBLOCK);	    eventItem.data.u32 = EPOLL_ID_WAKE;
+	    result = epoll_ctl(mEpollFd, EPOLL_CTL_ADD, mWakeReadPipeFd, &eventItem);
+	}
+	
+	InputManager::InputManager(
+        const sp<EventHubInterface>& eventHub,
+        const sp<InputReaderPolicyInterface>& readerPolicy,
+        const sp<InputDispatcherPolicyInterface>& dispatcherPolicy) {
+    mDispatcher = new InputDispatcher(dispatcherPolicy);
+    mReader = new InputReader(eventHub, readerPolicy, mDispatcher);
+    initialize();
+}
+
+InputManagerService不是Android中传统的WMS AMS类Binder服务，InputManagerService更像是守护线程类服务，监听底层事件，将事件分发给上层需求。 epoll事件轮询输入事件
+
+input有个管道，用来监听ANR ？？[Input系统—ANR原理分析](http://gityuan.com/2017/01/01/input-anr/) 利用Watching-Dog
+
+Phonewindow Actvity Dialog PopWindow的触摸事件响应
+
+Actvity Dialog有Phonwindow，里面有Decorview，DecorView在分发事件的时候，会首先利用Phonwindow的callBack，调用Activity或者Dialog的处理，而普通的是没有的，比如Toast类型的，触摸事件事件直接就会发送到View中去
+
+可以有多个窗口接收触摸事件，比如Activity可以同Popwindow懂事接收触摸事件，
+
+# 如何找到对应的窗口呢，或者说如何找到对应的InputChannal，通过管道发送消息
+
+![整体框架图](http://gityuan.com/images/input/input_summary.jpg) 
+
+[整体框架图](http://gityuan.com/2016/12/31/input-ipc/)
+
+不同版本不一样，低版本用的是管道，高版本用的是本地socket，依托Linux的Android是很灵活的，所以有时候，理解其大概原理就行，因为具体的实现方式可能会不断优化。
+WMS 在addWindow的时候，会利用           
+
+	 mInputMonitor.setUpdateInputWindowsNeededLw();
+
+    final InputMonitor mInputMonitor = new InputMonitor(this)
+    
+       public void updateInputWindowsLw(boolean force) {
+        if (!force && !mUpdateInputWindowsNeeded) {
+            return;
+        }
+        mUpdateInputWindowsNeeded = false;
+
+        if (false) Slog.d(WindowManagerService.TAG, ">>>>>> ENTERED updateInputWindowsLw");
+
+        // Populate the input window list with information about all of the windows that
+        // could potentially receive input.
+        // As an optimization, we could try to prune the list of windows but this turns
+        // out to be difficult because only the native code knows for sure which window
+        // currently has touch focus.
+        final WindowStateAnimator universeBackground = mService.mAnimator.mUniverseBackground;
+        final int aboveUniverseLayer = mService.mAnimator.mAboveUniverseLayer;
+        boolean addedUniverse = false;
+
+        // If there's a drag in flight, provide a pseudowindow to catch drag input
+        final boolean inDrag = (mService.mDragState != null);
+        if (inDrag) {
+            if (WindowManagerService.DEBUG_DRAG) {
+                Log.d(WindowManagerService.TAG, "Inserting drag window");
+            }
+            final InputWindowHandle dragWindowHandle = mService.mDragState.mDragWindowHandle;
+            if (dragWindowHandle != null) {
+                addInputWindowHandleLw(dragWindowHandle);
+            } else {
+                Slog.w(WindowManagerService.TAG, "Drag is in progress but there is no "
+                        + "drag window handle.");
+            }
+        }
+
+        final int NFW = mService.mFakeWindows.size();
+        for (int i = 0; i < NFW; i++) {
+            addInputWindowHandleLw(mService.mFakeWindows.get(i).mWindowHandle);
+        }
+
+        // Add all windows on the default display.
+        final int numDisplays = mService.mDisplayContents.size();
+        for (int displayNdx = 0; displayNdx < numDisplays; ++displayNdx) {
+            WindowList windows = mService.mDisplayContents.valueAt(displayNdx).getWindowList();
+            for (int winNdx = windows.size() - 1; winNdx >= 0; --winNdx) {
+                final WindowState child = windows.get(winNdx);
+                final InputChannel inputChannel = child.mInputChannel;
+                final InputWindowHandle inputWindowHandle = child.mInputWindowHandle;
+                if (inputChannel == null || inputWindowHandle == null || child.mRemoved) {
+                    // Skip this window because it cannot possibly receive input.
+                    continue;
+                }
+
+                final int flags = child.mAttrs.flags;
+                final int privateFlags = child.mAttrs.privateFlags;
+                final int type = child.mAttrs.type;
+
+                final boolean hasFocus = (child == mInputFocus);
+                final boolean isVisible = child.isVisibleLw();
+                final boolean hasWallpaper = (child == mService.mWallpaperTarget)
+                        && (type != WindowManager.LayoutParams.TYPE_KEYGUARD);
+                final boolean onDefaultDisplay = (child.getDisplayId() == Display.DEFAULT_DISPLAY);
+
+                // If there's a drag in progress and 'child' is a potential drop target,
+                // make sure it's been told about the drag
+                if (inDrag && isVisible && onDefaultDisplay) {
+                    mService.mDragState.sendDragStartedIfNeededLw(child);
+                }
+
+                if (universeBackground != null && !addedUniverse
+                        && child.mBaseLayer < aboveUniverseLayer && onDefaultDisplay) {
+                    final WindowState u = universeBackground.mWin;
+                    if (u.mInputChannel != null && u.mInputWindowHandle != null) {
+                        addInputWindowHandleLw(u.mInputWindowHandle, u, u.mAttrs.flags,
+                                u.mAttrs.privateFlags, u.mAttrs.type,
+                                true, u == mInputFocus, false);
+                    }
+                    addedUniverse = true;
+                }
+
+                if (child.mWinAnimator != universeBackground) {
+                    addInputWindowHandleLw(inputWindowHandle, child, flags, privateFlags, type,
+                            isVisible, hasFocus, hasWallpaper);
+                }
+            }
+        }
+ 
+        mService.mInputManager.setInputWindows(mInputWindowHandles);
+ 
+        clearInputWindowHandlesLw();
+
+     }
+
+    private void addInputWindowHandleLw(final InputWindowHandle windowHandle) {
+        if (mInputWindowHandles == null) {
+            mInputWindowHandles = new InputWindowHandle[16];
+        }
+        if (mInputWindowHandleCount >= mInputWindowHandles.length) {
+            mInputWindowHandles = Arrays.copyOf(mInputWindowHandles,
+                    mInputWindowHandleCount * 2);
+        }
+        mInputWindowHandles[mInputWindowHandleCount++] = windowHandle;
+    }
+    
+   WMS  addWindow-》updateFocusedWindowLocked-》mInputMonitor.updateInputWindowsLw-》mInputManager.setInputWindows-》NativeInputManager::setInputWindows-》getDispatcher()->setInputWindows
+   
+也就说窗口变化的时候WMS会将需要获取Input事件的窗口告诉InputManager，之后InputDisPatch就能知道需要将事件发送给哪个窗口
+
+void InputDispatcher::setInputWindows
+
+![](http://img.blog.csdn.net/20141213164750258?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamluemh1b2p1bg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast)
+
+
+
+
 ###  参考文档
 
 Android 事件分发机制详解 <http://stackvoid.com/details-dispatch-onTouch-Event-in-Android/>
+
+[http://gityuan.com/2015/09/19/android-touch/](http://gityuan.com/2015/09/19/android-touch/)

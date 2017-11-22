@@ -6,46 +6,162 @@ image: http://upload-images.jianshu.io/upload_images/1460468-103d49829291e1f7.jp
 
 ---
 
-软硬件加速的区别
+硬件加速，直观上说就是**依赖GPU实现图形绘制加速**，因此，软硬件加速的区别主要是指**图形的绘制究竟是GPU来处理还是CPU**，如果是GPU，就认为是硬件加速绘制，反之，软件绘制。在Android中也是如此，不过相对于普通的软件绘制，硬件加速还做了其他方面优化，不仅仅限定在绘制方面，绘制之前，在如何构建绘制区域上，硬件加速也做出了很大优化，因此硬件加速特性可以从下面两部分来分析：
 
-* 1 前期分析策略 是否优化过
-* 2、后期绘制手段 **图形绘制是交给GPU还是CPU，交给GPU就是硬件加速，反之是软件加速**
+* 1、前期策略：如何构建需要绘制的区域
+* 2、后期绘制：**单独渲染线程，依赖GPU进行绘制**
 
-当然，个中细节更加复杂，本文就直观的分析下软硬件加速的区别，不会太深入。前文已经讲述过图形绘制内存的分配，这里就接着用了，无论是软件加速还是硬件加速，绘制内存的分配都是类似的，只不过硬件加速有可能从FrameBuffer硬件缓冲区直接分配内存（具体有什么好处，还不太请求，可能合成更快吧）。图层的分配合成、View的测量与布局两者都是一样的，并不存在区别，这里我们直接就从绘制开始看。
+无论是软件绘制还是硬件加速，绘制内存的分配都是类似的，都是需要请求SurfaceFlinger服务分配一块内存，只不过硬件加速有可能从FrameBuffer硬件缓冲区直接分配内存（具体有什么好处，还不太清楚，可能合成更快吧），两者的绘制都是在APP端，绘制完成之后同样需要通知SurfaceFlinger进行合成，在这个流程上没有任何区别，**真正的区别在于如何在APP端完成绘制**，本文就直观的了解下两者的区别，会涉及部分源码，但不求甚解。
 
 
+# 软硬件加速的分歧点
+
+关于View的绘制是软件加速实现的还是硬件加速实现的，一般在开发的时候并不可见，大概从Android 4.+开始，默认情况下都是支持跟开启了硬件加速的，也存在手机支持硬件加速，但是部分API不支持硬件加速的情况，如果使用了这些API，就需要主关闭硬件加速，或者在View层，或者在Activity层，比如Canvas的clipPath等。那图形绘制的时候，软硬件的分歧点究竟在哪呢？举个例子，有个View需要重绘，一般会调用View的invalidate，触发重绘，跟着这条线走，去查一下分歧点。
+
+
+
+
+
+![硬件加速.jpg](http://upload-images.jianshu.io/upload_images/1460468-1f3c83ffb4e74889.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+虽说是List，但是感觉更像是一个树。
+
+# 概念上的不同  OpenGL、3D、2D、Skia、硬件加速中的软件绘制、全部软件绘制
+
+每个View抽象成一个RenderNode，每个RenderNode都包含了一些绘制命令列表，而ViewGroup本身会将子View的RenderNode抽象成绘制命令，放到自己的绘制命令列表中来，这样ViewGroup在绘制的时候，就会递归调用子View的的绘制命令列表。
+
+### 构建列表，哪些需要构建
+
+* 一个是自己的绘制命令，比如onDraw中调用的drawLine drawBitmap等，
+* 另一部分是子View及背景的绘制，一般是抽象成RenderNode命令，
+
+软件绘制的抽象成BitMapOp
+
+DisplayListCanvas的目的就是构建及暂存供，在第一步完成后，就没有意义，recycle了通过start end 搞一个封闭，nSetDisplayListData将回执命令及数据添加到RenderNode中去.
+
+	void RenderNode::setStagingDisplayList(DisplayListData* data) {
+	    mNeedsDisplayListDataSync = true;
+	    delete mStagingDisplayListData;
+	    mStagingDisplayListData = data;
+	}
+
+这个包含了所有绘制操作及数据，比如DrawBitmapOp里面包含了bitmap数据。
+
+    GraphicsJNI::getSkBitmap(env, jbitmap, &bitmap);
+
+
+
+
+### 更新列表  哪些需要绘制
+
+
+加入View需要重绘
+
+    public void invalidate() {
+        invalidate(true);
+    }
+    
+    void invalidate(boolean invalidateCache) {
+        invalidateInternal(0, 0, mRight - mLeft, mBottom - mTop, invalidateCache, true);
+    }
+    
+     void invalidateInternal(int l, int t, int r, int b, boolean invalidateCache,
+            boolean fullInvalidate) {
+       
+            final ViewParent p = mParent;
+            if (p != null && ai != null && l < r && t < b) {
+                final Rect damage = ai.mTmpInvalRect;
+                damage.set(l, t, r, b);
+                p.invalidateChild(this, damage);
+            }
+               
+ ViewGroup 层层递归
+    
+    public final void invalidateChild(View child, final Rect dirty) {
+        ViewParent parent = this;
+
+        final AttachInfo attachInfo = mAttachInfo;
+        if (attachInfo != null) {
+           ..
+            do {
+                View view = null;
+                if (parent instanceof View) {
+                    view = (View) parent;
+                }
+                ...
+                <!--递归-->
+                parent = parent.invalidateChildInParent(location, dirty);
+                ..
+            } while (parent != null);
+        }
+    }
+    
+    
+最终ViewRootImpl
+    
+     @Override
+    public ViewParent invalidateChildInParent(int[] location, Rect dirty) {
+        checkThread();
+        。。。
+
+        invalidateRectOnScreen(dirty);
+
+        return null;
+    }
+
+    private void invalidateRectOnScreen(Rect dirty) {
+        final Rect localDirty = mDirty;
+        if (!localDirty.isEmpty() && !localDirty.contains(dirty)) {
+            mAttachInfo.mSetIgnoreDirtyState = true;
+            mAttachInfo.mIgnoreDirtyState = true;
+        }
+
+        if (!intersected) {
+            localDirty.setEmpty();
+        }
+        if (!mWillDrawSoon && (intersected || mIsAnimating)) {
+            scheduleTraversals();
+        }
+    }
+
+插入绘制命令，阻塞等待VSYCN到来，主线程中，最多一个mTraversalRunnable任务：
+    
+        void scheduleTraversals() {
+        if (!mTraversalScheduled) {
+            mTraversalScheduled = true;
+            mTraversalBarrier = mHandler.getLooper().getQueue().postSyncBarrier();
+            mChoreographer.postCallback(
+                    Choreographer.CALLBACK_TRAVERSAL, mTraversalRunnable, null);
+            if (!mUnbufferedInputDispatch) {
+                scheduleConsumeBatchedInput();
+            }
+            notifyRendererOfFramePending();
+            pokeDrawLockIfNeeded();
+        }
+    }
+   
+ 最终调用performTraversals，测量、绘制   
+    
 # 软硬件加速绘制入口
 
     private void draw(boolean fullRedrawNeeded) {
     
         Surface surface = mSurface;
-        <!--关键点1 硬件加速分支-->
+           <!--关键点1 硬件加速分支-->
        if (!dirty.isEmpty() || mIsAnimating || accessibilityFocusDirty) {
             if (mAttachInfo.mHardwareRenderer != null && mAttachInfo.mHardwareRenderer.isEnabled()) {
-                // If accessibility focus moved, always invalidate the root.
                 boolean invalidateRoot = accessibilityFocusDirty;
-               // Draw with hardware renderer.
-                mIsAnimating = false;
-               if (mHardwareYOffset != yOffset || mHardwareXOffset != xOffset) {
-                    mHardwareYOffset = yOffset;
-                    mHardwareXOffset = xOffset;
-                    invalidateRoot = true;
-                }
-                mResizeAlpha = resizeAlpha;
-
-                if (invalidateRoot) {
-                    mAttachInfo.mHardwareRenderer.invalidateRoot();
-                }
-               dirty.setEmpty();
+					...
                 mBlockResizeBuffer = false;
+                <!--硬件渲染-->
                 mAttachInfo.mHardwareRenderer.draw(mView, mAttachInfo, this);
             } else {
                <!--软件加速分支-->
                 if (!drawSoftware(surface, mAttachInfo, xOffset, yOffset, scalingRequired, dirty)) {
                     return;
-                }...
-    
-可以看到如果开启了硬件加速会走分支1，从mAttachInfo获得mHardwareRenderer，并用它进行draw，mHardwareRender对象是在添加窗口时候，由ViewRootImpl赋值的，
+               }
+
+View调用invalidate只后，dirty.isEmpty为true ，如果开启了硬件加速会走分支1，并从mAttachInfo获得mHardwareRenderer进行draw，mHardwareRender对象是在添加窗口时候，由ViewRootImpl赋值的，
 
     private void enableHardwareAcceleration(WindowManager.LayoutParams attrs) {
     
@@ -61,7 +177,6 @@ image: http://upload-images.jianshu.io/upload_images/1460468-103d49829291e1f7.jp
             if (!HardwareRenderer.isAvailable()) {
                 return;
             }
-
             <!--系统持久进程不适合硬件加速-->
             final boolean fakeHwAccelerated = (attrs.privateFlags &
                     WindowManager.LayoutParams.PRIVATE_FLAG_FAKE_HARDWARE_ACCELERATED) != 0;
@@ -102,16 +217,12 @@ image: http://upload-images.jianshu.io/upload_images/1460468-103d49829291e1f7.jp
 
 实际上是一个ThreadedRenderer对象，从名字是就能看出，该对象想要拥有一个独立线程，至于它到底怎么用，后面再看
 
-
-
 	static jboolean android_view_DisplayListCanvas_isAvailable(JNIEnv* env, jobject clazz) {
 	    char prop[PROPERTY_VALUE_MAX];
 	    <!--不是模拟器，就默认开启-->
 	    if (property_get("ro.kernel.qemu", prop, NULL) == 0) {
 	        return JNI_TRUE;
 	    }
-	    // In the emulator this property will be set to 1 when hardware GLES is
-	    // enabled, 0 otherwise. On old emulator versions it will be undefined.
 	    property_get("ro.kernel.qemu.gles", prop, "0");
 	    return atoi(prop) == 1 ? JNI_TRUE : JNI_FALSE;
 	}
@@ -254,6 +365,349 @@ RenderThread确实采用Handler消息处理模型，只不过这里采用的全�
         }
     }
 
+
+先构建，在渲染，
+
+	 	
+	 	 private void updateRootDisplayList(View view, HardwareDrawCallbacks callbacks) {
+
+        updateViewTreeDisplayList(view);
+
+        if (mRootNodeNeedsUpdate || !mRootNode.isValid()) {
+            DisplayListCanvas canvas = mRootNode.start(mSurfaceWidth, mSurfaceHeight);
+            try {
+                final int saveCount = canvas.save();
+                canvas.translate(mInsetLeft, mInsetTop);
+                callbacks.onHardwarePreDraw(canvas);
+
+                canvas.insertReorderBarrier();
+                canvas.drawRenderNode(view.updateDisplayListIfDirty());
+                canvas.insertInorderBarrier();
+
+                callbacks.onHardwarePostDraw(canvas);
+                canvas.restoreToCount(saveCount);
+                mRootNodeNeedsUpdate = false;
+            } finally {
+                mRootNode.end(canvas);
+            }
+        }
+        Trace.traceEnd(Trace.TRACE_TAG_VIEW);
+    }
+
+
+	 	/**
+	     * Gets the RenderNode for the view, and updates its DisplayList (if needed and supported)
+	     * @hide
+	     */
+	    @NonNull
+	    public RenderNode updateDisplayListIfDirty() {
+	        final RenderNode renderNode = mRenderNode;
+	        if (!canHaveDisplayList()) {
+	            // can't populate RenderNode, don't try
+	            return renderNode;
+	        }
+	
+	        if ((mPrivateFlags & PFLAG_DRAWING_CACHE_VALID) == 0
+	                || !renderNode.isValid()
+	                || (mRecreateDisplayList)) {
+	            // Don't need to recreate the display list, just need to tell our
+	            // children to restore/recreate theirs
+	            if (renderNode.isValid()
+	                    && !mRecreateDisplayList) {
+	                mPrivateFlags |= PFLAG_DRAWN | PFLAG_DRAWING_CACHE_VALID;
+	                mPrivateFlags &= ~PFLAG_DIRTY_MASK;
+	                dispatchGetDisplayList();
+	
+	                return renderNode; // no work needed
+	            }
+	
+	            // If we got here, we're recreating it. Mark it as such to ensure that
+	            // we copy in child display lists into ours in drawChild()
+	            mRecreateDisplayList = true;
+	
+	            int width = mRight - mLeft;
+	            int height = mBottom - mTop;
+	            int layerType = getLayerType();
+	
+	            final DisplayListCanvas canvas = renderNode.start(width, height);
+	            canvas.setHighContrastText(mAttachInfo.mHighContrastText);
+	
+	            try {
+	                final HardwareLayer layer = getHardwareLayer();
+	                if (layer != null && layer.isValid()) {
+	                    canvas.drawHardwareLayer(layer, 0, 0, mLayerPaint);
+	                } else if (layerType == LAYER_TYPE_SOFTWARE) {
+	                    buildDrawingCache(true);
+	                    Bitmap cache = getDrawingCache(true);
+	                    if (cache != null) {
+	                        canvas.drawBitmap(cache, 0, 0, mLayerPaint);
+	                    }
+	                } else {
+	                    computeScroll();
+	
+	                    canvas.translate(-mScrollX, -mScrollY);
+	                    mPrivateFlags |= PFLAG_DRAWN | PFLAG_DRAWING_CACHE_VALID;
+	                    mPrivateFlags &= ~PFLAG_DIRTY_MASK;
+	
+	                    // Fast path for layouts with no backgrounds
+	                    if ((mPrivateFlags & PFLAG_SKIP_DRAW) == PFLAG_SKIP_DRAW) {
+	                        dispatchDraw(canvas);
+	                        if (mOverlay != null && !mOverlay.isEmpty()) {
+	                            mOverlay.getOverlayView().draw(canvas);
+	                        }
+	                    } else {
+	                        draw(canvas);
+	                    }
+	                }
+	            } finally {
+	                renderNode.end(canvas);
+	                setDisplayListProperties(renderNode);
+	            }
+	        } else {
+	            mPrivateFlags |= PFLAG_DRAWN | PFLAG_DRAWING_CACHE_VALID;
+	            mPrivateFlags &= ~PFLAG_DIRTY_MASK;
+	        }
+	        return renderNode;
+	    }
+ 
+mRenderNode在View创建的时候，在Native层新建 ,DisplayListCanvas帮助绘制，
+    
+    
+    @CallSuper
+    public void draw(Canvas canvas) {
+        final int privateFlags = mPrivateFlags;
+        final boolean dirtyOpaque = (privateFlags & PFLAG_DIRTY_MASK) == PFLAG_DIRTY_OPAQUE &&
+                (mAttachInfo == null || !mAttachInfo.mIgnoreDirtyState);
+        mPrivateFlags = (privateFlags & ~PFLAG_DIRTY_MASK) | PFLAG_DRAWN;
+
+        /*
+         * Draw traversal performs several drawing steps which must be executed
+         * in the appropriate order:
+         *
+         *      1. Draw the background
+         *      2. If necessary, save the canvas' layers to prepare for fading
+         *      3. Draw view's content
+         *      4. Draw children
+         *      5. If necessary, draw the fading edges and restore layers
+         *      6. Draw decorations (scrollbars for instance)
+         */
+
+        // Step 1, draw the background, if needed
+        int saveCount;
+
+        if (!dirtyOpaque) {
+        
+        <!--看看canvas如何构建list 到底list在哪里-->
+            drawBackground(canvas);
+        }
+
+        // skip step 2 & 5 if possible (common case)
+        final int viewFlags = mViewFlags;
+        boolean horizontalEdges = (viewFlags & FADING_EDGE_HORIZONTAL) != 0;
+        boolean verticalEdges = (viewFlags & FADING_EDGE_VERTICAL) != 0;
+        if (!verticalEdges && !horizontalEdges) {
+            // Step 3, draw the content
+            if (!dirtyOpaque) onDraw(canvas);
+
+            // Step 4, draw the children
+            dispatchDraw(canvas);
+
+            // Overlay is part of the content and draws beneath Foreground
+            if (mOverlay != null && !mOverlay.isEmpty()) {
+                mOverlay.getOverlayView().dispatchDraw(canvas);
+            }
+
+            // Step 6, draw decorations (foreground, scrollbars)
+            onDrawForeground(canvas);
+
+            // we're done...
+            return;
+        }
+
+        /*
+         * Here we do the full fledged routine...
+         * (this is an uncommon case where speed matters less,
+         * this is why we repeat some of the tests that have been
+         * done above)
+         */
+
+        boolean drawTop = false;
+        boolean drawBottom = false;
+        boolean drawLeft = false;
+        boolean drawRight = false;
+
+        float topFadeStrength = 0.0f;
+        float bottomFadeStrength = 0.0f;
+        float leftFadeStrength = 0.0f;
+        float rightFadeStrength = 0.0f;
+
+        // Step 2, save the canvas' layers
+        int paddingLeft = mPaddingLeft;
+
+        final boolean offsetRequired = isPaddingOffsetRequired();
+        if (offsetRequired) {
+            paddingLeft += getLeftPaddingOffset();
+        }
+
+        int left = mScrollX + paddingLeft;
+        int right = left + mRight - mLeft - mPaddingRight - paddingLeft;
+        int top = mScrollY + getFadeTop(offsetRequired);
+        int bottom = top + getFadeHeight(offsetRequired);
+
+        if (offsetRequired) {
+            right += getRightPaddingOffset();
+            bottom += getBottomPaddingOffset();
+        }
+
+        final ScrollabilityCache scrollabilityCache = mScrollCache;
+        final float fadeHeight = scrollabilityCache.fadingEdgeLength;
+        int length = (int) fadeHeight;
+
+        // clip the fade length if top and bottom fades overlap
+        // overlapping fades produce odd-looking artifacts
+        if (verticalEdges && (top + length > bottom - length)) {
+            length = (bottom - top) / 2;
+        }
+
+        // also clip horizontal fades if necessary
+        if (horizontalEdges && (left + length > right - length)) {
+            length = (right - left) / 2;
+        }
+
+        if (verticalEdges) {
+            topFadeStrength = Math.max(0.0f, Math.min(1.0f, getTopFadingEdgeStrength()));
+            drawTop = topFadeStrength * fadeHeight > 1.0f;
+            bottomFadeStrength = Math.max(0.0f, Math.min(1.0f, getBottomFadingEdgeStrength()));
+            drawBottom = bottomFadeStrength * fadeHeight > 1.0f;
+        }
+
+        if (horizontalEdges) {
+            leftFadeStrength = Math.max(0.0f, Math.min(1.0f, getLeftFadingEdgeStrength()));
+            drawLeft = leftFadeStrength * fadeHeight > 1.0f;
+            rightFadeStrength = Math.max(0.0f, Math.min(1.0f, getRightFadingEdgeStrength()));
+            drawRight = rightFadeStrength * fadeHeight > 1.0f;
+        }
+
+        saveCount = canvas.getSaveCount();
+
+        int solidColor = getSolidColor();
+        if (solidColor == 0) {
+            final int flags = Canvas.HAS_ALPHA_LAYER_SAVE_FLAG;
+
+            if (drawTop) {
+                canvas.saveLayer(left, top, right, top + length, null, flags);
+            }
+
+            if (drawBottom) {
+                canvas.saveLayer(left, bottom - length, right, bottom, null, flags);
+            }
+
+            if (drawLeft) {
+                canvas.saveLayer(left, top, left + length, bottom, null, flags);
+            }
+
+            if (drawRight) {
+                canvas.saveLayer(right - length, top, right, bottom, null, flags);
+            }
+        } else {
+            scrollabilityCache.setFadeColor(solidColor);
+        }
+
+        // Step 3, draw the content
+        if (!dirtyOpaque) onDraw(canvas);
+
+        // Step 4, draw the children
+        dispatchDraw(canvas);
+
+        // Step 5, draw the fade effect and restore layers
+        final Paint p = scrollabilityCache.paint;
+        final Matrix matrix = scrollabilityCache.matrix;
+        final Shader fade = scrollabilityCache.shader;
+
+        if (drawTop) {
+            matrix.setScale(1, fadeHeight * topFadeStrength);
+            matrix.postTranslate(left, top);
+            fade.setLocalMatrix(matrix);
+            p.setShader(fade);
+            canvas.drawRect(left, top, right, top + length, p);
+        }
+
+        if (drawBottom) {
+            matrix.setScale(1, fadeHeight * bottomFadeStrength);
+            matrix.postRotate(180);
+            matrix.postTranslate(left, bottom);
+            fade.setLocalMatrix(matrix);
+            p.setShader(fade);
+            canvas.drawRect(left, bottom - length, right, bottom, p);
+        }
+
+        if (drawLeft) {
+            matrix.setScale(1, fadeHeight * leftFadeStrength);
+            matrix.postRotate(-90);
+            matrix.postTranslate(left, top);
+            fade.setLocalMatrix(matrix);
+            p.setShader(fade);
+            canvas.drawRect(left, top, left + length, bottom, p);
+        }
+
+        if (drawRight) {
+            matrix.setScale(1, fadeHeight * rightFadeStrength);
+            matrix.postRotate(90);
+            matrix.postTranslate(right, top);
+            fade.setLocalMatrix(matrix);
+            p.setShader(fade);
+            canvas.drawRect(right - length, top, right, bottom, p);
+        }
+
+        canvas.restoreToCount(saveCount);
+
+        // Overlay is part of the content and draws beneath Foreground
+        if (mOverlay != null && !mOverlay.isEmpty()) {
+            mOverlay.getOverlayView().dispatchDraw(canvas);
+        }
+
+        // Step 6, draw decorations (foreground, scrollbars)
+        onDrawForeground(canvas);
+    }
+
+    /**
+     * Draws the background onto the specified canvas.
+     *
+     * @param canvas Canvas on which to draw the background
+     */
+    private void drawBackground(Canvas canvas) {
+        final Drawable background = mBackground;
+        if (background == null) {
+            return;
+        }
+
+        setBackgroundBounds();
+
+        // Attempt to use a display list if requested.
+        if (canvas.isHardwareAccelerated() && mAttachInfo != null
+                && mAttachInfo.mHardwareRenderer != null) {
+            mBackgroundRenderNode = getDrawableRenderNode(background, mBackgroundRenderNode);
+
+            final RenderNode renderNode = mBackgroundRenderNode;
+            if (renderNode != null && renderNode.isValid()) {
+                setBackgroundRenderNodeProperties(renderNode);
+                ((DisplayListCanvas) canvas).drawRenderNode(renderNode);
+                return;
+            }
+        }
+
+        final int scrollX = mScrollX;
+        final int scrollY = mScrollY;
+        if ((scrollX | scrollY) == 0) {
+            background.draw(canvas);
+        } else {
+            canvas.translate(scrollX, scrollY);
+            background.draw(canvas);
+            canvas.translate(-scrollX, -scrollY);
+        }
+    }
+    
+    
 可以看到，硬件加速最后调用的是ThreadedRenderer的nSyncAndDrawFrame函数，
 
 	static int android_view_ThreadedRenderer_syncAndDrawFrame(JNIEnv* env, jobject clazz,
@@ -264,8 +718,6 @@ RenderThread确实采用Handler消息处理模型，只不过这里采用的全�
 	}
 
 它直接调用RenderProxy的syncAndDrawFrame函数，从名字看出，采用了代理模式，那么它的服务端在哪呢？
-	}
-
 
 
 	int RenderProxy::syncAndDrawFrame() {
@@ -292,7 +744,6 @@ postAndWait()有点像Hanlder机制，不过它同步原地等待，
 
 调用mRenderThread的函数，插入消息队列，并等待消息执行完毕，其实就是执行DrawFrameTask的run函数
 
-	 
 	 void DrawFrameTask::run() {
 	    ATRACE_NAME("DrawFrame");
 	
@@ -338,8 +789,6 @@ postAndWait()有点像Hanlder机制，不过它同步原地等待，
 	    mProfiler.setDensity(mRenderThread.mainDisplayInfo().density);
 	}
 
-
-
  最后就是调用OpenGL进行绘制，
  
 	 void CanvasContext::draw() {
@@ -381,12 +830,10 @@ postAndWait()有点像Hanlder机制，不过它同步原地等待，
 
 mCanvas->drawRenderNode的实现,如何跟surface绑定，
 
-	
 	 private void performTraversals() {  
 	 
 	   hwInitialized = mAttachInfo.mHardwareRenderer.initialize(  
                                         mSurface);  
-   
 	   static jboolean android_view_ThreadedRenderer_initialize(JNIEnv* env, jobject clazz,  
 	        jlong proxyPtr, jobject jsurface) {  
 	    RenderProxy* proxy = reinterpret_cast<RenderProxy*>(proxyPtr);  
@@ -420,31 +867,26 @@ mCanvas->drawRenderNode的实现,如何跟surface绑定，
 	    ......  
 	} 
 
-
-
 每一个Open GL渲染上下文都需要关联有一个EGL Surface。这个EGL Surface描述的是一个绘图表面，它封装的实际上是一个ANativeWindow。有了这个EGL Surface之后，我们在执行Open GL命令的时候，才能确定这些命令是作用在哪个窗口上。
-CanvasContext类的成员变量mEglManager实际上是指向前面我们分析RenderThread类的成员函数initThreadLocals时创建的一个EglManager对象。通过调用这个EglManager对象的成员函数createSurface就可以将参数window描述的ANativeWindow封装成一个EGL Surface。
+CanvasContext类的成员变量mEglManager实际上是指向前面我们分析RenderThread类的成员函数initThreadLocals时创建的一个EglManager对象。通过调用这个EglManager对象的成员函数createSurface就可以将参数window描述的ANativeWindow封装成一个EGL Surface。EGL Surface创建成功之后，就可以调用CanvasContext类的成员函数makeCurrent将它绑定到Render Thread的Open GL渲染上下文来，如下所示：
+
+	void CanvasContext::makeCurrent() {  
+	    // TODO: Figure out why this workaround is needed, see b/13913604  
+	    // In the meantime this matches the behavior of GLRenderer, so it is not a regression  
+	    mHaveNewSurface |= mEglManager.makeCurrent(mEglSurface);  
+	}  
+
+从这里就可以看到，将一个EGL Surface绑定到RenderThread的Open GL渲染上下文中是通过CanvasContext类的成员变量mEglManager指向的一个EglManager对象的成员函数makeCurrent来完成的。实际上就是通过EGL函数建立了从Open GL到底层OS图形系统的桥梁。这一点应该怎么理解呢？Open GL是一套与OS无关的规范，不过当它在一个具体的OS实现时，仍然是需要与OS的图形系统打交道的。例如，Open GL需要从底层的OS图形系统中获得图形缓冲区来保存渲染结果，并且也需要将渲染好的图形缓冲区交给底层的OS图形系统来显示到设备屏幕去。Open GL与底层的OS图形系统的这些交互通道都是通过EGL函数来建立的。
 
 
-       EGL Surface创建成功之后，就可以调用CanvasContext类的成员函数makeCurrent将它绑定到Render Thread的Open GL渲染上下文来，如下所示：
-[cpp] view plain copy
-void CanvasContext::makeCurrent() {  
-    // TODO: Figure out why this workaround is needed, see b/13913604  
-    // In the meantime this matches the behavior of GLRenderer, so it is not a regression  
-    mHaveNewSurface |= mEglManager.makeCurrent(mEglSurface);  
-}  
-
-从这里就可以看到，将一个EGL Surface绑定到Render Thread的Open GL渲染上下文中是通过CanvasContext类的成员变量mEglManager指向的一个EglManager对象的成员函数makeCurrent来完成的。实际上就是通过EGL函数建立了从Open GL到底层OS图形系统的桥梁。这一点应该怎么理解呢？Open GL是一套与OS无关的规范，不过当它在一个具体的OS实现时，仍然是需要与OS的图形系统打交道的。例如，Open GL需要从底层的OS图形系统中获得图形缓冲区来保存渲染结果，并且也需要将渲染好的图形缓冲区交给底层的OS图形系统来显示到设备屏幕去。Open GL与底层的OS图形系统的这些交互通道都是通过EGL函数来建立的。
-
-
-EGLSurface EglManager::createSurface(EGLNativeWindowType window) {
-    initialize();
-    EGLSurface surface = eglCreateWindowSurface(mEglDisplay, mEglConfig, window, nullptr);
-    LOG_ALWAYS_FATAL_IF(surface == EGL_NO_SURFACE,
-            "Failed to create EGLSurface for window %p, eglErr = %s",
-            (void*) window, egl_error_str());
-    return surface;
-}
+	EGLSurface EglManager::createSurface(EGLNativeWindowType window) {
+	    initialize();
+	    EGLSurface surface = eglCreateWindowSurface(mEglDisplay, mEglConfig, window, nullptr);
+	    LOG_ALWAYS_FATAL_IF(surface == EGL_NO_SURFACE,
+	            "Failed to create EGLSurface for window %p, eglErr = %s",
+	            (void*) window, egl_error_str());
+	    return surface;
+	}
 
 	   public EGLSurface eglCreateWindowSurface(EGLDisplay display, EGLConfig config, Object native_window, int[] attrib_list) {
 	        Surface sur = null;
@@ -527,40 +969,38 @@ surfaceId
 
 
 CanvasContext类的成员函数draw的实现如下所示：
-[cpp] view plain copy
-void CanvasContext::draw() {  
-    ......  
-  
-    SkRect dirty;  
-    mDamageAccumulator.finish(&dirty);  
-  
-    ......  
-  
-    status_t status;  
-    if (!dirty.isEmpty()) {  
-        status = mCanvas->prepareDirty(dirty.fLeft, dirty.fTop,  
-                dirty.fRight, dirty.fBottom, mOpaque);  
-    } else {  
-        status = mCanvas->prepare(mOpaque);  
-    }  
-  
-    Rect outBounds;  
-    status |= mCanvas->drawRenderNode(mRootRenderNode.get(), outBounds);  
-  
-    ......  
-  
-    mCanvas->finish();  
-  
-    ......  
-  
-    if (status & DrawGlInfo::kStatusDrew) {  
-        swapBuffers();  
-    }  
-  
-    ......  
-}  
-   这个函数定义在文件frameworks/base/libs/hwui/OpenGLRenderer.cpp中。
-   CanvasContext类的成员函数draw的执行过程如下所示：
+ 
+	void CanvasContext::draw() {  
+	    ......  
+	  
+	    SkRect dirty;  
+	    mDamageAccumulator.finish(&dirty);  
+	    ......  
+	  
+	    status_t status;  
+	    if (!dirty.isEmpty()) {  
+	        status = mCanvas->prepareDirty(dirty.fLeft, dirty.fTop,  
+	                dirty.fRight, dirty.fBottom, mOpaque);  
+	    } else {  
+	        status = mCanvas->prepare(mOpaque);  
+	    }  
+	  
+	    Rect outBounds;  
+	    status |= mCanvas->drawRenderNode(mRootRenderNode.get(), outBounds);  
+	 	    ......  
+	  
+	    mCanvas->finish();  
+	 	    ......  
+	  
+	    if (status & DrawGlInfo::kStatusDrew) {  
+	        swapBuffers();  
+	    }  
+	  
+	    ......  
+	}  
+	
+   这个函数定义在文件frameworks/base/libs/hwui/OpenGLRenderer.cpp中,CanvasContext类的成员函数draw的执行过程如下所示：
+   
    1. 获得应用程序窗口要更新的脏区域之后，调用成员变量mCanvas指向的一个OpenGLRenderer对象的成员函数prepareDirty或者prepare执行一些初始化工作，取决于脏区域是不是空的。
    2, 调用成员变量mCanvas指向的一个OpenGLRenderer对象的成员函数drawRenderNode渲染成员变量mRootRenderNode描述的应用程序窗口的Root Render Node的Display List。
    3. 调用成员变量mCanvas指向的一个OpenGLRenderer对象的成员函数finish执行一些清理工作。在这一步中，如果开启了OverDraw，那么还会在应用程序窗口的上面绘制一些描述OverDraw的颜色块。
@@ -568,26 +1008,8 @@ void CanvasContext::draw() {
    在上述四个步骤中，最重要的是第1步和第2步，因此接下来我们就分别对它们进行分析。
    我们假设第1步得到的应用程序窗口要更新的脏区域不为空，因此这一步执行的就是OpenGLRenderer类的成员函数prepareDirty，它的实现如下所示：
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+ 
+# 有些API不支持硬件加速，需要同硬件加速混合来用
 
 
 
@@ -607,7 +1029,7 @@ void CanvasContext::draw() {
 
 
 # 软件加速
-   
+
 
 Surface 在lock canvas获取图形绘制缓存的时候，如果开启了硬件加速
 
@@ -638,7 +1060,7 @@ Surface 在lock canvas获取图形绘制缓存的时候，如果开启了硬件�
 	        return gralloc_alloc_buffer(dev, bufferSize, newUsage, pHandle);
 	    }
 	
-	<!--这里说明，一个fb对应的图形缓冲区最大是32个，-->
+	   <!--这里说明，一个fb对应的图形缓冲区最大是32个，-->
 	    if (bufferMask >= ((1LU<<numBuffers)-1)) {
 	        // We ran out of buffers.
 	        return -ENOMEM;
@@ -677,7 +1099,7 @@ Surface 在lock canvas获取图形绘制缓存的时候，如果开启了硬件�
 **由于在系统帧缓冲区中分配的图形缓冲区只在SurfaceFlinger服务中使用，而SurfaceFlinger服务在初始化系统帧缓冲区的时候，已经将系统帧缓冲区映射到自己所在的进程中来了，因此，函数gralloc_map如果发现要注册的图形缓冲区是在系统帧缓冲区分配的时候，那么就不需要再执行映射图形缓冲区的操作了。**
        
        
-   假设此时系统帧缓冲区中尚有空闲的图形缓冲区的，接下来函数就会创建一个private_handle_t结构体hnd来描述这个即将要分配出去的图形缓冲区。注意，这个图形缓冲区的标志值等于PRIV_FLAGS_FRAMEBUFFER，即表示这是一块在系统帧缓冲区中分配的图形缓冲区。接下来的for循环从低位到高位检查变量bufferMask的值，并且找到第一个值等于0的位，这样就可以知道在系统帧缓冲区中，第几个图形缓冲区的是空闲的。注意，变量vadrr的值开始的时候指向系统帧缓冲区的基地址，在下面的for循环中，每循环一次它的值都会增加bufferSize。从这里就可以看出，每次从系统帧缓冲区中分配出去的图形缓冲区的大小都是刚好等于显示屏一屏内容大小的。
+假设此时系统帧缓冲区中尚有空闲的图形缓冲区的，接下来函数就会创建一个private_handle_t结构体hnd来描述这个即将要分配出去的图形缓冲区。注意，这个图形缓冲区的标志值等于PRIV_FLAGS_FRAMEBUFFER，即表示这是一块在系统帧缓冲区中分配的图形缓冲区。接下来的for循环从低位到高位检查变量bufferMask的值，并且找到第一个值等于0的位，这样就可以知道在系统帧缓冲区中，第几个图形缓冲区的是空闲的。注意，变量vadrr的值开始的时候指向系统帧缓冲区的基地址，在下面的for循环中，每循环一次它的值都会增加bufferSize。从这里就可以看出，每次从系统帧缓冲区中分配出去的图形缓冲区的大小都是刚好等于显示屏一屏内容大小的。
        
        
   
@@ -848,7 +1270,8 @@ service bootanim /system/bin/bootanimation
     group graphics  
     disabled  
     oneshot  
-       应用程序bootanimation的用户和用户组名称分别被设置为graphics。注意， 用来启动应用程序bootanimation的服务是disable的，即init进程在启动的时候，不会主动将应用程序bootanimation启动起来。当SurfaceFlinger服务启动的时候，它会通过修改系统属性ctl.start的值来通知init进程启动应用程序bootanimation，以便可以显示第三个开机画面，而当System进程将系统中的关键服务都启动起来之后，ActivityManagerService服务就会通知SurfaceFlinger服务来修改系统属性ctl.stop的值，以便可以通知init进程停止执行应用程序bootanimation，即停止显示第三个开机画面。接下来我们就分别分析第三个开机画面的显示过程和停止过程。
+
+应用程序bootanimation的用户和用户组名称分别被设置为graphics。注意， 用来启动应用程序bootanimation的服务是disable的，即init进程在启动的时候，不会主动将应用程序bootanimation启动起来。当SurfaceFlinger服务启动的时候，它会通过修改系统属性ctl.start的值来通知init进程启动应用程序bootanimation，以便可以显示第三个开机画面，而当System进程将系统中的关键服务都启动起来之后，ActivityManagerService服务就会通知SurfaceFlinger服务来修改系统属性ctl.stop的值，以便可以通知init进程停止执行应用程序bootanimation，即停止显示第三个开机画面。接下来我们就分别分析第三个开机画面的显示过程和停止过程。
 
 
 
@@ -960,13 +1383,18 @@ View中的updateDisplayListIfDirty - dispatchGetDisplayList - recreateChildDispl
 Android 6.0中，和DisplayList相关的API目前仍被标记为“@hide”不可访问，表示还不成熟，后续版本可能开放。
 硬件加速情况下，draw流程执行结束后DisplayList构建完成，然后通过ThreadedRenderer.nSyncAndDrawFrame()利用GPU绘制DisplayList到屏幕上。
 
-[引用  绘制流程](http://tech.meituan.com/img/hardware-accelerate/render-func.png)  
+![引用绘制流程](http://tech.meituan.com/img/hardware-accelerate/render-func.png)  
 
 **这里我们首先要明确什么是硬件加速渲染，其实就是通过GPU来进行渲染。GPU作为一个硬件，用户空间是不可以直接使用的，它是由GPU厂商按照Open GL规范实现的驱动间接进行使用的。也就是说，如果一个设备支持GPU硬件加速渲染，那么当Android应用程序调用Open GL接口来绘制UI时，Android应用程序的UI就是通过硬件加速技术进行渲染的。因此，在接下来的描述中，我们提及到GPU、硬件加速和Open GL时，它们表达的意思都是等价的。**
 
 从图2可以看到，硬件加速渲染和软件渲染一样，在开始渲染之前，都是要先向SurfaceFlinger服务Dequeue一个Graphic Buffer。不过对硬件加速渲染来说，这个Graphic Buffer会被封装成一个ANativeWindow，并且传递给Open GL进行硬件加速渲染环境初始化。在Android系统中，ANativeWindow和Surface可以是认为等价的，只不过是ANativeWindow常用于Native层中，而Surface常用于Java层中。另外，我们还可以将ANativeWindow和Surface看作是像Skia和Open GL这样图形渲染库与操作系统底层的图形系统建立连接的一个桥梁。       Open GL获得了一个ANativeWindow，并且进行了硬件加速渲染环境初始化工作之后，Android应用程序就可以调用Open GL提供的API进行UI绘制了，绘制出来内容就保存在前面获得的Graphic Buffer中。当绘制完毕，Android应用程序再调用libegl库提供的一个eglSwapBuffer接口请求将绘制好的UI显示到屏幕中，其本质上与软件渲染过程是一样的，都是向SurfaceFlinger服务Queue一个Graphic Buffer，以便SurfaceFlinger服务可以对Graphic Buffer的内容进行合成，以及显示到屏幕上去。
               
+
+# GLSurfaceView跟SurfaceView的区别
+
+# 哪个过程是CPU哪个是GPU ？绘制是GPU
        
+# 参考文档
 
 [闲聊Framebuffer](http://happyseeker.github.io/kernel/2016/05/24/about-framebuffer.html)       
 [Android SurfaceFlinger 学习之路(五)----VSync 工作原理](http://windrunnerlihuan.com/2017/05/25/Android-SurfaceFlinger-%E5%AD%A6%E4%B9%A0%E4%B9%8B%E8%B7%AF-%E4%BA%94-VSync-%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86/)      
