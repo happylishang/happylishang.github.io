@@ -298,6 +298,11 @@ Setting this flag to true may improve performance by reducing the overhead of in
 
 android:multiprocess的作用是：是否允许在调用者的进程里实例化provider，如果android:multiprocess=false，则系统中只会存在一个provider实例，否则，可以存在多个，多个的话，可能会提高性能，因为它避免了跨进程通信，毕竟，对象就在自己的进程空间，可以直接访问，但是，这会增加系统负担，另外，对于单进程能够保证的互斥问题，也会无效，如果APP需要数据更新，还是保持不开启的好。
 
+# 总结
+
+* ContentProvider只是Android为了跨进程共享数据提供的一种机制，
+* 本身基于Binder实现，
+* 在操作数据上只是一种抽象，具体要自己实现
 
 # 参考文档
 
