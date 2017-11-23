@@ -18,182 +18,41 @@ image: http://upload-images.jianshu.io/upload_images/1460468-103d49829291e1f7.jp
 
 关于View的绘制是软件加速实现的还是硬件加速实现的，一般在开发的时候并不可见，大概从Android 4.+开始，默认情况下都是支持跟开启了硬件加速的，也存在手机支持硬件加速，但是部分API不支持硬件加速的情况，如果使用了这些API，就需要主关闭硬件加速，或者在View层，或者在Activity层，比如Canvas的clipPath等。那图形绘制的时候，软硬件的分歧点究竟在哪呢？举个例子，有个View需要重绘，一般会调用View的invalidate，触发重绘，跟着这条线走，去查一下分歧点。
 
+![视图重绘](http://upload-images.jianshu.io/upload_images/1460468-2cb862a7cd77c699.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
+从上面的调用流程可以看出，视图重绘最后会进入ViewRootImpl的draw，这里有个判断点是软硬件加速的分歧点,简化后如下
 
+>ViewRootImpl.java
 
-
-![硬件加速.jpg](http://upload-images.jianshu.io/upload_images/1460468-1f3c83ffb4e74889.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-虽说是List，但是感觉更像是一个树。
-
-# 概念上的不同  OpenGL、3D、2D、Skia、硬件加速中的软件绘制、全部软件绘制
-
-每个View抽象成一个RenderNode，每个RenderNode都包含了一些绘制命令列表，而ViewGroup本身会将子View的RenderNode抽象成绘制命令，放到自己的绘制命令列表中来，这样ViewGroup在绘制的时候，就会递归调用子View的的绘制命令列表。
-
-### 构建列表，哪些需要构建
-
-* 一个是自己的绘制命令，比如onDraw中调用的drawLine drawBitmap等，
-* 另一部分是子View及背景的绘制，一般是抽象成RenderNode命令，
-
-软件绘制的抽象成BitMapOp
-
-DisplayListCanvas的目的就是构建及暂存供，在第一步完成后，就没有意义，recycle了通过start end 搞一个封闭，nSetDisplayListData将回执命令及数据添加到RenderNode中去.
-
-	void RenderNode::setStagingDisplayList(DisplayListData* data) {
-	    mNeedsDisplayListDataSync = true;
-	    delete mStagingDisplayListData;
-	    mStagingDisplayListData = data;
-	}
-
-这个包含了所有绘制操作及数据，比如DrawBitmapOp里面包含了bitmap数据。
-
-    GraphicsJNI::getSkBitmap(env, jbitmap, &bitmap);
-
-
-
-
-### 更新列表  哪些需要绘制
-
-
-加入View需要重绘
-
-    public void invalidate() {
-        invalidate(true);
-    }
-    
-    void invalidate(boolean invalidateCache) {
-        invalidateInternal(0, 0, mRight - mLeft, mBottom - mTop, invalidateCache, true);
-    }
-    
-     void invalidateInternal(int l, int t, int r, int b, boolean invalidateCache,
-            boolean fullInvalidate) {
-       
-            final ViewParent p = mParent;
-            if (p != null && ai != null && l < r && t < b) {
-                final Rect damage = ai.mTmpInvalRect;
-                damage.set(l, t, r, b);
-                p.invalidateChild(this, damage);
-            }
-               
- ViewGroup 层层递归
-    
-    public final void invalidateChild(View child, final Rect dirty) {
-        ViewParent parent = this;
-
-        final AttachInfo attachInfo = mAttachInfo;
-        if (attachInfo != null) {
-           ..
-            do {
-                View view = null;
-                if (parent instanceof View) {
-                    view = (View) parent;
-                }
-                ...
-                <!--递归-->
-                parent = parent.invalidateChildInParent(location, dirty);
-                ..
-            } while (parent != null);
-        }
-    }
-    
-    
-最终ViewRootImpl
-    
-     @Override
-    public ViewParent invalidateChildInParent(int[] location, Rect dirty) {
-        checkThread();
-        。。。
-
-        invalidateRectOnScreen(dirty);
-
-        return null;
-    }
-
-    private void invalidateRectOnScreen(Rect dirty) {
-        final Rect localDirty = mDirty;
-        if (!localDirty.isEmpty() && !localDirty.contains(dirty)) {
-            mAttachInfo.mSetIgnoreDirtyState = true;
-            mAttachInfo.mIgnoreDirtyState = true;
-        }
-
-        if (!intersected) {
-            localDirty.setEmpty();
-        }
-        if (!mWillDrawSoon && (intersected || mIsAnimating)) {
-            scheduleTraversals();
-        }
-    }
-
-插入绘制命令，阻塞等待VSYCN到来，主线程中，最多一个mTraversalRunnable任务：
-    
-        void scheduleTraversals() {
-        if (!mTraversalScheduled) {
-            mTraversalScheduled = true;
-            mTraversalBarrier = mHandler.getLooper().getQueue().postSyncBarrier();
-            mChoreographer.postCallback(
-                    Choreographer.CALLBACK_TRAVERSAL, mTraversalRunnable, null);
-            if (!mUnbufferedInputDispatch) {
-                scheduleConsumeBatchedInput();
-            }
-            notifyRendererOfFramePending();
-            pokeDrawLockIfNeeded();
-        }
-    }
-   
- 最终调用performTraversals，测量、绘制   
-    
-# 软硬件加速绘制入口
 
     private void draw(boolean fullRedrawNeeded) {
-    
-        Surface surface = mSurface;
-           <!--关键点1 硬件加速分支-->
-       if (!dirty.isEmpty() || mIsAnimating || accessibilityFocusDirty) {
+        ...
+        if (!dirty.isEmpty() || mIsAnimating || accessibilityFocusDirty) {
+            <!--关键点1 是否开启硬件加速-->
             if (mAttachInfo.mHardwareRenderer != null && mAttachInfo.mHardwareRenderer.isEnabled()) {
-                boolean invalidateRoot = accessibilityFocusDirty;
-					...
+                 ...
+                dirty.setEmpty();
                 mBlockResizeBuffer = false;
-                <!--硬件渲染-->
+                <!--关键点2 硬件加速绘制-->
                 mAttachInfo.mHardwareRenderer.draw(mView, mAttachInfo, this);
             } else {
-               <!--软件加速分支-->
+              ...
+               <!--关键点3 软件绘制-->
                 if (!drawSoftware(surface, mAttachInfo, xOffset, yOffset, scalingRequired, dirty)) {
                     return;
-               }
-
-View调用invalidate只后，dirty.isEmpty为true ，如果开启了硬件加速会走分支1，并从mAttachInfo获得mHardwareRenderer进行draw，mHardwareRender对象是在添加窗口时候，由ViewRootImpl赋值的，
+                }
+            ...
+        
+关键点1是启用硬件加速的条件，必须支持硬件并且开启了硬件加速才可以，满足，就利用HardwareRenderer.draw，否则drawSoftware（软件绘制）。简答看一下这个条件，默认情况下，该条件是成立的，因为4.+之后的手机一般都支持硬件加速，而且在添加窗口的时候，ViewRootImpl会enableHardwareAcceleration开启硬件加速，new HardwareRenderer，并初始化硬件加速环境。
 
     private void enableHardwareAcceleration(WindowManager.LayoutParams attrs) {
     
         <!--根据配置，获取硬件加速的开关-->
-        mAttachInfo.mHardwareAccelerated = false;
-        mAttachInfo.mHardwareAccelerationRequested = false;
         // Try to enable hardware acceleration if requested
         final boolean hardwareAccelerated =
                 (attrs.flags & WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED) != 0;
-
-        if (hardwareAccelerated) {
-        <!--判断能否开启硬件加速-->
-            if (!HardwareRenderer.isAvailable()) {
-                return;
-            }
-            <!--系统持久进程不适合硬件加速-->
-            final boolean fakeHwAccelerated = (attrs.privateFlags &
-                    WindowManager.LayoutParams.PRIVATE_FLAG_FAKE_HARDWARE_ACCELERATED) != 0;
-            final boolean forceHwAccelerated = (attrs.privateFlags &
-                    WindowManager.LayoutParams.PRIVATE_FLAG_FORCE_HARDWARE_ACCELERATED) != 0;
-
-            if (fakeHwAccelerated) {
-                mAttachInfo.mHardwareAccelerationRequested = true;
-            } else if (!HardwareRenderer.sRendererDisabled
-                    || (HardwareRenderer.sSystemRendererDisabled && forceHwAccelerated)) {
-                if (mAttachInfo.mHardwareRenderer != null) {
-                    mAttachInfo.mHardwareRenderer.destroy();
-                }
-                final Rect insets = attrs.surfaceInsets;
-                final boolean hasSurfaceInsets = insets.left != 0 || insets.right != 0
-                        || insets.top != 0 || insets.bottom != 0;
-                final boolean translucent = attrs.format != PixelFormat.OPAQUE || hasSurfaceInsets;
+       if (hardwareAccelerated) {
+            ...
                 <!--新建硬件加速图形渲染器-->
                 mAttachInfo.mHardwareRenderer = HardwareRenderer.create(mContext, translucent);
                 if (mAttachInfo.mHardwareRenderer != null) {
@@ -201,41 +60,124 @@ View调用invalidate只后，dirty.isEmpty为true ，如果开启了硬件加速
                     mAttachInfo.mHardwareAccelerated =
                             mAttachInfo.mHardwareAccelerationRequested = true;
                 }
-            }
-        }
-    }
+            ...
 
-最后通过HardwareRenderer.create创建了HardwareRenderer对象，
+其实到这里软件绘制跟硬件加速的分歧点已经找到了，就是ViewRootImpl在draw的时候，如果需要硬件加速就利用 HardwareRenderer进行draw，否则走软件绘制流程，drawSoftware其实很简单，利用Surface.lockCanvas，向SurfaceFlinger申请一块匿名共享内存[内存分配](http://www.jianshu.com/p/2fb8cc9e63cb)，同时获取一个普通的SkiaCanvas，用于调用Skia库，进行图形绘制，
 
-    static HardwareRenderer create(Context context, boolean translucent) {
-        HardwareRenderer renderer = null;
-        if (DisplayListCanvas.isAvailable()) {
-            renderer = new ThreadedRenderer(context, translucent);
-        }
-        return renderer;
-    }
+	private boolean drawSoftware(Surface surface, AttachInfo attachInfo, int xoff, int yoff,
+	            boolean scalingRequired, Rect dirty) {
+	        final Canvas canvas;
+	        try {
+	            <!--关键点1 -->
+	            canvas = mSurface.lockCanvas(dirty);
+	            ..
+	            <!--关键点2 绘制-->
+	            	 mView.draw(canvas);
+	             ..
+	             关键点3 通知SurfaceFlinger进行图层合成
+	                surface.unlockCanvasAndPost(canvas);
+	            }   ...	        
+	           return true;  }
+    
+上限drawSoftware工作完全由CPU来完成，不会牵扯到GPU的操作，下面重点看下HardwareRenderer所进行的硬件加速绘制。
 
-实际上是一个ThreadedRenderer对象，从名字是就能看出，该对象想要拥有一个独立线程，至于它到底怎么用，后面再看
+# HardwareRenderer硬件加速绘制模型
 
-	static jboolean android_view_DisplayListCanvas_isAvailable(JNIEnv* env, jobject clazz) {
-	    char prop[PROPERTY_VALUE_MAX];
-	    <!--不是模拟器，就默认开启-->
-	    if (property_get("ro.kernel.qemu", prop, NULL) == 0) {
-	        return JNI_TRUE;
-	    }
-	    property_get("ro.kernel.qemu.gles", prop, "0");
-	    return atoi(prop) == 1 ? JNI_TRUE : JNI_FALSE;
-	}
+开头说过，硬件加速绘制包括两个阶段：构建阶段+绘制阶段，所谓构建就是递归遍历所有视图，将需要的操作缓存下来，之后再交给单独的Render线程利用OpenGL渲染。在Android硬件加速框架中，View视图被抽象成RenderNode节点，View中的绘制都会被抽象成一个个DrawOp（DisplayListOp），比如View中drawLine，构建中就会被抽象成一个DrawLintOp，drawBitmap操作会被抽象成DrawBitmapOp，每个子View的绘制被抽象成DrawRenderNodeOp，每个DrawOp有对应的OpenGL绘制命令，同时内部也握着绘图所需要的数据。如下所示：
+
+![绘图Op抽象](http://upload-images.jianshu.io/upload_images/1460468-d546b6e86e2a1f30.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+如此以来，每个View不仅仅握有自己DrawOp List，同时还拿着子View的绘制入口，如此递归，便能够统计到所有的绘制Op，很多分析都称为Display List，源码中也是这么来命名类的，不过这里其实更像是一个树，而不仅仅是List，示意如下：
+
+![硬件加速.jpg](http://upload-images.jianshu.io/upload_images/1460468-1f3c83ffb4e74889.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+构建完成后，就可以将这个绘图Op树交给Render线程进行绘制，这里是同软件绘制很不同的地方，软件绘制时，View一般都在主线程中完成绘制，而硬件加速，除非特殊要求，一般都是在单独线程中完成绘制，如此以来就分担了主线程很多压力，提高了UI线程的响应速度。
+
+![硬件加速模型.jpg](http://upload-images.jianshu.io/upload_images/1460468-22e4b5bba04b472b.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+知道整个模型后，就代码来简单了解下实现流程，先看下递归构建RenderNode树及DrawOp集。
+
+# HardwareRenderer硬件加速:构建DrawOp集
+
+HardwareRenderer是整个硬件加速绘制的入口，实现是一个ThreadedRenderer对象，从名字能看出，ThreadedRenderer应该跟一个Render线程息息相关，不过ThreadedRenderer是在UI线程中创建的，那么与UI线程也必定相关，其主要作用：
+
+* 1、在UI线程中完成DrawOp集构建
+* 2、负责跟渲染线程通信
+
+可见ThreadedRenderer的作用是很重要的，简单看一下实现：
 
     ThreadedRenderer(Context context, boolean translucent) {
-        final TypedArray a = context.obtainStyledAttributes(null, R.styleable.Lighting, 0, 0);
-        mLightY = a.getDimension(R.styleable.Lighting_lightY, 0);
-        mLightZ = a.getDimension(R.styleable.Lighting_lightZ, 0);
-        mLightRadius = a.getDimension(R.styleable.Lighting_lightRadius, 0);
-        mAmbientShadowAlpha =
-                (int) (255 * a.getFloat(R.styleable.Lighting_ambientShadowAlpha, 0) + 0.5f);
-        mSpotShadowAlpha = (int) (255 * a.getFloat(R.styleable.Lighting_spotShadowAlpha, 0) + 0.5f);
-        a.recycle();
+        ...
+		<!--新建native node-->
+        long rootNodePtr = nCreateRootRenderNode();
+        mRootNode = RenderNode.adopt(rootNodePtr);
+        mRootNode.setClipToBounds(false);
+        <!--新建NativeProxy-->
+        mNativeProxy = nCreateProxy(translucent, rootNodePtr);
+        ProcessInitializer.sInstance.init(context, mNativeProxy);
+        loadSystemProperties();
+    }
+
+从上面代码看出，ThreadedRenderer中有一个RootNode用来标识整个DrawOp树的根节点，有个这个根节点就可以访问所有的绘制Op，同时还有个RenderProxy对象，这个对象就是用来跟渲染线程进行通信的句柄，看一下其构造函数：
+
+	RenderProxy::RenderProxy(bool translucent, RenderNode* rootRenderNode, IContextFactory* contextFactory)
+	        : mRenderThread(RenderThread::getInstance())
+	        , mContext(nullptr) {
+	    SETUP_TASK(createContext);
+	    args->translucent = translucent;
+	    args->rootRenderNode = rootRenderNode;
+	    args->thread = &mRenderThread;
+	    args->contextFactory = contextFactory;
+	    mContext = (CanvasContext*) postAndWait(task);
+	    mDrawFrameTask.setContext(&mRenderThread, mContext);  
+	   }
+	       
+从RenderThread::getInstance()可以看出，RenderThread是一个单例线程，也就是说，每个进程最多只有一个硬件渲染线程，这样就不会存在多线程并发访问冲突问题，到这里其实环境硬件渲染环境已经搭建好好了。下面就接着看ThreadedRenderer的draw函数，如何构建渲染Op树：
+
+    @Override
+    void draw(View view, AttachInfo attachInfo, HardwareDrawCallbacks callbacks) {
+        attachInfo.mIgnoreDirtyState = true;
+
+        final Choreographer choreographer = attachInfo.mViewRootImpl.mChoreographer;
+        choreographer.mFrameInfo.markDrawStart();
+        <!--关键点1：构建View的DrawOp树-->
+        updateRootDisplayList(view, callbacks);
+
+        <!--关键点2：通知RenderThread线程绘制-->
+        int syncResult = nSyncAndDrawFrame(mNativeProxy, frameInfo, frameInfo.length);
+        ...
+    }
+
+目前只关心关键点1 updateRootDisplayList，构建RootDisplayList，其实就是View的DrawOp树，
+
+      
+      
+
+UI线程只能通过CanvasContext跟渲染线程通信。
+
+
+
+## 构建DrawOp集优点 （减少重绘？那视图的迁移如何处理？）
+
+我们实际上只是将对应的绘制命令以及参数保存在一个Display List中。接下来再通过Display List Renderer执行这个Display List的命令，这个过程称为Display List Replay。引进Display List的概念有什么好处呢？主要是两个好处。第一个好处是在下一帧绘制中，如果一个View的内容不需要更新，那么就不用重建它的Display List，也就是不需要调用它的onDraw（）成员函数。第二个好处是在下一帧中，如果一个View仅仅是一些简单的属性发生变化，例如位置和Alpha值发生变化，那么也无需要重建它的Display List，只需要在上一次建立的Display List中修改一下对应的属性就可以了，这也意味着不需要调用它的onDraw成员函数。这两个好处使用在绘制应用程序窗口的一帧时，省去很多应用程序代码的执行，也就是大大地节省了CPU的执行时间。
+
+注意，只有使用硬件加速渲染的View，才会关联有Render Node，也就才会使用到Display List。我们知道，目前并不是所有的2D UI绘制命令都是GPU可以支持的。这一点具体可以参考官方说明文档：http://developer.android.com/guide/topics/graphics/hardware-accel.html。对于使用了GPU不支持的2D UI绘制命令的View，只能通过软件方式来渲染。具体的做法是将创建一个新的Canvas，这个Canvas的底层是一个Bitmap，也就是说，绘制都发生在这个Bitmap上。绘制完成之后，这个Bitmap再被记录在其Parent View的Display List中。而当Parent View的Display List的命令被执行时，记录在里面的Bitmap再通过Open GL命令来绘制。
+
+另一方面，对于前面提到的在Android 4.0引进的TextureView，它也不是通过Display List来绘制。由于它的底层实现直接就是一个Open GL纹理，因此就可以跳过Display List这一中间层，从而提高效率。这个Open GL纹理的绘制通过一个Layer Renderer来封装。Layer Renderer和Display List Renderer可以看作是同一级别的概念，它们都是通过Open GL命令来绘制UI元素的。只不过前者操作的是Open GL纹理，而后者操作的是Display List。
+
+
+# HardwareRenderer硬件加速:参照DrawOp集绘制UI到Graphic Buffer
+
+
+我们知道，Android应用程序窗口的View是通过树形结构来组织的。这些View不管是通过硬件加速渲染还是软件渲染，或者是一个特殊的TextureView，在它们的成员函数onDraw被调用期间，它们都是将自己的UI绘制在Parent View的Display List中。其中，最顶层的Parent View是一个Root View，它关联的Root Node称为Root Render Node。也就是说，最终Root Render Node的Display List将会包含有一个窗口的所有绘制命令。在绘制窗口的下一帧时，Root Render Node的Display List都会通过一个Open GL Renderer真正地通过Open GL命令绘制在一个Graphic Buffer中。最后这个Graphic Buffer被交给SurfaceFlinger服务进行合成和显示
+       
+       
+       
+ 
+从名字是就能看出，ThreadedRenderer应该跟一个Render线程息息相关。
+
+    ThreadedRenderer(Context context, boolean translucent) {
+        ...
 		<!--新建native node-->
         long rootNodePtr = nCreateRootRenderNode();
         mRootNode = RenderNode.adopt(rootNodePtr);
@@ -246,7 +188,7 @@ View调用invalidate只后，dirty.isEmpty为true ，如果开启了硬件加速
         loadSystemProperties();
     }
  
- ThreadedRenderer的构造函数会新建RootNode及NativeProxy对象，并将其初始化：
+ RenderProxy的构造函数会新建RootNode及NativeProxy对象，并将其初始化：
  
 	 static jlong android_view_ThreadedRenderer_createRootRenderNode(JNIEnv* env, jobject clazz) {
 	    RootRenderNode* node = new RootRenderNode(env);
@@ -1394,6 +1336,36 @@ Android 6.0中，和DisplayList相关的API目前仍被标记为“@hide”不�
 
 # 哪个过程是CPU哪个是GPU ？绘制是GPU
        
+       
+ 
+![硬件加速.jpg](http://upload-images.jianshu.io/upload_images/1460468-1f3c83ffb4e74889.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+虽说是List，但是感觉更像是一个树。
+
+# 概念上的不同  OpenGL、3D、2D、Skia、硬件加速中的软件绘制、全部软件绘制
+
+每个View抽象成一个RenderNode，每个RenderNode都包含了一些绘制命令列表，而ViewGroup本身会将子View的RenderNode抽象成绘制命令，放到自己的绘制命令列表中来，这样ViewGroup在绘制的时候，就会递归调用子View的的绘制命令列表。
+
+### 构建列表，哪些需要构建
+
+* 一个是自己的绘制命令，比如onDraw中调用的drawLine drawBitmap等，
+* 另一部分是子View及背景的绘制，一般是抽象成RenderNode命令，
+
+软件绘制的抽象成BitMapOp
+
+DisplayListCanvas的目的就是构建及暂存供，在第一步完成后，就没有意义，recycle了通过start end 搞一个封闭，nSetDisplayListData将回执命令及数据添加到RenderNode中去.
+
+	void RenderNode::setStagingDisplayList(DisplayListData* data) {
+	    mNeedsDisplayListDataSync = true;
+	    delete mStagingDisplayListData;
+	    mStagingDisplayListData = data;
+	}
+
+这个包含了所有绘制操作及数据，比如DrawBitmapOp里面包含了bitmap数据。
+
+    GraphicsJNI::getSkBitmap(env, jbitmap, &bitmap);
+    
+          
 # 参考文档
 
 [闲聊Framebuffer](http://happyseeker.github.io/kernel/2016/05/24/about-framebuffer.html)       
