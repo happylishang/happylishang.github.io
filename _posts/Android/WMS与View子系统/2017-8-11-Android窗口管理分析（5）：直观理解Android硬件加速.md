@@ -6,6 +6,7 @@ image: http://upload-images.jianshu.io/upload_images/1460468-103d49829291e1f7.jp
 
 ---
 
+
 硬件加速，直观上说就是**依赖GPU实现图形绘制加速**，因此，软硬件加速的区别主要是指**图形的绘制究竟是GPU来处理还是CPU**，如果是GPU，就认为是硬件加速绘制，反之，软件绘制。在Android中也是如此，不过相对于普通的软件绘制，硬件加速还做了其他方面优化，不仅仅限定在绘制方面，绘制之前，在如何构建绘制区域上，硬件加速也做出了很大优化，因此硬件加速特性可以从下面两部分来分析：
 
 * 1、前期策略：如何构建需要绘制的区域
@@ -245,103 +246,54 @@ DisplayListCanvas的drawLine函数最终会进入DisplayListCanvas.cpp的drawLin
         mValid = true;
     }
 
-如此，边完成了DrawOp树的构建，之后，会利用RenderProxy向RenderThread发送消息，请求OpenGL绘制。
-
-# RenderThread绘制UI到Graphic Buffer
+如此，便完成了DrawOp树的构建，之后，利用RenderProxy向RenderThread发送消息，请求OpenGL线程进行渲染。
 
 
+# 局部重绘的原理
 
-我们知道，Android应用程序窗口的View是通过树形结构来组织的。这些View不管是通过硬件加速渲染还是软件渲染，或者是一个特殊的TextureView，在它们的成员函数onDraw被调用期间，它们都是将自己的UI绘制在Parent View的Display List中。其中，最顶层的Parent View是一个Root View，它关联的Root Node称为Root Render Node。也就是说，最终Root Render Node的Display List将会包含有一个窗口的所有绘制命令。在绘制窗口的下一帧时，Root Render Node的Display List都会通过一个Open GL Renderer真正地通过Open GL命令绘制在一个Graphic Buffer中。最后这个Graphic Buffer被交给SurfaceFlinger服务进行合成和显示
-       
-       
+# RenderThread渲染UI到Graphic Buffer
+
+DrawOp树构建完毕后，UI线程利用RenderProxy向RenderThread线程发送一个DrawFrameTask任务请求，RenderThread被唤醒，开始渲染，大致流程如下：
+
+* 首先进行DrawOp的合并
+* 接着绘制特殊的Layer
+* 最后绘制其余所有的DrawOpList
+* 调用swapBuffers将前面已经绘制好的图形缓冲区提交给Surface Flinger合成和显示。
+
+具体代码实现流程简化如下：
 
 ![硬件加速渲染流程](http://upload-images.jianshu.io/upload_images/1460468-b32a475612e3fb71.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-       
- 
-## 构建DrawOp集优点 （减少重绘？那视图的迁移如何处理？）
+	
+	class RenderNode : public VirtualLightRefBase {  
+	public:  
+	    ......  
+	  
+	    ANDROID_API void setStagingDisplayList(DisplayListData* newData);  
+	    ......  
+	  
+	    const RenderProperties& stagingProperties() {  
+	        return mStagingProperties;  
+	    }  
+	    ......  
+	  
+	private:  
+	    ......  
+	    
+	    <!--哪个属性变化了-->
+	    uint32_t mDirtyPropertyFields;  
+	    RenderProperties mProperties;  
+	    RenderProperties mStagingProperties;  
+	    
+	    <!--是否需要重绘-->
+	    bool mNeedsDisplayListDataSync;  
+	    <!--两个data？？-->
+	    DisplayListData* mDisplayListData;  
+	    DisplayListData* mStagingDisplayListData;  
+	    ......  
+	};
 
-我们实际上只是将对应的绘制命令以及参数保存在一个Display List中。接下来再通过Display List Renderer执行这个Display List的命令，这个过程称为Display List Replay。引进Display List的概念有什么好处呢？主要是两个好处。第一个好处是在下一帧绘制中，如果一个View的内容不需要更新，那么就不用重建它的Display List，也就是不需要调用它的onDraw（）成员函数。第二个好处是在下一帧中，如果一个View仅仅是一些简单的属性发生变化，例如位置和Alpha值发生变化，那么也无需要重建它的Display List，只需要在上一次建立的Display List中修改一下对应的属性就可以了，这也意味着不需要调用它的onDraw成员函数。这两个好处使用在绘制应用程序窗口的一帧时，省去很多应用程序代码的执行，也就是大大地节省了CPU的执行时间。
-
-注意，只有使用硬件加速渲染的View，才会关联有Render Node，也就才会使用到Display List。我们知道，目前并不是所有的2D UI绘制命令都是GPU可以支持的。这一点具体可以参考官方说明文档：http://developer.android.com/guide/topics/graphics/hardware-accel.html。对于使用了GPU不支持的2D UI绘制命令的View，只能通过软件方式来渲染。具体的做法是将创建一个新的Canvas，这个Canvas的底层是一个Bitmap，也就是说，绘制都发生在这个Bitmap上。绘制完成之后，这个Bitmap再被记录在其Parent View的Display List中。而当Parent View的Display List的命令被执行时，记录在里面的Bitmap再通过Open GL命令来绘制。
-
-另一方面，对于前面提到的在Android 4.0引进的TextureView，它也不是通过Display List来绘制。由于它的底层实现直接就是一个Open GL纹理，因此就可以跳过Display List这一中间层，从而提高效率。这个Open GL纹理的绘制通过一个Layer Renderer来封装。Layer Renderer和Display List Renderer可以看作是同一级别的概念，它们都是通过Open GL命令来绘制UI元素的。只不过前者操作的是Open GL纹理，而后者操作的是Display List。
-
-
-
-       
- 下面接着看硬件加速的draw函数，其实就ThreadedRenderer的draw，这里会有很多新概念出现，比如DisplayList，RenderNoder等等，
-
-    @Override
-    void draw(View view, AttachInfo attachInfo, HardwareDrawCallbacks callbacks) {
-        attachInfo.mIgnoreDirtyState = true;
-       final Choreographer choreographer = attachInfo.mViewRootImpl.mChoreographer;
-       choreographer.mFrameInfo.markDrawStart();
-       <!--关键函数1 更新DisplayList-->
-       updateRootDisplayList(view, callbacks);
-        attachInfo.mIgnoreDirtyState = false;
-        ....
-        final long[] frameInfo = choreographer.mFrameInfo.mFrameInfo;
-        <!--关键函数 绘制图形-->
-        int syncResult = nSyncAndDrawFrame(mNativeProxy, frameInfo, frameInfo.length);
-		  ...
-        if ((syncResult & SYNC_INVALIDATE_REQUIRED) != 0) {
-            attachInfo.mViewRootImpl.invalidate();
-        }
-    }
-    
-可以看到，硬件加速最后调用的是ThreadedRenderer的nSyncAndDrawFrame函数，
-
-	static int android_view_ThreadedRenderer_syncAndDrawFrame(JNIEnv* env, jobject clazz,
-	        jlong proxyPtr, jlongArray frameInfo, jint frameInfoSize) {
-	    RenderProxy* proxy = reinterpret_cast<RenderProxy*>(proxyPtr);
-	    env->GetLongArrayRegion(frameInfo, 0, frameInfoSize, proxy->frameInfo());
-	    return proxy->syncAndDrawFrame();
-	}
-
-它直接调用RenderProxy的syncAndDrawFrame函数，从名字看出，采用了代理模式，那么它的服务端在哪呢？
-
-
-	int RenderProxy::syncAndDrawFrame() {
-	    return mDrawFrameTask.drawFrame();
-	}
-
-
-postAndWait()有点像Hanlder机制，不过它同步原地等待，
-
-	void DrawFrameTask::postAndWait() {
-	    AutoMutex _lock(mLock);
-	    mRenderThread->queue(this);
-	    mSignal.wait(mLock);
-	}
-
-调用mRenderThread的函数，插入消息队列，并等待消息执行完毕，其实就是执行DrawFrameTask的run函数
-
-	 void DrawFrameTask::run() {
- 
-	    CanvasContext* context = mContext;
-	    if (CC_LIKELY(canDrawThisFrame)) {
-	        context->draw();
-	    }
-
-
- 可以看到调用的是context->draw()，context是什么呢？上文说过，它是一个CanvasContext，在RenderThread线程中创建的，
- 
-
-	CanvasContext::CanvasContext(RenderThread& thread, bool translucent,
-	        RenderNode* rootRenderNode, IContextFactory* contextFactory)
-	        : mRenderThread(thread)
-	        , mEglManager(thread.eglManager())
-	        , mOpaque(!translucent)
-	        , mAnimationContext(contextFactory->createAnimationContext(mRenderThread.timeLord()))
-	        , mRootRenderNode(rootRenderNode)
-	        , mJankTracker(thread.timeLord().frameIntervalNanos())
-	        , mProfiler(mFrames) {
-	    mRenderThread.renderState().registerCanvasContext(this);
-	    mProfiler.setDensity(mRenderThread.mainDisplayInfo().density);
-	}
-
- 最后就是调用OpenGL进行绘制，
+最后就是调用OpenGL进行绘制，
  
 	 void CanvasContext::draw() {
 	
@@ -386,6 +338,8 @@ mCanvas->drawRenderNode的实现,如何跟surface绑定，
 	 
 	   hwInitialized = mAttachInfo.mHardwareRenderer.initialize(  
                                         mSurface);  
+      }
+                                        
 	   static jboolean android_view_ThreadedRenderer_initialize(JNIEnv* env, jobject clazz,  
 	        jlong proxyPtr, jobject jsurface) {  
 	    RenderProxy* proxy = reinterpret_cast<RenderProxy*>(proxyPtr);  
@@ -524,15 +478,21 @@ surfaceId
    我们假设第1步得到的应用程序窗口要更新的脏区域不为空，因此这一步执行的就是OpenGLRenderer类的成员函数prepareDirty，它的实现如下所示：
 
 
+       
+ 
+## 构建DrawOp集优点 （减少重绘？那视图的迁移如何处理？）
 
+硬件加速直观体验
 
+内存？？？？两次绘制的内存是不是同一份？按理说是同一份？？？不需要重复申请
 
+我们实际上只是将对应的绘制命令以及参数保存在一个Display List中。接下来再通过Display List Renderer执行这个Display List的命令，这个过程称为Display List Replay。引进Display List的概念有什么好处呢？主要是两个好处。第一个好处是在下一帧绘制中，如果一个View的内容不需要更新，那么就不用重建它的Display List，也就是不需要调用它的onDraw（）成员函数。第二个好处是在下一帧中，如果一个View仅仅是一些简单的属性发生变化，例如位置和Alpha值发生变化，那么也无需要重建它的Display List，只需要在上一次建立的Display List中修改一下对应的属性就可以了，这也意味着不需要调用它的onDraw成员函数。这两个好处使用在绘制应用程序窗口的一帧时，省去很多应用程序代码的执行，也就是大大地节省了CPU的执行时间。
 
+注意，只有使用硬件加速渲染的View，才会关联有Render Node，也就才会使用到Display List。我们知道，目前并不是所有的2D UI绘制命令都是GPU可以支持的。这一点具体可以参考官方说明文档：http://developer.android.com/guide/topics/graphics/hardware-accel.html。对于使用了GPU不支持的2D UI绘制命令的View，只能通过软件方式来渲染。具体的做法是将创建一个新的Canvas，这个Canvas的底层是一个Bitmap，也就是说，绘制都发生在这个Bitmap上。绘制完成之后，这个Bitmap再被记录在其Parent View的Display List中。而当Parent View的Display List的命令被执行时，记录在里面的Bitmap再通过Open GL命令来绘制。
 
+另一方面，对于前面提到的在Android 4.0引进的TextureView，它也不是通过Display List来绘制。由于它的底层实现直接就是一个Open GL纹理，因此就可以跳过Display List这一中间层，从而提高效率。这个Open GL纹理的绘制通过一个Layer Renderer来封装。Layer Renderer和Display List Renderer可以看作是同一级别的概念，它们都是通过Open GL命令来绘制UI元素的。只不过前者操作的是Open GL纹理，而后者操作的是Display List。
 
-
-
-
+ 
 
 
 
