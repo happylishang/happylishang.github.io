@@ -551,6 +551,50 @@ ANativeWindow_Buffer的数据结构如下，其中bits字段与虚拟内存地�
 
 对于2D绘图，会用skia库会填充Bitmap对应的共享内存，如此即可完成绘制，本文不深入Skia库，有兴趣自行分析。绘制完成后，通过unlock直接通知SurfaceFlinger服务进行图层合成。
 
+
+# Android View局部重绘的原理
+
+拿TextView来说，如果内容发生了改变，就会触发重绘，加入当前视图中还包含其他View，这个时候，可能只会触发TextView及其父层级View的重绘，其他View不重绘，为什么呢？这个时候传递给SurfaceFlinger的UI数据如何保证完整呢？其实在lockCanvas的时候，默认是又一次数据拷贝的，也就是将之前绘制的UI数据拷贝到最新的申请内存中去，而新的重绘是从拷贝之后开始的，也就是在原来视图的基础上进行脏区域重绘：
+	
+	status_t Surface::lock(
+	        ANativeWindow_Buffer* outBuffer, ARect* inOutDirtyBounds)
+	{
+     <!--申请内存-->
+	    status_t err = dequeueBuffer(&out, &fenceFd);
+	    ALOGE_IF(err, "dequeueBuffer failed (%s)", strerror(-err));
+	    if (err == NO_ERROR) {
+	    <!--如果需要就尽心拷贝-->
+	        sp<GraphicBuffer> backBuffer(GraphicBuffer::getSelf(out));
+	        const Rect bounds(backBuffer->width, backBuffer->height);
+		        ...
+	        const sp<GraphicBuffer>& frontBuffer(mPostedBuffer);
+	        const bool canCopyBack = (frontBuffer != 0 &&
+	                backBuffer->width  == frontBuffer->width &&
+	                backBuffer->height == frontBuffer->height &&
+	                backBuffer->format == frontBuffer->format);
+	
+	        // 是否能够拷贝到当前backBuffer中来？必须两个样式一样，才能拷贝，如果不一样不用
+		        if (canCopyBack) {
+	            // copy the area that is invalid and not repainted this round
+	            const Region copyback(mDirtyRegion.subtract(newDirtyRegion));
+	            if (!copyback.isEmpty()) {
+	                // 拷贝
+	                copyBlt(backBuffer, frontBuffer, copyback, &fenceFd);
+	            }
+	        } else {
+	            // 如果不能拷贝，那就整块绘制，终于找到了入口 入江口 入口啊
+	            newDirtyRegion.set(bounds);
+	            mDirtyRegion.clear();
+	            Mutex::Autolock lock(mMutex);
+	            for (size_t i=0 ; i<NUM_BUFFER_SLOTS ; i++) {
+	                mSlots[i].dirtyRegion.clear();
+	            }
+	        }
+      ....
+	}
+
+对于通过lockCanvas获取的内存，要么被上次绘制的UI数据填充，要么整体重绘，如果被上次填充，那么这次就只需要绘制脏区域相关的视图，这就是Android局部重绘的原理。
+ 
 # 总结   
 
 Android View的绘制建立匿名共享内存的基础上，APP端与SurfaceFlinger通过共享内存的方式避免了View视图数据的拷贝，提高了系统同的视图处理能力。
