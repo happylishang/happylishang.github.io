@@ -2,7 +2,7 @@
 layout: post
 title: Android窗口管理分析（5）：硬件加速与软件加速的区别
 category: Android
-image: http://upload-images.jianshu.io/upload_images/1460468-103d49829291e1f7.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
+image: http://upload-images.jianshu.io/upload_images/1460468-ff584edcad217367.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 
 ---
 
