@@ -369,7 +369,8 @@ WMS首先创建socketpair作为全双工通道，并分别填充到Client与Serv
 * APP端被唤醒
 * 找到目标窗口处理事件
  
- ![InputManager模型.jpg](http://upload-images.jianshu.io/upload_images/1460468-8fa8e9bc442afab2.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+![InputManager完整模型.jpg](http://upload-images.jianshu.io/upload_images/1460468-d3f047d27598fcf8.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
 
 
   
