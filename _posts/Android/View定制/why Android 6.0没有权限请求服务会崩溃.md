@@ -236,5 +236,5 @@ Android 6.0没有权限的时候请求服务会崩溃，为什么呢？而target
 native层的PermissionService是个什么鬼
 
 
-
 # 存储权限问题
+
