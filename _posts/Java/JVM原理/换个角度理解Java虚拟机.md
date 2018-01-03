@@ -9,6 +9,8 @@ Java虚拟机（JVM）到底是什么呢？很多时候的理解可能有些偏�
 
 首先JVM确实是个静态的概念，可以看做是一个虚拟机类，所谓运行，就是创建一个进程，并在其中new一个虚拟机对象，不断地用该对象解释处理.class文件，只是该对象功能负责，能够类装载、翻译、执行、GC等，java.exe的是一个bin文件，作用就是启动一个进程，新建并启动该虚拟机，可以说一个Java进程内含一个JVM。
 
+![JVM模型.jpg](http://upload-images.jianshu.io/upload_images/1460468-82024a28e365c665.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
 
 jre全称Java Runtime Environment，是运行Java程序需要的辅助环境，比如它可以提供标准库的支持等，
 
