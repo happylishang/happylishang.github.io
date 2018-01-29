@@ -1,8 +1,8 @@
-Android开发中经常遇到Context，新建个对话框、获取资源、打开新的Activity等都需要依赖Context，Context是什么，能做什么呢？本文就来简单的跟踪下，先看下Context的定义
+Android开发中经常遇到Context，弹出个对话框、获取资源、打开新的Activity等都需要依赖Context，Context到底是什么，能做什么呢？本文就来简单的跟踪下，先看下Context的定义
 
 >Interface to global information about an application environment. This is an abstract class whose implementation is provided by the Android system. It allows access to application-specific resources and classes, as well as up-calls for application-level operations such as launching activities, broadcasting and receiving intents, etc.
 
-简化点：Context是这样的一个抽象接口，主要用来获取应用程序的想关信息，同时也可以用来访问应用声明的资源及相应类、启动Activity、广播等。Context直译为"上下文", 对于面向对象编程来说，可以看做成一个场景抽象，就像普通的OOP思想一样，包含两部分，一：包含一个场景的全部信息（场景的名字、资源等）：
+简化点：Context是这样的一个抽象接口，承载应用程序的想关信息，同时也可以用来访问应用声明的资源及相应类、启动Activity、广播等。Context直译为"上下文", 对于面向对象编程来说，可以看做成一个场景抽象，就像普通的OOP思想一样，包含两部分，一：包含一个场景的全部信息（场景的名字、资源等）：
 
 	abstract String	getPackageResourcePath()  //包资源路径
 	abstract Resources	getResources()         //使用的资源
@@ -13,10 +13,6 @@ Android开发中经常遇到Context，新建个对话框、获取资源、打开
 	abstract boolean	stopService(Intent service)         //停止服务
 
 Context就是一个运行场景的抽象，通过它可以知道当前运行场景的各种信息，并且执行该场景所能做的事情。
-
-
-大家大金的售后是几年？有的经销商说三年，有的六年？
-
 
 # 不同的Context场景及新建时机
 
@@ -91,7 +87,7 @@ Context是一个抽闲类，ContextImpl和ContextWrapper是它的两个实现子
      	..
      }               
 
-还有个Application没有分析，Application代表的不能算一个具体场景，它代表整个应用，并非单个界面或者后台场景，它只能再应用整体层面应用，比如创建一个全局的Toast，启动新的Activity、Service，获取资源等，所有Context的getApplicationContext返回的都是Application对象，并且每个进程只有一个：
+Application代表的不能算一个具体场景，它代表整个应用，并非单个界面或者后台场景，它只能再应用整体层面应用，比如创建一个全局的Toast，启动新的Activity、Service，获取资源等，所有Context的getApplicationContext返回的都是Application对象，并且每个进程只有一个：
 
     public Application makeApplication(boolean forceDefaultAppClass,
             Instrumentation instrumentation) {
@@ -125,7 +121,7 @@ Context是一个抽闲类，ContextImpl和ContextWrapper是它的两个实现子
 	layout 布局 
 	style 样式  
 	
-简单看一下资源加载流程，基类Context中就定义了这么一个抽象函数
+简单看一下资源获取流程，基类Context中定义了这么一个抽象函数
 
     public abstract Resources getResources();
 
@@ -137,7 +133,6 @@ Context是一个抽闲类，ContextImpl和ContextWrapper是它的两个实现子
         return mResources;
     }
 
-  
 mResources赋值是在init初始化函数中，
 
     final void init(LoadedApk packageInfo, IBinder activityToken, ActivityThread mainThread,
@@ -148,75 +143,15 @@ mResources赋值是在init初始化函数中，
      ...
      }
 
-	
-	  Resources getTopLevelResources(String resDir,
-	            int displayId, Configuration overrideConfiguration,
-	            CompatibilityInfo compInfo) {
-	        ResourcesKey key = new ResourcesKey(resDir,
-	                displayId, overrideConfiguration,
-	                compInfo.applicationScale);
+	  Resources getTopLevelResources(String resDir,...);
 	        Resources r;
 	        synchronized (mPackages) {
-	            // Resources is app scale dependent.
-	            if (false) {
-	                Slog.w(TAG, "getTopLevelResources: " + resDir + " / "
-	                        + compInfo.applicationScale);
-	            }
 	            WeakReference<Resources> wr = mActiveResources.get(key);
 	            r = wr != null ? wr.get() : null;
-	            //if (r != null) Slog.i(TAG, "isUpToDate " + resDir + ": " + r.getAssets().isUpToDate());
-	            if (r != null && r.getAssets().isUpToDate()) {
-	                if (false) {
-	                    Slog.w(TAG, "Returning cached resources " + r + " " + resDir
-	                            + ": appScale=" + r.getCompatibilityInfo().applicationScale);
-	                }
-	                return r;
-	            }
 	        }
-	
-	        //if (r != null) {
-	        //    Slog.w(TAG, "Throwing away out-of-date resources!!!! "
-	        //            + r + " " + resDir);
-	        //}
-	
-	        AssetManager assets = new AssetManager();
-	        if (assets.addAssetPath(resDir) == 0) {
-	            return null;
-	        }
-	
-	        //Slog.i(TAG, "Resource: key=" + key + ", display metrics=" + metrics);
-	        DisplayMetrics dm = getDisplayMetricsLocked(displayId, null);
-	        Configuration config;
-	        boolean isDefaultDisplay = (displayId == Display.DEFAULT_DISPLAY);
-	        if (!isDefaultDisplay || key.mOverrideConfiguration != null) {
-	            config = new Configuration(getConfiguration());
-	            if (!isDefaultDisplay) {
-	                applyNonDefaultDisplayMetricsToConfigurationLocked(dm, config);
-	            }
-	            if (key.mOverrideConfiguration != null) {
-	                config.updateFrom(key.mOverrideConfiguration);
-	            }
-	        } else {
-	            config = getConfiguration();
-	        }
+			 ...	       
 	        r = new Resources(assets, dm, config, compInfo);
-	        if (false) {
-	            Slog.i(TAG, "Created app resources " + resDir + " " + r + ": "
-	                    + r.getConfiguration() + " appScale="
-	                    + r.getCompatibilityInfo().applicationScale);
-	        }
-	
-	        synchronized (mPackages) {
-	            WeakReference<Resources> wr = mActiveResources.get(key);
-	            Resources existing = wr != null ? wr.get() : null;
-	            if (existing != null && existing.getAssets().isUpToDate()) {
-	                // Someone else already created the resources while we were
-	                // unlocked; go ahead and use theirs.
-	                r.getAssets().close();
-	                return existing;
-	            }
-	            
-	            // XXX need to remove entries when weak references go away
+	        ...
 	            mActiveResources.put(key, new WeakReference<Resources>(r));
 	            return r;
 	        }
