@@ -277,6 +277,9 @@ GET_PLAYER_TYPE_IMPL是一个宏定义
 	　　　　content://  STAGEFRIGHT_PLAYER
 	　　　　mRetransmitEndpointValid标记为true: AAH_TX_PLAYER 中继 转播
 　　
+# 如何开始播放
+
+MediaHTTPConnection，是利用socket，还是HTTP直接获取呢？  
 　　
 # 缓存
 
