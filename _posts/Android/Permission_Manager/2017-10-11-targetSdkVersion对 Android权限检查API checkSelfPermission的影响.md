@@ -301,6 +301,12 @@ readState就是将持久化的UidState数据给重新读取出来，如下mFile�
 	            <!--关键点1 如果支持，也即是targetSdkVersion>23那走6.0动态权限管理那一套-->
 	            if (mAppSupportsRuntimePermissions) {
 					...
+					同样会使用 mAppOps.setUidMode更新 AppopsServie管理系统
+					  if (permission.hasAppOp() && !permission.isAppOpAllowed()) {
+                    permission.setAppOpAllowed(true);
+                    mAppOps.setUidMode(permission.getAppOp(), uid, AppOpsManager.MODE_ALLOWED);
+                }
+                
 	            } else {
 	                if (!permission.isGranted()) {
 	                    continue;
@@ -396,6 +402,125 @@ readState就是将持久化的UidState数据给重新读取出来，如下mFile�
 		return ret;
 	}	    
 
+# 在targetSdkVersion>=23的时候，对于 SDK>=23的机器如何检测权限
+
+
+targetSdkVersion>=23系统已经提供了比较合理的检测手段，PermisionChecker的checkPermission就可以，不过，这里需要注意的是，AppOpsService对于targetSdkVersion>=23的时候就不能用了，这里可能是Android的一个bug，当targetSdkVersion>=23而SDK_Version>=23的，对于AppOpsService，权限的授予跟撤销不是配对的，如下，先简单看下授权：
+
+
+	   public boolean grantRuntimePermissions(boolean fixedByTheUser, String[] filterPermissions) {
+	        final int uid = mPackageInfo.applicationInfo.uid;
+
+	        for (Permission permission : mPermissions.values()) {
+
+	            if (mAppSupportsRuntimePermissions) {
+	 	  					<!--关键点1 同时更新runtim-permission及Appops-->
+	                 if (permission.hasAppOp() && !permission.isAppOpAllowed()) {
+	                    permission.setAppOpAllowed(true);
+	                    mAppOps.setUidMode(permission.getAppOp(), uid, AppOpsManager.MODE_ALLOWED);
+	                }
+	                if (!permission.isGranted()) {
+	                    permission.setGranted(true);
+	                    mPackageManager.grantRuntimePermission(mPackageInfo.packageName,
+	                            permission.getName(), mUserHandle);
+	                }
+	            } else {
+	                if (!permission.isGranted()) {
+	                    continue;
+	                }
+	
+	                int killUid = -1;
+	                int mask = 0;
+ 					<!--关键点2 更新Appops-->
+
+	                if (permission.hasAppOp()) {
+	                    if (!permission.isAppOpAllowed()) {
+	                        permission.setAppOpAllowed(true);
+	                        // Enable the app op.
+	                        mAppOps.setUidMode(permission.getAppOp(), uid, AppOpsManager.MODE_ALLOWED);
+	                        killUid = uid;
+	                    }
+	              ...
+	            }
+	        }
+	
+	        return true;
+	    }
+	    
+可见，对于6.0的系统，无论targetSdkVersion是否>=23，在授权的时候，都会更新appops.xml，那取消授权呢？
+    
+	public boolean revokeRuntimePermissions(boolean fixedByTheUser, String[] filterPermissions) {
+	        final int uid = mPackageInfo.applicationInfo.uid;
+	        for (Permission permission : mPermissions.values()) {
+	            ...
+	            if (mAppSupportsRuntimePermissions) {
+	                if (permission.isSystemFixed()) {
+	                    return false;
+	                }
+	
+	                // Revoke the permission if needed.
+	                if (permission.isGranted()) {
+	                    permission.setGranted(false);
+	                    mPackageManager.revokeRuntimePermission(mPackageInfo.packageName,
+	                            permission.getName(), mUserHandle);
+	                }
+	                <!--关键点1 这里没有使用mAppOps.setUidMode更新appops.xml文件->
+	                
+	            } else {
+	                // Legacy apps cannot have a non-granted permission but just in case.
+	                if (!permission.isGranted()) {
+	                    continue;
+	                }
+	
+	                int mask = 0;
+	                int flags = 0;
+	                int killUid = -1;
+	                if (permission.hasAppOp()) {
+	                    if (permission.isAppOpAllowed()) {
+                       <!--关键点2 这里使用mAppOps.setUidMode更新appops.xml文件->
+	                        mAppOps.setUidMode(permission.getAppOp(), uid, AppOpsManager.MODE_IGNORED);
+	                        killUid = uid;
+	                    }
+                      ...
+	            }
+	        }
+	
+	        return true;
+	    }
+
+看关键点1 ，如果targetSdkVersion>=23在取消授权的时候，是不会更新appops.xml的，只有在targetSdkVersion<23的时候，才会向关键点2，撤销授权。也就是说对于targetSdkVersion>=23的时候，不要用AppOpsManager了。
+
+# 对于6.0以下的手机权限如何检测
+
+对于Android6.0以下的手机，不需要关心targetVersion。先说个自己验证的结果：**基本没法检测，同时也不需要检测**，就算检测出来也没有多大意义，因为，触发时机是在真正的调用服务时候。对于4.3到6.0之前的国产ROM，虽然采用AppopsManagerService，但是并未按照Google的模型对所有权限进行适配，在这个模型下，也就适配了两个权限，
+
+* 通知权限            public static final int OP_POST_NOTIFICATION = 11;
+* 悬浮窗权限          public static final int OP_SYSTEM_ALERT_WINDOW = 24; 
+
+Google发行版的APPOpsService，基本是把整个鉴权逻辑给屏蔽了，通过CM的源码，课对这部分代码窥探一斑，如果整个权限都采用4.3权限管理模型，在拒绝一项权限的时候，这个操作会被持久化到appops.xml中去，但是具体看下去，其实并不是如此，这种机制只对以上两个权限生效：
+
+		<pkg n="com.xxx">
+		<uid n="10988">
+		<!--关键点1-->
+		<op n="11" m="1" t="1513145979969" r="1521550658067" />
+		<op n="12" t="1521550651593" />
+		<op n="29" t="1521550682769" />
+
+		<pkg n="com.wandoujia.phoenix2.usbproxy">
+		<uid n="10969">
+		<op n="4" t="1517279031173" />
+		 <!--关键点2-->
+		<op n="11" m="1" t="1510889291834" r="1517279030708" />
+		<op n="14" t="1517293452801" />
+		<!--关键点3-->
+		<op n="24" m="1" />
+		<op n="40" t="1513599239364" d="600011" />
+
+国产rom中，假如你拒绝授权位置权限，按照AppOpsService模型，该操作应该被持久化到appops.xml中去，但是，结果并非如此，也就是说，对于其他权限，国产ROM应该是自己糊弄了一套持久管理，持久化Android系统API无法访问的地方，仅仅为自身ROM可见。appops.xml真正被系统使用时从Android6.0开始，其实Android6.0是有两套权限管理的，这其实很混乱，不知道Google怎么想的，不过6.0似乎也有漏洞：**权限的授予跟回收权限好像并不配对**。
+
+那么这就带来了一个问题，在Android4.3到Android6.0之间的版本，并没有同一个API来检测是否获取了某种权限，因为你动态更新的权限并未持久化到appops.xml中去。对于Android6.0之前的ROM，虽然不能检测，但完全可以直接用服务，不会崩溃，因为如果真需要鉴权，它的鉴权时机其实是在服务使用的时候。AppopsManager在6.0之前，只能用来检测通知，可能还有悬浮窗。
+
+
 # 总结
 
-Android6.0系统其实支持两种动态管理，runtime-permission及被阉割的AppOpsService，当targetSdkVersion>23的时候，采用rumtime-permission，当 targetSdkVersion<23的时候，两者兼有，其实targetSdkVersion<23的时候，仍然可以动态申请6.0的权限，前提是你要采用23之后的compileSdkVersion，只有这样才能用响应的API，不过还是推荐升级targetSdkVersion，这才是正道。
+Android6.0系统其实支持两种动态管理，runtime-permission及被阉割的AppOpsService，当targetSdkVersion>23的时候，采用rumtime-permission，当 targetSdkVersion<23的时候，两者兼有，其实targetSdkVersion<23的时候，仍然可以动态申请6.0的权限，前提是你要采用23之后的compileSdkVersion，只有这样才能用相应的API，不过还是推荐升级targetSdkVersion，这才是正道。对于Android6.0以下的手机，除了通知（可能还有悬浮窗），其他权限基本都没有系统的检测手段，无论Context的checkPermission还是AppopsManager的checkOp，基本都是对Android6.0之后才有效。
