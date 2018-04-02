@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: post
 title: ViewPager刷新问题原理分析及解决方案（FragmentPagerAdapter+FragementStatePagerAdapter）
 categories: [Android]
 

@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: post
 title: 性能调优之软/弱引用
 category: Java
 

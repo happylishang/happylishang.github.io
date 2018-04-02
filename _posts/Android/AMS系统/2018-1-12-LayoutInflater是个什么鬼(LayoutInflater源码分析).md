@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: post
 title: LayoutInflater是个什么鬼
 image: http://upload-images.jianshu.io/upload_images/1460468-7f7ec81bf66a8680.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 

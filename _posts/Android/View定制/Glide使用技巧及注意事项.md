@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: post
 title: Glide使用技巧及注意事项
 categories: [Java,RxJava]
 
