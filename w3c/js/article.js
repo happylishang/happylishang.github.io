@@ -42,7 +42,7 @@ $(document).ready(function(){
       loadPosts(posts);
     },
     error: function (XMLHttpRequest, textStatus, errorThrown) {
-      alert("Postfile的JSON格式化错误 错误文件 "+postfile + errorThrown);
+      alert("Postfile的JSON格式化错误 错误文件 "+ XMLHttpRequest + "  "+ postfile +"  "+ errorThrown);
     }
   });
 
