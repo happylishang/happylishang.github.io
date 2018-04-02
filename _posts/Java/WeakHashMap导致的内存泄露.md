@@ -2,7 +2,7 @@
 layout: post
 title: "WeakHashMap导致的内存泄露"
 description: "Java"
-category: android
+category: Android
 tags: [Binder]
 
 ---

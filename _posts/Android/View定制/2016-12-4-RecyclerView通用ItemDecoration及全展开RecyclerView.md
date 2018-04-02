@@ -2,7 +2,7 @@
 layout: post
 title: "通用RecyclerView的ItemDecoration及全展开RecyclerView的实现"
 description: "View定制"
-category: android开发
+category: Android
 image: http://upload-images.jianshu.io/upload_images/1460468-a663f26677c53449.gif?imageMogr2/auto-orient/strip
 
 ---

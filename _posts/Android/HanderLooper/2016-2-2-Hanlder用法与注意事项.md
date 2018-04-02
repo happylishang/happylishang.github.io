@@ -2,7 +2,7 @@
 layout: post
 title: "Hanlder的用法与注意事项"
 description: "android"
-category: android
+category: Android
 tags: [android]
 
 ---

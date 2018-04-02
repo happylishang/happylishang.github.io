@@ -1,7 +1,7 @@
 ---
 layout: default
 title:  InputManager输入管理子系统 
-category: [android]
+category: [Android]
 image:  http://upload-images.jianshu.io/upload_images/1460468-8fa8e9bc442afab2.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 
 ---

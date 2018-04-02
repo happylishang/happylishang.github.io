@@ -2,7 +2,7 @@
 layout: post
 title: "Java阻塞队列"
 description: "Java"
-category: android
+category: Android
 tags: [Binder]
 
 ---

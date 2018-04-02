@@ -2,7 +2,7 @@
 layout: post
 title: Java线程池注意事项
 description: "Java"
-category: android
+category: Android
 tags: [Binder]
 
 ---

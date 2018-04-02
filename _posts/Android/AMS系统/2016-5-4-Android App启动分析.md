@@ -2,7 +2,7 @@
 layout: post
 title: "Android App启动分析"
 description: "Java"
-category: android开发
+category: Android
 
 ---
 

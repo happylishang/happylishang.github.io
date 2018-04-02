@@ -2,7 +2,7 @@
 layout: post
 title: "MeasureSpec与View大小控制"
 description: "Java"
-category: android开发
+category: Android
 image: http://upload-images.jianshu.io/upload_images/1460468-d8e25ab337751361.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 
 ---

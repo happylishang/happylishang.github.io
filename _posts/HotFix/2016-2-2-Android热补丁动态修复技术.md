@@ -2,7 +2,7 @@
 layout: post
 title: "Android热补丁动态修复技术"
 description: "android"
-category: android
+category: Android
 tags: [android]
 
 ---

@@ -2,7 +2,7 @@
 layout: post
 title: "Android一些开发的小技巧"
 description: "Java"
-category: android开发
+category: Android
 
 ---
 

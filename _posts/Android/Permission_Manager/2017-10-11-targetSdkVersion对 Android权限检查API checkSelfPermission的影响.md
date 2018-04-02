@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "targetSdkVersion对 Android权限检查API checkSelfPermission的影响"
-category: android
+category: Android
  
 
 ---

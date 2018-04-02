@@ -2,7 +2,7 @@
 layout: post
 title: "MeasureSpec与View定制"
 description: "Java"
-category: android开发
+category: Android
 
 ---
 

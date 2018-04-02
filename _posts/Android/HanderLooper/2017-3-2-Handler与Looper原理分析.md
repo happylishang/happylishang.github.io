@@ -2,7 +2,7 @@
 layout: post
 title: "Android Handler与Looper原理分析"
 description: "android"
-category: android
+category: Android
 tags: [android]
 image: http://upload-images.jianshu.io/upload_images/1460468-b5787362a3a23a67.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240
 
