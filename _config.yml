@@ -92,22 +92,22 @@ disqus:
 # 配置
 
 # https://imsun.net/posts/gitment-introduction/
-# gitment:
-#     owner: happylishang
-#     repo: blog-comments
-#     oauth:
-#         client_id: e7d8b8fcbf14e48d0eb7
-#         client_secret: a67b4eb02101ffb013363eb033f5e6f8c69d4d18
-
-
-# # https://github.com/gitalk/gitalk#install
-gitalk:
-    
+gitment:
     owner: happylishang
-    repo: MagicCube 
+    repo: blog-comments
     oauth:
         client_id: e7d8b8fcbf14e48d0eb7
         client_secret: a67b4eb02101ffb013363eb033f5e6f8c69d4d18
+
+
+# # https://github.com/gitalk/gitalk#install
+# gitalk:
+    
+#     owner: happylishang
+#     repo: MagicCube 
+#     oauth:
+#         client_id: e7d8b8fcbf14e48d0eb7
+#         client_secret: a67b4eb02101ffb013363eb033f5e6f8c69d4d18
 
 
 
