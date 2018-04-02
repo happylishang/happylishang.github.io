@@ -492,7 +492,7 @@ targetSdkVersion>=23系统已经提供了比较合理的检测手段，Permision
 
 # 对于6.0以下的手机权限如何检测
 
-对于Android6.0以下的手机，不需要关心targetVersion。先说个自己验证的结果：**基本没法检测，同时也不需要检测**，就算检测出来也没有多大意义，因为，触发时机是在真正的调用服务时候。对于4.3到6.0之前的国产ROM，虽然采用AppopsManagerService，但是并未按照Google的模型对所有权限进行适配，在这个模型下，也就适配了两个权限，
+对于Android6.0以下的手机，不需要关心targetVersion。先说个自己验证的结果：**基本没法检测，同时也不需要检测**，就算检测出来也没有多大意义，因为，触发时机是在真正的调用服务时候。对于4.3到6.0之前的国产ROM，虽然采用AppopsManagerService，但是并未按照Google的模型对所有权限进行适配，在这个模型下，也就适配了两个权限，(悬浮窗还不一定有)
 
 * 通知权限            public static final int OP_POST_NOTIFICATION = 11;
 * 悬浮窗权限          public static final int OP_SYSTEM_ALERT_WINDOW = 24; 
