@@ -3,15 +3,15 @@ layout: post
 title: "Android wifi上网跟4G上网的区别"
 category: android
  
-
 ---
 
-
 手机上网可以用Wifi，也可以用4G，这两者究竟有什么区别，Wifi模块跟4G无限通信模块用的是同一种上网媒介吗，一个4G手机是否两块网卡呢？手机的MAC地址说的是谁的呢，比如，当你通过系统API获取MAC地址的时候，获取的是哪种MAC地址呢？本文由MAC地址（作为设备唯一标识）问题引出，简单分析下两种上网方式的区别，扫盲，高手勿拍砖：
+
 
 * Wifi上网跟4G上网用的是同一块“网卡”吗
 * Wifi上网跟4G上网的“MAC”地址是同一个吗
 * 两者在实现方式上有什么不同呢（TCP/IP协议）
+
 
 首先来看第一个问题，Wifi上网跟4G上网用的是同一块“网卡”吗，答案是否定的，一般而言，Wifi上网用的是以太网卡，拥有48位唯一的MAC地址，而4G上网则通过手机内部的基带模块来实现无线上网的目的。
 
@@ -50,11 +50,10 @@ Wifi上网可以看做是网卡设备上网，仍然遵循IEEE 802，链路层�
 
 本文简单介绍下手机两种上网方式的区别，其实主要是理清MAC地址的概念，整个4G上网跟电话其实涉及到的是Android RIL框架的知识，将来有时间，再分析。
 
-
        
 # 参考文档
 
-[ 在ARM-linux上实现4G模块PPP拨号上网](https://blog.csdn.net/zqixiao_09/article/details/52540887)    
+[在ARM-linux上实现4G模块PPP拨号上网](https://blog.csdn.net/zqixiao_09/article/details/52540887)    
 [PPP和PPPoE的工作原理](https://blog.csdn.net/easebone/article/details/7370369)      
 [链路层：SLIP、PPP、ARP、RARP](https://blog.csdn.net/mr_avin/article/details/54784059)       
 [Linux PPP实现源码分析](https://blog.csdn.net/osnetdev/article/details/8958058)      
