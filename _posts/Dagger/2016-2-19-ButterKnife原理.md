@@ -1,7 +1,7 @@
 ---
 layout: post
 title: ButterKnife入门本
-categories: [android,ButterKnife]
+categories: [Android,ButterKnife]
 
 ---
  

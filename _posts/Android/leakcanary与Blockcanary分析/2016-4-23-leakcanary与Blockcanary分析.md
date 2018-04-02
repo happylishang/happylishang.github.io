@@ -2,7 +2,7 @@
 layout: post
 title: "Leakcanary与Blockcanary分析"
 description: "android"
-categories: [android]
+categories: [Android]
 tags: [android]
 
 ---

@@ -1,7 +1,7 @@
 ---
 layout: post
 title: Android系统bindService异步启动Service原理分析
-categories: [android]
+categories: [Android]
 
 ---
 

@@ -2,7 +2,7 @@
 layout: post
 title: "Android apk动态加载机制"
 description: "Android"
-categories: [android]
+categories: [Android]
 
 ---
 
