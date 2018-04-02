@@ -1,6 +1,6 @@
 # Qemu模拟器概念
 
->QEMU （Quick Emulator） is a generic and open source machine emulator and virtualizer.
+> QEMU （Quick Emulator） is a generic and open source machine emulator and virtualizer.
 
 Bochs 是一款可移植的IA-32仿真器，它利用模拟的技术来仿真目标系统，具体来说，将是将目标系统的指令分解，然后模拟分解后的指令以达到同样的效果。这种方法将每一条目标指令分解成多条主机系统的指令，很明显会大大降低仿真的速度。
 
@@ -144,7 +144,7 @@ exceptions correctly.
 
 # 一个虚拟机是一个进程
 
-#  Hardware Accelerated eXecution Manager跟Genymotion采用相同的技术
+# Hardware Accelerated eXecution Manager跟Genymotion采用相同的技术
 
 it uses the Intel Virtualization Technology (or VT) in the same way Geanymotion uses VirtualBox
  
