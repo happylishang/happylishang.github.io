@@ -1,7 +1,7 @@
 ---
-layout: post
-title: 关于我
-
+layout: page
+title: About
+permalink: /about/
 ---
 
 每个和尚都要为自己挖一口井
@@ -12,4 +12,4 @@ title: 关于我
 
 ### Contact me
 
-[happylishang@163.com](mailto:happylishang@163.com)
+[email@domain.com](mailto:email@domain.com)
