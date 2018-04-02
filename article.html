@@ -236,7 +236,7 @@ a.white, a.white:hover, a.white:visited {
 			<ul class="nostyle category">
 						<li data="All"><a href="?category=">All</a></li>
 				{%comment%}通过liquid获取文件夹作为目录{%endcomment%}
-				{% include total-categories.liquid %}
+<!-- 				{% include total-categories.liquid %} -->
 				{% for item in total-categories %}
 					{% if forloop.index0 == 0 %}
       			<li data="{{ item }}"><a href="?category={{ item }}">{{ item }}</a></li>
@@ -298,7 +298,7 @@ a.white, a.white:hover, a.white:visited {
 <div class="footer"></div>
 
 <!-- duoshuo -->
-<!-- {% include duoshuo.js %} -->
+{% include duoshuo.js %}
 
 <!-- baiduTemplate -->
 <script type="text/javascript" src="{{ site.baiduTemplate_url }}"></script>
