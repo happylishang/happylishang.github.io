@@ -70,7 +70,7 @@ gems:
     - jemoji
 #     - jekyll-mentions
 collections:
-    wiki:
+    wiki: 
         output: true
         permalink: /wiki/:path/
 
@@ -97,9 +97,8 @@ gitalk:
     
     owner: happylishang
     repo: happylishang.github.io
-    client_id: b67b59258543e29edefe
-    client_secret: 1b173bb789635118de4a6751735fda24cef03c92
-
+    clientID: b67b59258543e29edefe
+    clientSecret: 1b173bb789635118de4a6751735fda24cef03c92
 
 
 # 在使用其它评论组件时可点击显示 Disqus
