@@ -97,12 +97,9 @@ gitalk:
     
     owner: happylishang
     repo: happylishang.github.io
-    oauth:
     client_id: e7d8b8fcbf14e48d0eb7
     client_secret: a67b4eb02101ffb013363eb033f5e6f8c69d4d18
 
-    owner:  happylishang
-    admin:  happylishang
 
 
 # 在使用其它评论组件时可点击显示 Disqus
