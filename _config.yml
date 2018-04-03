@@ -74,7 +74,7 @@ collections:
         output: true
         permalink: /wiki/:path/
 
-repository: happylishang/happylishang.github.io
+repository: happylishang.github.io
 
 # ---------------- #
 #      Comments    #
@@ -97,8 +97,8 @@ gitalk:
     
     owner: happylishang
     repo: happylishang.github.io
-    client_id: e7d8b8fcbf14e48d0eb7
-    client_secret: a67b4eb02101ffb013363eb033f5e6f8c69d4d18
+    client_id: b67b59258543e29edefe
+    client_secret: 1b173bb789635118de4a6751735fda24cef03c92
 
 
 
