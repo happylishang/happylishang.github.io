@@ -75,3 +75,7 @@
 ![4431524908618_.pic_hd.jpg](https://upload-images.jianshu.io/upload_images/1460468-a4f8bcf0d6cab538.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 
+
+# 总结
+
+设备指纹识别，无非是借助特征信息标记唯一设备，无论哪种方案应该都是这个思路，各种平台实现打通小异，虽然可以通过各种方式提高作假的成本，但是由于Android本身的开源特性，已经Java 、C的各种特征，无论哪个层次都能被HOOk作假，所以，基本不存在100%的完美方案，就目前我们采取的方案，先比之下，考虑的维度比各种竞品都要完善。
