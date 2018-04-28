@@ -32,3 +32,46 @@
 
 
 300万  3700  2000 IP相同
+
+
+# 数字联盟跟网易易盾的破解
+
+两者基本可以确定，是依赖MAC地址 
+
+>数字联盟
+
+场景：root情况下 篡改MAC地址，通过4G上网获取设备指纹，设备Nexus5
+
+* 未篡改
+
+![4371524908342_.pic_hd.jpg](https://upload-images.jianshu.io/upload_images/1460468-f8c2abb93ffd44d0.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+![4381524908379_.pic.jpg](https://upload-images.jianshu.io/upload_images/1460468-2c801876d65a25e5.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+
+
+* 篡改后
+
+![4361524908296_.pic_hd.jpg](https://upload-images.jianshu.io/upload_images/1460468-e568f43e883da599.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+![4391524908416_.pic.jpg](https://upload-images.jianshu.io/upload_images/1460468-3340d30d6dd803b7.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+
+>网易易盾
+
+场景：root情况下 篡改MAC地址，通过4G上网获取设备指纹，设备Nexus5
+
+* 未篡改
+
+![4371524908342_.pic_hd.jpg](https://upload-images.jianshu.io/upload_images/1460468-f8c2abb93ffd44d0.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+
+![4421524908618_.pic_hd.jpg](https://upload-images.jianshu.io/upload_images/1460468-2038a5643b949dd7.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+* 篡改后
+
+![4361524908296_.pic_hd.jpg](https://upload-images.jianshu.io/upload_images/1460468-e568f43e883da599.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+![4431524908618_.pic_hd.jpg](https://upload-images.jianshu.io/upload_images/1460468-a4f8bcf0d6cab538.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+
