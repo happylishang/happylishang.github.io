@@ -1,3 +1,12 @@
+
+Android可以通过Wifi上网，也可以通过基带，链接蜂窝网络进行上网。
+
+几个问题
+
+* ppp如何建立
+* ppp的语音短信业务跟数据上网是同一种机制吗？或者说语音服务需要ppp吗（应该不需要）
+* ppp如何影响IP地址
+
 # Android手机两种网络Wifi/3G/4G的Mac地址
 
 > 1X/3G/4G interfaces on cellular devices do have a MAC address, but those MACs are dynamically assigned and change on every reboot of the device... this is because MAC addresses only apply to IEEE 802 technologies, of which cellular networks are not.
