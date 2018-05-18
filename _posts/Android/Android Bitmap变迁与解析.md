@@ -1,13 +1,9 @@
 
-App开发不可避免的要通图片打交道，其中比较棘手的一个问题就是其占用内存非常大，如果管理不当，很容易导致OOM，图片的背后其实是Bitmap，它是Android中最能吃内存的对象之一，也是很多OOM的元凶，不过，Bitmap在不同的Android版本中或多或少都存在差异，尤其是在其内存分配上，这给管理带来了一定的麻烦。看Google官方文档的说明：
+App开发不可避免的要和图片打交道，由于其占用内存非常大，管理不当很容易导致内存不足，最后OOM，图片的背后其实是Bitmap，它是Android中最能吃内存的对象之一，也是很多OOM的元凶，不过，在不同的Android版本中，Bitmap或多或少都存在差异，尤其是在其内存分配上，了解其中的不用跟原理能更好的指导图片管。先看Google官方文档的说明：
 
 >On Android 2.3.3 (API level 10) and lower, the backing pixel data for a Bitmap is stored in native memory. It is separate from the Bitmap itself, which is stored in the Dalvik heap. The pixel data in native memory is not released in a predictable manner, potentially causing an application to briefly exceed its memory limits and crash. From Android 3.0 (API level 11) through Android 7.1 (API level 25), the pixel data is stored on the Dalvik heap along with the associated Bitmap. In Android 8.0 (API level 26), and higher, the Bitmap pixel data is stored in the native heap.
 
-大意就是：
-
-* 2.3之前的像素存储需要的内存是在native上分配的，并且生命周期不被Bitmap控制，需要用户自己回收。
-* 2.3-7.1，是在Java堆上分配，当然，4.4之前的甚至能在匿名共享内存上分配，还是挺混乱的，
-* 8.0之后的像素内存又重新回到native上去分配，**不过不需要用户主动回收**。
+大意就是： 2.3之前的像素存储需要的内存是在native上分配的，并且生命周期不被Bitmap控制，需要用户自己回收。  2.3-7.1之间，Bitmap的像素存储在Dalvik的Java堆上，当然，4.4之前的甚至能在匿名共享内存上分配（Fresco采用），而8.0之后的像素内存又重新回到native上去分配，**不过不需要用户主动回收**，8.0之后图像资源的管理更加优秀，极大降低了OOM。
 
 ![21526521448_.pic.jpg](https://upload-images.jianshu.io/upload_images/1460468-6650ea0137bff13a.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
