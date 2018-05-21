@@ -1,22 +1,4 @@
 
-App开发不可避免的要和图片打交道，由于其占用内存非常大，管理不当很容易导致内存不足，最后OOM，图片的背后其实是Bitmap，它是Android中最能吃内存的对象之一，也是很多OOM的元凶，不过，在不同的Android版本中，Bitmap或多或少都存在差异，尤其是在其内存分配上，了解其中的不用跟原理能更好的指导图片管。先看Google官方文档的说明：
-
->On Android 2.3.3 (API level 10) and lower, the backing pixel data for a Bitmap is stored in native memory. It is separate from the Bitmap itself, which is stored in the Dalvik heap. The pixel data in native memory is not released in a predictable manner, potentially causing an application to briefly exceed its memory limits and crash. From Android 3.0 (API level 11) through Android 7.1 (API level 25), the pixel data is stored on the Dalvik heap along with the associated Bitmap. In Android 8.0 (API level 26), and higher, the Bitmap pixel data is stored in the native heap.
-
-大意就是： 2.3之前的像素存储需要的内存是在native上分配的，并且生命周期不被Bitmap控制，需要用户自己回收。  2.3-7.1之间，Bitmap的像素存储在Dalvik的Java堆上，当然，4.4之前的甚至能在匿名共享内存上分配（Fresco采用），而8.0之后的像素内存又重新回到native上去分配，**不过不需要用户主动回收**，8.0之后图像资源的管理更加优秀，极大降低了OOM。
-
-![21526521448_.pic.jpg](https://upload-images.jianshu.io/upload_images/1460468-6650ea0137bff13a.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-![51526524893_.pic.jpg](https://upload-images.jianshu.io/upload_images/1460468-d74219d2777e1f3c.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-![61526525051_.pic.jpg](https://upload-images.jianshu.io/upload_images/1460468-6a3fe361dab421b4.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-# 2.3.3 及以前的主动recycle（不需要考虑，过期技术等于垃圾）
-
-Manage Memory on Android 2.3.3 and Lower
-On Android 2.3.3 (API level 10) and lower, using recycle() is recommended. If you're displaying large amounts of Bitmap data in your app, you're likely to run into OutOfMemoryError errors. The recycle() method allows an app to reclaim memory as soon as possible.
-
-Caution: You should use recycle() only when you are sure that the Bitmap is no longer being used. If you call recycle() and later attempt to draw the Bitmap, you will get the error: "Canvas: trying to use a recycled Bitmap".
 
 
 * Java跟native内存的问题（如何统计）
@@ -25,8 +7,54 @@ Caution: You should use recycle() only when you are sure that the Bitmap is no l
 * 大小问题
 * Bitmap概念
 
+App开发不可避免的要和图片打交道，由于其占用内存非常大，管理不当很容易导致内存不足，最后OOM，图片的背后其实是Bitmap，它是Android中最能吃内存的对象之一，也是很多OOM的元凶，不过，在不同的Android版本中，Bitmap或多或少都存在差异，尤其是在其内存分配上，了解其中的不用跟原理能更好的指导图片管。先看Google官方文档的说明：
 
-# Android6.0 Nexus5 native内存的增加并不会导致OOM对于8.0也是如此
+>On Android 2.3.3 (API level 10) and lower, the backing pixel data for a Bitmap is stored in native memory. It is separate from the Bitmap itself, which is stored in the Dalvik heap. The pixel data in native memory is not released in a predictable manner, potentially causing an application to briefly exceed its memory limits and crash. From Android 3.0 (API level 11) through Android 7.1 (API level 25), the pixel data is stored on the Dalvik heap along with the associated Bitmap. In Android 8.0 (API level 26), and higher, the Bitmap pixel data is stored in the native heap.
+
+大意就是： 2.3之前的像素存储需要的内存是在native上分配的，并且生命周期不被Bitmap控制，需要用户自己回收。  2.3-7.1之间，Bitmap的像素存储在Dalvik的Java堆上，当然，4.4之前的甚至能在匿名共享内存上分配（Fresco采用），而8.0之后的像素内存又重新回到native上去分配，**不过不需要用户主动回收**，8.0之后图像资源的管理更加优秀，极大降低了OOM。Android 2.3.3已经属于过期技术，不再分析，本文主要看4.x之后的手机系统。
+
+# Android6.0与Android8.0内存增长曲线直观对比
+
+写一段代码，模拟器Bitmap无限增长，最终导致OOM或者直接Crash退出，之后再看下不同版本Android的表现及原理：
+   
+	   Map<String, Bitmap> map = new HashMap<>();
+	   Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.mipmap.green);
+	   map.put("" + System.currentTimeMillis(), bitmap);
+ 
+先看一下Android6.0图片Bitmap（其实是里面的byte数组）无限增长曲线：（设备Nexus5 系统Android6.0）
+
+![1526644329066.jpg](https://upload-images.jianshu.io/upload_images/1460468-dc8a60c3f9724595.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+可见绝大数内存都是Bitmap，而且位于虚拟机中，崩溃的时候
+
+ ![1526641659822.jpg](https://upload-images.jianshu.io/upload_images/1460468-c396929c4b54f134.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+Dalvik会抛出OOM异常：
+ 
+![1526641743077.jpg](https://upload-images.jianshu.io/upload_images/1460468-d215949b81b47944.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+可见内存分配基本都在Java层，然后，再看一下Android8.0的Bitmap分配及内存增长曲线：
+
+   
+![61526525051_.pic.jpg](https://upload-images.jianshu.io/upload_images/1460468-6a3fe361dab421b4.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+可见内存的增加都在native层，看一下崩溃的时机：
+
+![51526524893_.pic.jpg](https://upload-images.jianshu.io/upload_images/1460468-d74219d2777e1f3c.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+看一下崩溃的时机：
+
+![Android8.0崩溃时机](https://upload-images.jianshu.io/upload_images/1460468-18bb62d3db5923f9.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+崩溃时候的Log
+
+![1526641932348.jpg](https://upload-images.jianshu.io/upload_images/1460468-ce3c5a83fe03a259.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+可见这个时候崩溃并不为Java虚拟机控制，直接进程死掉，不会又弹框提示，从上面两个的表现可以简单推断，Android8.0之后，Bitmap的内存是在native的heap上分配的，而native上分配的内存，跟OOM也没有什么关系，这一点可以手动验证：自己再native用malloc分配内存，并且，不释放，一段时间后，内存不足，App同样会退出，这个表现就会跟Android8.0之后，无限申请Bitmap类似。
+
+
+# 8.0 Oreo 之前的Bitmap内存分配原理
+
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-eb01a52b1bd07659.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
@@ -35,15 +63,7 @@ Caution: You should use recycle() only when you are sure that the Bitmap is no l
 ![屏幕快照 2018-05-17 下午7.44.53.png](https://upload-images.jianshu.io/upload_images/1460468-c6fa214a21590ace.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 
-# 4.4之前的Bitmap
-
-匿名贡献内存，native，并且不占用本地内存
-
-# 8.0之前Java内存
-
-# 8.0之后native内存管理
-
-#  Java跟native内存的问题
+# 8.0之后的Bitmap内存分配原理
 
 1
 
