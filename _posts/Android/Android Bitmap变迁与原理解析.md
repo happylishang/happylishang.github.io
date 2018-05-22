@@ -1,60 +1,104 @@
 
 
 
-* Java跟native内存的问题（如何统计）
-* 占内存问题（Java Native）
-* 分配问题
-* 大小问题
-* Bitmap概念
-
 App开发不可避免的要和图片打交道，由于其占用内存非常大，管理不当很容易导致内存不足，最后OOM，图片的背后其实是Bitmap，它是Android中最能吃内存的对象之一，也是很多OOM的元凶，不过，在不同的Android版本中，Bitmap或多或少都存在差异，尤其是在其内存分配上，了解其中的不用跟原理能更好的指导图片管。先看Google官方文档的说明：
 
 >On Android 2.3.3 (API level 10) and lower, the backing pixel data for a Bitmap is stored in native memory. It is separate from the Bitmap itself, which is stored in the Dalvik heap. The pixel data in native memory is not released in a predictable manner, potentially causing an application to briefly exceed its memory limits and crash. From Android 3.0 (API level 11) through Android 7.1 (API level 25), the pixel data is stored on the Dalvik heap along with the associated Bitmap. In Android 8.0 (API level 26), and higher, the Bitmap pixel data is stored in the native heap.
 
-大意就是： 2.3之前的像素存储需要的内存是在native上分配的，并且生命周期不被Bitmap控制，需要用户自己回收。  2.3-7.1之间，Bitmap的像素存储在Dalvik的Java堆上，当然，4.4之前的甚至能在匿名共享内存上分配（Fresco采用），而8.0之后的像素内存又重新回到native上去分配，**不过不需要用户主动回收**，8.0之后图像资源的管理更加优秀，极大降低了OOM。Android 2.3.3已经属于过期技术，不再分析，本文主要看4.x之后的手机系统。
+大意就是： 2.3之前的像素存储需要的内存是在native上分配的，并且生命周期不被Bitmap控制，需要用户自己回收。  2.3-7.1之间，Bitmap的像素存储在Dalvik的Java堆上，当然，4.4之前的甚至能在匿名共享内存上分配（Fresco采用），而8.0之后的像素内存又重新回到native上去分配，**不需要用户主动回收**，8.0之后图像资源的管理更加优秀，极大降低了OOM。Android 2.3.3已经属于过期技术，不再分析，本文主要看4.x之后的手机系统。
 
-# Android6.0与Android8.0内存增长曲线直观对比
 
-写一段代码，模拟器Bitmap无限增长，最终导致OOM或者直接Crash退出，之后再看下不同版本Android的表现及原理：
+# Android 8.0前后Bitmap内存增长曲线直观对比
+
+Bitmap内存分配一个很大的分水岭是在Android 8.0，可以用一段代码来模拟器Bitmap无限增长，最终OOM，或者Crash退出。通过在不同版本上的表现，期待对Bitmap内存分配有一个直观的了解，示例代码如下：
    
-	   Map<String, Bitmap> map = new HashMap<>();
-	   Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.mipmap.green);
-	   map.put("" + System.currentTimeMillis(), bitmap);
- 
-先看一下Android6.0图片Bitmap（其实是里面的byte数组）无限增长曲线：（设备Nexus5 系统Android6.0）
+	   @onClick(R.id.increase)
+	  	   void increase{
+	  		 Map<String, Bitmap> map = new HashMap<>();
+  			 for(int i=0 ; i<10;i++){
+			   Bitmap bitmap = BitmapFactory.decodeResource(getResources(), 						R.mipmap.green);
+  			    map.put("" + System.currentTimeMillis(), bitmap);
+   				}
+		    }
+
+
+##  Nexus5 Android 6.0的表现
+
+
+不断的解析图片，并持有Bitmap引用，会导致内存不断上升，通过Android Profiler工具简单看一下上图内存分配状况，在某一个点内存分配情况如下：
 
 ![1526644329066.jpg](https://upload-images.jianshu.io/upload_images/1460468-dc8a60c3f9724595.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-可见绝大数内存都是Bitmap，而且位于虚拟机中，崩溃的时候
+简单总结下内存占比
+
+内存        | 大小         |  
+--------------------|:------------------:| 
+Total | 211M   |  
+Java内存 | 157.2M  |  
+native内存 | 3.7M  |
+Bitmap内存 | 145.9M（152663617 byte） |
+Graphics内存(一般是Fb对应的，App不需要考虑) | 45.1M（152663617 byte） |
+
+从上表可以看到绝大数内存都是由Bitmap，并且位于虚拟机的heap中，其实是因为在6.0中，bitmap的像素数据都是以byte的数组的形式存在java 虚拟机的heap中。内存无限增大，知道OOM崩溃的时候，内存状况入下
 
  ![1526641659822.jpg](https://upload-images.jianshu.io/upload_images/1460468-c396929c4b54f134.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-Dalvik会抛出OOM异常：
+内存        | 大小         |  
+--------------------|:------------------:| 
+Total | 546.2M   |  
+Java内存 | 496.8M  |  
+native内存 | 3.3M  |
+Graphics内存(一般是Fb对应的，App不需要考虑) | 45.1M |
+
+可见，增长的一直是Java堆中的内存，也就是Bitmap在Dalvik栈中分配的内存，等到Dalvik达到虚拟机内存上限的时候，在Dalvik会抛出OOM异常：
  
 ![1526641743077.jpg](https://upload-images.jianshu.io/upload_images/1460468-d215949b81b47944.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-可见内存分配基本都在Java层，然后，再看一下Android8.0的Bitmap分配及内存增长曲线：
+可见，对于Android6.0，Bitmap的内存分配基本都在Java层。然后，再看一下Android 8.0的Bitmap分配。
 
-   
+##  Nexus6p Android 8.0 的表现
+
+>In Android 8.0 (API level 26), and higher, the Bitmap pixel data is stored in the native heap.
+
+从官方文档中我们知道，Android8.0之后最大的改进就是Bitmap内存分配的位置：从Java堆转移到了native堆栈，直观分配图如下
+ 
 ![61526525051_.pic.jpg](https://upload-images.jianshu.io/upload_images/1460468-6a3fe361dab421b4.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-可见内存的增加都在native层，看一下崩溃的时机：
+内存        | 大小         |  
+--------------------|:------------------:| 
+Total | 1.2G   |  
+Java内存 | 0G  |  
+native内存 | 1.1G |
+Graphics内存(一般是Fb对应的，App不需要考虑) | 0.1G |
+
+很明显，Bitmap内存的增加基本都在native层，随着Bitmap内存占用的无限增长，App最终无法从系统分配到内存，最后会导致崩溃，看一下崩溃的时候内存占用：
 
 ![51526524893_.pic.jpg](https://upload-images.jianshu.io/upload_images/1460468-d74219d2777e1f3c.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-看一下崩溃的时机：
+内存        | 大小         |  
+--------------------|:------------------:| 
+Total | 1.9G   |  
+Java内存 | 0G  |  
+native内存 | 1.9G |
+Graphics内存(一般是Fb对应的，App不需要考虑) | 0.1G |
 
-![Android8.0崩溃时机](https://upload-images.jianshu.io/upload_images/1460468-18bb62d3db5923f9.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+可见一个APP内存的占用惊人的达到了1.9G，并且几乎全是native内存，这个其实就是Google在8.0做的最大的一个优化，我们知道Java虚拟机一般是有一个上限，但是由于Android同时能运行多个APP，这个上限一般不会太高，拿nexus6p而言，一般是如下配置
 
-崩溃时候的Log
+	dalvik.vm.heapstartsize=8m
+	dalvik.vm.heapgrowthlimit=192m
+	dalvik.vm.heapsize=512m
+	dalvik.vm.heaptargetutilization=0.75
+	dalvik.vm.heapminfree=512k
+	dalvik.vm.heapmaxfree=8m
+
+如果没有在AndroidManifest中启用largeheap，那么Java 堆内存达到192M的时候就会崩溃，对于现在动辄4G的手机而言，存在严重的资源浪费，ios的一个APP几乎能用近所有的可用内存（除去系统开支），8.0之后，Android也向这个方向靠拢，最好的下手对象就是Bitmap，因为它是耗内存大户。到图片内存被转移到native之后，一个APP的图片处理不仅能使用系统
+绝大多数内存，还能降低Java层内存使用，减少OOM风险。不过，内存无限增长的情况下，也会导致APP崩溃，但是这种崩溃已经不是OOM崩溃了，Java虚拟机也不会捕获，按道理说，应该属于linux的OOM了。从崩溃时候的Log就能看得出与Android6.0的区别：
 
 ![1526641932348.jpg](https://upload-images.jianshu.io/upload_images/1460468-ce3c5a83fe03a259.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-可见这个时候崩溃并不为Java虚拟机控制，直接进程死掉，不会又弹框提示，从上面两个的表现可以简单推断，Android8.0之后，Bitmap的内存是在native的heap上分配的，而native上分配的内存，跟OOM也没有什么关系，这一点可以手动验证：自己再native用malloc分配内存，并且，不释放，一段时间后，内存不足，App同样会退出，这个表现就会跟Android8.0之后，无限申请Bitmap类似。
+可见，这个时候崩溃并不为Java虚拟机控制，直接进程死掉，不会有Crash弹框。其实如果在Android6.0的手机上，在native分配内存，也会达到相同的效果，也就是说**native的内存不影响java虚拟机的**OOM。
 
-
-# 8.0 Oreo 之前的Bitmap内存分配原理
-
+## Android 6.0模拟native内存OOM
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-eb01a52b1bd07659.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
@@ -313,6 +357,61 @@ Dalvik会抛出OOM异常：
     
   NativeAllocationRegistry保证了native内存在gc的时候自动释放，好牛逼
   
+  
+## Android 4.4之前其实Bitmap也可以做到在native分配内存
+
+其实在Android5.0之前，Bitmap也是可以在native分配内存的，一个典型的例子就是Fresco，Fresco为了提高5.0之前图片处理的性能很有效的利用了这个特性，不过由于不太成熟，在5.0之后废弃，直到8.0重新拾起来，与这个特性有关的两个属性是BitmapFactory.Options中的inPurgeable与inInputShareable，具体的不在分析，过期技术，等于垃圾，有兴趣，可以自行分析。
+	  
+	 		 /**
+	         * @deprecated As of {@link android.os.Build.VERSION_CODES#LOLLIPOP}, this is
+	         * ignored.
+	         *
+	         * In {@link android.os.Build.VERSION_CODES#KITKAT} and below, if this
+	         * is set to true, then the resulting bitmap will allocate its
+	         * pixels such that they can be purged if the system needs to reclaim
+	         * memory. In that instance, when the pixels need to be accessed again
+	         * (e.g. the bitmap is drawn, getPixels() is called), they will be
+	         * automatically re-decoded.
+	         *
+	         * <p>For the re-decode to happen, the bitmap must have access to the
+	         * encoded data, either by sharing a reference to the input
+	         * or by making a copy of it. This distinction is controlled by
+	         * inInputShareable. If this is true, then the bitmap may keep a shallow
+	         * reference to the input. If this is false, then the bitmap will
+	         * explicitly make a copy of the input data, and keep that. Even if
+	         * sharing is allowed, the implementation may still decide to make a
+	         * deep copy of the input data.</p >
+	         *
+	         * <p>While inPurgeable can help avoid big Dalvik heap allocations (from
+	         * API level 11 onward), it sacrifices performance predictability since any
+	         * image that the view system tries to draw may incur a decode delay which
+	         * can lead to dropped frames. Therefore, most apps should avoid using
+	         * inPurgeable to allow for a fast and fluid UI. To minimize Dalvik heap
+	         * allocations use the {@link #inBitmap} flag instead.</p >
+	         *
+	         * <p class="note"><strong>Note:</strong> This flag is ignored when used
+	         * with {@link #decodeResource(Resources, int,
+	         * android.graphics.BitmapFactory.Options)} or {@link #decodeFile(String,
+	         * android.graphics.BitmapFactory.Options)}.</p >
+	         */
+	        @Deprecated
+	        public boolean inPurgeable;
+	
+	        /**
+	         * @deprecated As of {@link android.os.Build.VERSION_CODES#LOLLIPOP}, this is
+	         * ignored.
+	         *
+	         * In {@link android.os.Build.VERSION_CODES#KITKAT} and below, this
+	         * field works in conjuction with inPurgeable. If inPurgeable is false,
+	         * then this field is ignored. If inPurgeable is true, then this field
+	         * determines whether the bitmap can share a reference to the input
+	         * data (inputstream, array, etc.) or if it must make a deep copy.
+	         */
+	        @Deprecated
+	        public boolean inInputShareable;
+        
+        
+# 总结
     
 # 参考文档
  
@@ -320,4 +419,5 @@ Dalvik会抛出OOM异常：
 [使用 Memory Profiler 查看 Java 堆和内存分配](https://developer.android.com/studio/profile/memory-profiler?hl=zh-CN)          
 [
 Android 内存详细分析](https://blog.csdn.net/hnulwt/article/details/44900811)         
-[Managing Bitmap Memory](https://developer.android.com/topic/performance/graphics/manage-memory)
+[Managing Bitmap Memory](https://developer.android.com/topic/performance/graphics/manage-memory)     
+[谈谈fresco的bitmap内存分配](https://blog.csdn.net/chiefhsing/article/details/53899242)       
