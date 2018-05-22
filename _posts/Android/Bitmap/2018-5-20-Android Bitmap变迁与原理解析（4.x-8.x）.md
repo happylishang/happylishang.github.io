@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Android Bitmap变迁与原理解析（4.x-8.x）"
-categories: [Android]
+category: Android
 
 ---
 
