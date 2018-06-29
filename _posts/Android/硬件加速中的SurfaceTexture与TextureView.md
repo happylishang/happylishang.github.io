@@ -395,7 +395,7 @@ SurfaceTexture的数据，怎么直接传递给给了App的buffer呢,
 
 视频播放应该是数据直接填充到SurfaceView的那块内存
 
-# Surface的内存分配与数据流
+# Surface的内存分配与数据流 还是只看6.0
 
 Surface都是归SF管理，所有的分配最后都会走到SF，一个Surface有一个BufferQueue，一个Queue有多个slot，    
 
@@ -403,14 +403,339 @@ Surface都是归SF管理，所有的分配最后都会走到SF，一个Surface�
 
 producer跟consumer都会映射这个slots，一个surface有一块内存，这块内存有很多歌slot 32 或者64 
 
+    
+不过SurfaceView传说的前后双缓冲是怎么回事？    不同的版本不同，看6.0跟8.0差别很大，只看6.0
+
+>surface.cpp中的slots
+
+    // mSlots stores the buffers that have been allocated for each buffer slot.
+    // It is initialized to null pointers, and gets filled in with the result of
+    // IGraphicBufferProducer::requestBuffer when the client dequeues a buffer from a
+    // slot that has not yet been used. The buffer allocated to a slot will also
+    // be replaced if the requested buffer usage or geometry differs from that
+    // of the buffer allocated to a slot.
+    
+    BufferSlot mSlots[NUM_BUFFER_SLOTS];
+
+>BufferQueueCore.cpp中的slots
+
     // mSlots is an array of buffer slots that must be mirrored on the producer
     // side. This allows buffer ownership to be transferred between the producer
     // and consumer without sending a GraphicBuffer over Binder. The entire
     // array is initialized to NULL at construction time, and buffers are
     // allocated for a slot when requestBuffer is called with that slot's index.
+
     BufferQueueDefs::SlotsType mSlots;
     
-不过SurfaceView传说的前后双缓冲是怎么回事？    
+        namespace BufferQueueDefs {
+        // BufferQueue will keep track of at most this value of buffers.
+        // Attempts at runtime to increase the number of buffers past this
+        // will fail.
+        enum { NUM_BUFFER_SLOTS = 64 };
+        typedef BufferSlot SlotsType[NUM_BUFFER_SLOTS];
+    } // namespace BufferQueueDefs
+    
+    
+![31530101142_.pic.jpg](https://upload-images.jianshu.io/upload_images/1460468-617b3362ee32a84a.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+一个Surface对应内存块最多64块内存，如何管理，如何申请一个slot
+
+
+	
+	status_t BufferQueueProducer::dequeueBuffer(int *outSlot,
+	        sp<android::Fence> *outFence, bool async,
+	        uint32_t width, uint32_t height, PixelFormat format, uint32_t usage) {
+ 
+	    
+	    status_t returnFlags = NO_ERROR;
+	    EGLDisplay eglDisplay = EGL_NO_DISPLAY;
+	    EGLSyncKHR eglFence = EGL_NO_SYNC_KHR;
+	    bool attachedByConsumer = false;
+	
+	    { 
+	    
+	    	// 保护
+	        Mutex::Autolock lock(mCore->mMutex);
+	        mCore->waitWhileAllocatingLocked();
+		        if (format == 0) {
+	            format = mCore->mDefaultBufferFormat;
+	        }
+	        // Enable the usage bits the consumer requested
+	        usage |= mCore->mConsumerUsageBits;
+	        
+			<!--是否需要使用默认尺寸-->
+	        const bool useDefaultSize = !width && !height;
+	        if (useDefaultSize) {
+	            width = mCore->mDefaultWidth;
+	            height = mCore->mDefaultHeight;
+	        }
+			<!--找SLOT-->
+	        int found = BufferItem::INVALID_BUFFER_SLOT;
+	        while (found == BufferItem::INVALID_BUFFER_SLOT) {
+	            status_t status = waitForFreeSlotThenRelock("dequeueBuffer", async,
+	                    &found, &returnFlags);
+	            if (status != NO_ERROR) {
+	                return status;
+	            }
+	
+	            // This should not happen
+	            if (found == BufferQueueCore::INVALID_BUFFER_SLOT) {
+	                BQ_LOGE("dequeueBuffer: no available buffer slots");
+	                return -EBUSY;
+	            }
+	
+	            const sp<GraphicBuffer>& buffer(mSlots[found].mGraphicBuffer);
+	
+	            // If we are not allowed to allocate new buffers,
+	            // waitForFreeSlotThenRelock must have returned a slot containing a
+	            // buffer. If this buffer would require reallocation to meet the
+	            // requested attributes, we free it and attempt to get another one.
+	            if (!mCore->mAllowAllocation) {
+	                if (buffer->needsReallocation(width, height, format, usage)) {
+	                    mCore->freeBufferLocked(found);
+	                    found = BufferItem::INVALID_BUFFER_SLOT;
+	                    continue;
+	                }
+	            }
+	        }
+	
+	        *outSlot = found;
+	        ATRACE_BUFFER_INDEX(found);
+	
+	        attachedByConsumer = mSlots[found].mAttachedByConsumer;
+	
+	        mSlots[found].mBufferState = BufferSlot::DEQUEUED;
+	
+	        const sp<GraphicBuffer>& buffer(mSlots[found].mGraphicBuffer);
+	        if ((buffer == NULL) ||
+	                buffer->needsReallocation(width, height, format, usage))
+	        {
+	            mSlots[found].mAcquireCalled = false;
+	            mSlots[found].mGraphicBuffer = NULL;
+	            mSlots[found].mRequestBufferCalled = false;
+	            mSlots[found].mEglDisplay = EGL_NO_DISPLAY;
+	            mSlots[found].mEglFence = EGL_NO_SYNC_KHR;
+	            mSlots[found].mFence = Fence::NO_FENCE;
+	            mCore->mBufferAge = 0;
+	
+	            returnFlags |= BUFFER_NEEDS_REALLOCATION;
+	        } else {
+	            // We add 1 because that will be the frame number when this buffer
+	            // is queued
+	            mCore->mBufferAge =
+	                    mCore->mFrameCounter + 1 - mSlots[found].mFrameNumber;
+	        }
+	
+	        BQ_LOGV("dequeueBuffer: setting buffer age to %" PRIu64,
+	                mCore->mBufferAge);
+	
+	        if (CC_UNLIKELY(mSlots[found].mFence == NULL)) {
+	            BQ_LOGE("dequeueBuffer: about to return a NULL fence - "
+	                    "slot=%d w=%d h=%d format=%u",
+	                    found, buffer->width, buffer->height, buffer->format);
+	        }
+	
+	        eglDisplay = mSlots[found].mEglDisplay;
+	        eglFence = mSlots[found].mEglFence;
+	        *outFence = mSlots[found].mFence;
+	        mSlots[found].mEglFence = EGL_NO_SYNC_KHR;
+	        mSlots[found].mFence = Fence::NO_FENCE;
+	
+	        mCore->validateConsistencyLocked();
+	    } // Autolock scope
+	
+	    if (returnFlags & BUFFER_NEEDS_REALLOCATION) {
+	        status_t error;
+	        BQ_LOGV("dequeueBuffer: allocating a new buffer for slot %d", *outSlot);
+	        sp<GraphicBuffer> graphicBuffer(mCore->mAllocator->createGraphicBuffer(
+	                width, height, format, usage, &error));
+	        if (graphicBuffer == NULL) {
+	            BQ_LOGE("dequeueBuffer: createGraphicBuffer failed");
+	            return error;
+	        }
+	
+	        { // Autolock scope
+	            Mutex::Autolock lock(mCore->mMutex);
+	
+	            if (mCore->mIsAbandoned) {
+	                BQ_LOGE("dequeueBuffer: BufferQueue has been abandoned");
+	                return NO_INIT;
+	            }
+	
+	            graphicBuffer->setGenerationNumber(mCore->mGenerationNumber);
+	            mSlots[*outSlot].mGraphicBuffer = graphicBuffer;
+	        } // Autolock scope
+	    }
+	
+	    if (attachedByConsumer) {
+	        returnFlags |= BUFFER_NEEDS_REALLOCATION;
+	    }
+	
+	    if (eglFence != EGL_NO_SYNC_KHR) {
+	        EGLint result = eglClientWaitSyncKHR(eglDisplay, eglFence, 0,
+	                1000000000);
+	        // If something goes wrong, log the error, but return the buffer without
+	        // synchronizing access to it. It's too late at this point to abort the
+	        // dequeue operation.
+	        if (result == EGL_FALSE) {
+	            BQ_LOGE("dequeueBuffer: error %#x waiting for fence",
+	                    eglGetError());
+	        } else if (result == EGL_TIMEOUT_EXPIRED_KHR) {
+	            BQ_LOGE("dequeueBuffer: timeout waiting for fence");
+	        }
+	        eglDestroySyncKHR(eglDisplay, eglFence);
+	    }
+	
+	    BQ_LOGV("dequeueBuffer: returning slot=%d/%" PRIu64 " buf=%p flags=%#x",
+	            *outSlot,
+	            mSlots[*outSlot].mFrameNumber,
+	            mSlots[*outSlot].mGraphicBuffer->handle, returnFlags);
+	
+	    return returnFlags;
+	}
 
 
 
+	
+	status_t BufferQueueProducer::waitForFreeSlotThenRelock(const char* caller,
+	        bool async, int* found, status_t* returnFlags) const {
+	    bool tryAgain = true;
+	    while (tryAgain) {
+	        if (mCore->mIsAbandoned) {
+	            BQ_LOGE("%s: BufferQueue has been abandoned", caller);
+	            return NO_INIT;
+	        }
+	
+	        const int maxBufferCount = mCore->getMaxBufferCountLocked(async);
+	        if (async && mCore->mOverrideMaxBufferCount) {
+	            // FIXME: Some drivers are manually setting the buffer count
+	            // (which they shouldn't), so we do this extra test here to
+	            // handle that case. This is TEMPORARY until we get this fixed.
+	            if (mCore->mOverrideMaxBufferCount < maxBufferCount) {
+	                BQ_LOGE("%s: async mode is invalid with buffer count override",
+	                        caller);
+	                return BAD_VALUE;
+	            }
+	        }
+	
+	        // Free up any buffers that are in slots beyond the max buffer count
+	        for (int s = maxBufferCount; s < BufferQueueDefs::NUM_BUFFER_SLOTS; ++s) {
+	            assert(mSlots[s].mBufferState == BufferSlot::FREE);
+	            if (mSlots[s].mGraphicBuffer != NULL) {
+	                mCore->freeBufferLocked(s);
+	                *returnFlags |= RELEASE_ALL_BUFFERS;
+	            }
+	        }
+	
+	        int dequeuedCount = 0;
+	        int acquiredCount = 0;
+	        for (int s = 0; s < maxBufferCount; ++s) {
+	            switch (mSlots[s].mBufferState) {
+	                case BufferSlot::DEQUEUED:
+	                    ++dequeuedCount;
+	                    break;
+	                case BufferSlot::ACQUIRED:
+	                    ++acquiredCount;
+	                    break;
+	                default:
+	                    break;
+	            }
+	        }
+	
+	        // Producers are not allowed to dequeue more than one buffer if they
+	        // did not set a buffer count
+	        if (!mCore->mOverrideMaxBufferCount && dequeuedCount) {
+	            BQ_LOGE("%s: can't dequeue multiple buffers without setting the "
+	                    "buffer count", caller);
+	            return INVALID_OPERATION;
+	        }
+	
+	        // See whether a buffer has been queued since the last
+	        // setBufferCount so we know whether to perform the min undequeued
+	        // buffers check below
+	        if (mCore->mBufferHasBeenQueued) {
+	            // Make sure the producer is not trying to dequeue more buffers
+	            // than allowed
+	            const int newUndequeuedCount =
+	                maxBufferCount - (dequeuedCount + 1);
+	            const int minUndequeuedCount =
+	                mCore->getMinUndequeuedBufferCountLocked(async);
+	            if (newUndequeuedCount < minUndequeuedCount) {
+	                BQ_LOGE("%s: min undequeued buffer count (%d) exceeded "
+	                        "(dequeued=%d undequeued=%d)",
+	                        caller, minUndequeuedCount,
+	                        dequeuedCount, newUndequeuedCount);
+	                return INVALID_OPERATION;
+	            }
+	        }
+	
+	        *found = BufferQueueCore::INVALID_BUFFER_SLOT;
+	
+	        // If we disconnect and reconnect quickly, we can be in a state where
+	        // our slots are empty but we have many buffers in the queue. This can
+	        // cause us to run out of memory if we outrun the consumer. Wait here if
+	        // it looks like we have too many buffers queued up.
+	        bool tooManyBuffers = mCore->mQueue.size()
+	                            > static_cast<size_t>(maxBufferCount);
+	        if (tooManyBuffers) {
+	            BQ_LOGV("%s: queue size is %zu, waiting", caller,
+	                    mCore->mQueue.size());
+	        } else {
+	            if (!mCore->mFreeBuffers.empty()) {
+	                auto slot = mCore->mFreeBuffers.begin();
+	                *found = *slot;
+	                mCore->mFreeBuffers.erase(slot);
+	            } else if (mCore->mAllowAllocation && !mCore->mFreeSlots.empty()) {
+	                auto slot = mCore->mFreeSlots.begin();
+	                // Only return free slots up to the max buffer count
+	                if (*slot < maxBufferCount) {
+	                    *found = *slot;
+	                    mCore->mFreeSlots.erase(slot);
+	                }
+	            }
+	        }
+	
+	        // If no buffer is found, or if the queue has too many buffers
+	        // outstanding, wait for a buffer to be acquired or released, or for the
+	        // max buffer count to change.
+	        tryAgain = (*found == BufferQueueCore::INVALID_BUFFER_SLOT) ||
+	                   tooManyBuffers;
+	        if (tryAgain) {
+	            // Return an error if we're in non-blocking mode (producer and
+	            // consumer are controlled by the application).
+	            // However, the consumer is allowed to briefly acquire an extra
+	            // buffer (which could cause us to have to wait here), which is
+	            // okay, since it is only used to implement an atomic acquire +
+	            // release (e.g., in GLConsumer::updateTexImage())
+	            if (mCore->mDequeueBufferCannotBlock &&
+	                    (acquiredCount <= mCore->mMaxAcquiredBufferCount)) {
+	                return WOULD_BLOCK;
+	            }
+	            mCore->mDequeueCondition.wait(mCore->mMutex);
+	        }
+	    } // while (tryAgain)
+	
+	    return NO_ERROR;
+	}
+
+# BufferSlot跟mGraphicBuffer的关系
+
+    BufferSlot()
+    : mEglDisplay(EGL_NO_DISPLAY),
+      mBufferState(BufferSlot::FREE),
+      mRequestBufferCalled(false),
+      mFrameNumber(0),
+      mEglFence(EGL_NO_SYNC_KHR),
+      mAcquireCalled(false),
+      mNeedsCleanupOnRelease(false),
+      mAttachedByConsumer(false) {
+    }
+
+    // mGraphicBuffer points to the buffer allocated for this slot or is NULL
+    // if no buffer has been allocated.
+    sp<GraphicBuffer> mGraphicBuffer;
+    
+    
+#     参考文档
+
+[Android BufferQueue简析](https://www.jianshu.com/p/edd7d264be73)
