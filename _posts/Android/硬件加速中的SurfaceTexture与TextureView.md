@@ -735,7 +735,103 @@ producer跟consumer都会映射这个slots，一个surface有一块内存，这�
     // if no buffer has been allocated.
     sp<GraphicBuffer> mGraphicBuffer;
     
+    Graphics是哪块内存，算是本APP所处理的内存吗？但是它是native的内存吧，并且，好像不算到当前App中，不会导致OOM，除非系统内存不足，
+
     
+
+# 为什么TetureView比SurfaceView占用内存
+
+拿两个播放视频来对比下：CPU跟内存使用
+
+>CPU对比
+
+![cpu使用对比.png](https://upload-images.jianshu.io/upload_images/1460468-8f398182e3e1cddb.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+>内存使用对比
+
+![内存使用对比.png](https://upload-images.jianshu.io/upload_images/1460468-adb477885b1c6814.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+TextureView播放视频同样需要Surface，在SurfaceTextureAvailable的时候，需要用SurfaceTexture创建Surface，之后再使用这个Surface：
+
+
+    @Override
+    public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
+        if (mSurfaceTexture == null) {
+            mSurfaceTexture = surfaceTexture;
+            mSurface = new Surface(surfaceTexture);
+            //   这里是设置数据的输出流吗？
+            mMediaPlayer.setSurface(mSurface);
+            if (mTargetState == PlayState.PLAYING) {
+                start();
+            }
+        } else {
+            mTextureView.setSurfaceTexture(mSurfaceTexture);
+        }
+    }
+
+那么究竟如何新建的呢new Surface(surfaceTexture)
+
+    public Surface(SurfaceTexture surfaceTexture) {
+        if (surfaceTexture == null) {
+            throw new IllegalArgumentException("surfaceTexture must not be null");
+        }
+        mIsSingleBuffered = surfaceTexture.isSingleBuffered();
+        synchronized (mLock) {
+            mName = surfaceTexture.toString();
+            setNativeObjectLocked(nativeCreateFromSurfaceTexture(surfaceTexture));
+        }
+    }
+    
+会调用native
+
+	static jlong nativeCreateFromSurfaceTexture(JNIEnv* env, jclass clazz,
+	        jobject surfaceTextureObj) {
+	     
+	     <!--获取SurfaceTexture中已经创建的GraphicBufferProducer-->
+	    sp<IGraphicBufferProducer> producer(SurfaceTexture_getProducer(env, surfaceTextureObj));
+ 		 
+	   <!--根据producer直接创建Surface，其实Surface只是为了表示数据从哪来，由谁填充，其实数据是由MediaPlayer填充的，只是这里的Surface不是归属SurfaceFlinger管理，SurfaceFlinger感知不到-->
+	   <!--关键点2 -->
+	    sp<Surface> surface(new Surface(producer, true));
+	    surface->incStrong(&sRefBaseOwner);
+	    return jlong(surface.get());
+	}
+
+SurfaceView跟TexutureView在使用Surface的时候，SurfaceView的Surface的Consumer是SurfaceFlinger（BnGraphicBufferProducer是在SF中创建的），但是TexutureView中SurfaceView的consumer却是TexutureView（BnGraphicBufferProducer是在APP中创建的），所以数据必须再由TexutureView处理后，给SF才可以，这也是TextureView效率低的原因。 
+
+# SurfaceView的硬件加速跟软件绘制
+
+视频播放应该是数据直接填充到SurfaceView的那块内存
+
+# Surface的内存分配与数据流
+
+Surface都是归SF管理，所有的分配最后都会走到SF，一个Surface有一个BufferQueue，一个Queue有多个slot，    
+
+	BufferQueueDefs::SlotsType mSlots;
+
+producer跟consumer都会映射这个slots，一个surface有一块内存，这块内存有很多歌slot 32 或者64 
+
+    // mSlots is an array of buffer slots that must be mirrored on the producer
+    // side. This allows buffer ownership to be transferred between the producer
+    // and consumer without sending a GraphicBuffer over Binder. The entire
+    // array is initialized to NULL at construction time, and buffers are
+    // allocated for a slot when requestBuffer is called with that slot's index.
+    BufferQueueDefs::SlotsType mSlots;
+    
+不过SurfaceView传说的前后双缓冲是怎么回事？    
+
+# SurfaceView如何支持视频播放，到底有几块缓存back front？
+
+    // must be used from the lock/unlock thread
+    
+    // 之类的GraphicBuffer很明显不止一块
+    sp<GraphicBuffer>           mLockedBuffer;
+    sp<GraphicBuffer>           mPostedBuffer;
+    
+ 同一时刻，有几块内存生效呢？ 
+
+
+
 #     参考文档
 
 [Android BufferQueue简析](https://www.jianshu.com/p/edd7d264be73)
