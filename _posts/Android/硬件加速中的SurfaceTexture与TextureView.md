@@ -830,7 +830,383 @@ producer跟consumer都会映射这个slots，一个surface有一块内存，这�
     
  同一时刻，有几块内存生效呢？ 
 
+# OpenGl绘制后，仍然需要入队swapBuffers，是通知绘制或者合成的关键，
 
+TextureView会触发重绘（硬件加速），并通知SF合成，但是SurfaceView会直接通知SF合成，
+	
+	EGLBooleanegl_window_surface_v2_t::swapBuffers()
+	 
+	{
+	 
+	    //………….
+	 
+	    nativeWindow->queueBuffer(nativeWindow,buffer, -1);
+	 
+	 
+	 
+	    // dequeue a new buffer
+	 
+	    if (nativeWindow->dequeueBuffer（nativeWindow, &buffer, &fenceFd)== NO_ERROR) {
+	 
+	        sp<Fence> fence(new Fence(fenceFd));
+	 
+	        if(fence->wait(Fence::TIMEOUT_NEVER)) {
+	 
+	           nativeWindow->cancelBuffer(nativeWindow, buffer, fenceFd);
+	 
+	            return setError(EGL_BAD_ALLOC,EGL_FALSE);
+	 
+	        }
+	 
+	//。。。。。。
+
+消费方会获得通知
+	
+	status_t BufferQueueProducer::queueBuffer(int slot,
+	        const QueueBufferInput &input, QueueBufferOutput *output) {
+	    ATRACE_CALL();
+	    ATRACE_BUFFER_INDEX(slot);
+	
+	    int64_t timestamp;
+	    bool isAutoTimestamp;
+	    android_dataspace dataSpace;
+	    Rect crop;
+	    int scalingMode;
+	    uint32_t transform;
+	    uint32_t stickyTransform;
+	    bool async;
+	    sp<Fence> fence;
+	    input.deflate(&timestamp, &isAutoTimestamp, &dataSpace, &crop, &scalingMode,
+	            &transform, &async, &fence, &stickyTransform);
+	    Region surfaceDamage = input.getSurfaceDamage();
+	
+	    if (fence == NULL) {
+	        BQ_LOGE("queueBuffer: fence is NULL");
+	        return BAD_VALUE;
+	    }
+	
+	    switch (scalingMode) {
+	        case NATIVE_WINDOW_SCALING_MODE_FREEZE:
+	        case NATIVE_WINDOW_SCALING_MODE_SCALE_TO_WINDOW:
+	        case NATIVE_WINDOW_SCALING_MODE_SCALE_CROP:
+	        case NATIVE_WINDOW_SCALING_MODE_NO_SCALE_CROP:
+	            break;
+	        default:
+	            BQ_LOGE("queueBuffer: unknown scaling mode %d", scalingMode);
+	            return BAD_VALUE;
+	    }
+	
+		// queue之后就会通知就IConsumerListener
+	    sp<IConsumerListener> frameAvailableListener;
+	    sp<IConsumerListener> frameReplacedListener;
+	    int callbackTicket = 0;
+	    BufferItem item;
+	    { // Autolock scope
+	        Mutex::Autolock lock(mCore->mMutex);
+	
+	        if (mCore->mIsAbandoned) {
+	            BQ_LOGE("queueBuffer: BufferQueue has been abandoned");
+	            return NO_INIT;
+	        }
+	
+	        const int maxBufferCount = mCore->getMaxBufferCountLocked(async);
+	        if (async && mCore->mOverrideMaxBufferCount) {
+	            // FIXME: Some drivers are manually setting the buffer count
+	            // (which they shouldn't), so we do this extra test here to
+	            // handle that case. This is TEMPORARY until we get this fixed.
+	            if (mCore->mOverrideMaxBufferCount < maxBufferCount) {
+	                BQ_LOGE("queueBuffer: async mode is invalid with "
+	                        "buffer count override");
+	                return BAD_VALUE;
+	            }
+	        }
+	
+	        if (slot < 0 || slot >= maxBufferCount) {
+	            BQ_LOGE("queueBuffer: slot index %d out of range [0, %d)",
+	                    slot, maxBufferCount);
+	            return BAD_VALUE;
+	        } else if (mSlots[slot].mBufferState != BufferSlot::DEQUEUED) {
+	            BQ_LOGE("queueBuffer: slot %d is not owned by the producer "
+	                    "(state = %d)", slot, mSlots[slot].mBufferState);
+	            return BAD_VALUE;
+	        } else if (!mSlots[slot].mRequestBufferCalled) {
+	            BQ_LOGE("queueBuffer: slot %d was queued without requesting "
+	                    "a buffer", slot);
+	            return BAD_VALUE;
+	        }
+	
+	        BQ_LOGV("queueBuffer: slot=%d/%" PRIu64 " time=%" PRIu64 " dataSpace=%d"
+	                " crop=[%d,%d,%d,%d] transform=%#x scale=%s",
+	                slot, mCore->mFrameCounter + 1, timestamp, dataSpace,
+	                crop.left, crop.top, crop.right, crop.bottom, transform,
+	                BufferItem::scalingModeName(static_cast<uint32_t>(scalingMode)));
+	
+	        const sp<GraphicBuffer>& graphicBuffer(mSlots[slot].mGraphicBuffer);
+	        Rect bufferRect(graphicBuffer->getWidth(), graphicBuffer->getHeight());
+	        Rect croppedRect;
+	        crop.intersect(bufferRect, &croppedRect);
+	        if (croppedRect != crop) {
+	            BQ_LOGE("queueBuffer: crop rect is not contained within the "
+	                    "buffer in slot %d", slot);
+	            return BAD_VALUE;
+	        }
+	
+	        // Override UNKNOWN dataspace with consumer default
+	        if (dataSpace == HAL_DATASPACE_UNKNOWN) {
+	            dataSpace = mCore->mDefaultBufferDataSpace;
+	        }
+	
+	        mSlots[slot].mFence = fence;
+	        mSlots[slot].mBufferState = BufferSlot::QUEUED;
+	        ++mCore->mFrameCounter;
+	        mSlots[slot].mFrameNumber = mCore->mFrameCounter;
+	
+	        item.mAcquireCalled = mSlots[slot].mAcquireCalled;
+	        item.mGraphicBuffer = mSlots[slot].mGraphicBuffer;
+	        item.mCrop = crop;
+	        item.mTransform = transform &
+	                ~static_cast<uint32_t>(NATIVE_WINDOW_TRANSFORM_INVERSE_DISPLAY);
+	        item.mTransformToDisplayInverse =
+	                (transform & NATIVE_WINDOW_TRANSFORM_INVERSE_DISPLAY) != 0;
+	        item.mScalingMode = static_cast<uint32_t>(scalingMode);
+	        item.mTimestamp = timestamp;
+	        item.mIsAutoTimestamp = isAutoTimestamp;
+	        item.mDataSpace = dataSpace;
+	        item.mFrameNumber = mCore->mFrameCounter;
+	        item.mSlot = slot;
+	        item.mFence = fence;
+	        item.mIsDroppable = mCore->mDequeueBufferCannotBlock || async;
+	        item.mSurfaceDamage = surfaceDamage;
+	
+	        mStickyTransform = stickyTransform;
+	
+	        if (mCore->mQueue.empty()) {
+	            // When the queue is empty, we can ignore mDequeueBufferCannotBlock
+	            // and simply queue this buffer
+	            mCore->mQueue.push_back(item);
+	            frameAvailableListener = mCore->mConsumerListener;
+	        } else {
+	            // When the queue is not empty, we need to look at the front buffer
+	            // state to see if we need to replace it
+	            BufferQueueCore::Fifo::iterator front(mCore->mQueue.begin());
+	            if (front->mIsDroppable) {
+	                // If the front queued buffer is still being tracked, we first
+	                // mark it as freed
+	                if (mCore->stillTracking(front)) {
+	                    mSlots[front->mSlot].mBufferState = BufferSlot::FREE;
+	                    mCore->mFreeBuffers.push_front(front->mSlot);
+	                }
+	                // Overwrite the droppable buffer with the incoming one
+	                *front = item;
+	                frameReplacedListener = mCore->mConsumerListener;
+	            } else {
+	                mCore->mQueue.push_back(item);
+	                frameAvailableListener = mCore->mConsumerListener;
+	            }
+	        }
+	
+	        mCore->mBufferHasBeenQueued = true;
+	        mCore->mDequeueCondition.broadcast();
+	
+	        output->inflate(mCore->mDefaultWidth, mCore->mDefaultHeight,
+	                mCore->mTransformHint,
+	                static_cast<uint32_t>(mCore->mQueue.size()));
+	
+	        ATRACE_INT(mCore->mConsumerName.string(), mCore->mQueue.size());
+	
+	        // Take a ticket for the callback functions
+	        callbackTicket = mNextCallbackTicket++;
+	
+	        mCore->validateConsistencyLocked();
+	    } // Autolock scope
+	
+	    // Wait without lock held
+	    if (mCore->mConnectedApi == NATIVE_WINDOW_API_EGL) {
+	        // Waiting here allows for two full buffers to be queued but not a
+	        // third. In the event that frames take varying time, this makes a
+	        // small trade-off in favor of latency rather than throughput.
+	        mLastQueueBufferFence->waitForever("Throttling EGL Production");
+	        mLastQueueBufferFence = fence;
+	    }
+	
+	    // Don't send the GraphicBuffer through the callback, and don't send
+	    // the slot number, since the consumer shouldn't need it
+	    item.mGraphicBuffer.clear();
+	    item.mSlot = BufferItem::INVALID_BUFFER_SLOT;
+	
+	    // Call back without the main BufferQueue lock held, but with the callback
+	    // lock held so we can ensure that callbacks occur in order
+	    {
+	        Mutex::Autolock lock(mCallbackMutex);
+	        while (callbackTicket != mCurrentCallbackTicket) {
+	            mCallbackCondition.wait(mCallbackMutex);
+	        }
+	
+	        if (frameAvailableListener != NULL) {
+	            // 调用回调，就是这里看到了吧，就是这么强大
+	            frameAvailableListener->onFrameAvailable(item);
+	        } else if (frameReplacedListener != NULL) {
+	            frameReplacedListener->onFrameReplaced(item);
+	        }
+	
+	        ++mCurrentCallbackTicket;
+	        mCallbackCondition.broadcast();
+	    }
+	
+	    return NO_ERROR;
+	}
+
+TextureView收到通知后会重绘，并且这个时候已经拿到了数据，OpenGL重绘即可，比SurfaceView多一步，这部分的更新是直接到SF吗？按理说，SF那段没对应的Layer
+
+    private void applyUpdate() {
+        if (mLayer == null) {
+            return;
+        }
+
+        synchronized (mLock) {
+            if (mUpdateLayer) {
+                mUpdateLayer = false;
+            } else {
+                return;
+            }
+        }
+
+        // 更新Layer
+        mLayer.prepare(getWidth(), getHeight(), mOpaque);
+        mLayer.updateSurfaceTexture();
+
+        if (mListener != null) {
+            mListener.onSurfaceTextureUpdated(mSurface);
+        }
+    }
+  
+# 	consumer更新  
+	  
+	status_t GLConsumer::updateTexImage() {
+	    ATRACE_CALL();
+	    GLC_LOGV("updateTexImage");
+	    Mutex::Autolock lock(mMutex);
+	
+	    if (mAbandoned) {
+	        GLC_LOGE("updateTexImage: GLConsumer is abandoned!");
+	        return NO_INIT;
+	    }
+	
+	    // Make sure the EGL state is the same as in previous calls.
+	    status_t err = checkAndUpdateEglStateLocked();
+	    if (err != NO_ERROR) {
+	        return err;
+	    }
+	
+	    BufferItem item;
+	
+	    // Acquire the next buffer.
+	    // In asynchronous mode the list is guaranteed to be one buffer
+	    // deep, while in synchronous mode we use the oldest buffer.
+	    err = acquireBufferLocked(&item, 0);
+	    if (err != NO_ERROR) {
+	        if (err == BufferQueue::NO_BUFFER_AVAILABLE) {
+	            // We always bind the texture even if we don't update its contents.
+	            GLC_LOGV("updateTexImage: no buffers were available");
+	            glBindTexture(mTexTarget, mTexName);
+	            err = NO_ERROR;
+	        } else {
+	            GLC_LOGE("updateTexImage: acquire failed: %s (%d)",
+	                strerror(-err), err);
+	        }
+	        return err;
+	    }
+	
+	    // Release the previous buffer.
+	    err = updateAndReleaseLocked(item);
+	    if (err != NO_ERROR) {
+	        // We always bind the texture.
+	        glBindTexture(mTexTarget, mTexName);
+	        return err;
+	    }
+	
+	    // Bind the new buffer to the GL texture, and wait until it's ready.
+	    return bindTextureImageLocked();
+	}
+
+如何绑定Texuture
+  
+	  status_t GLConsumer::bindTextureImageLocked() {
+	    if (mEglDisplay == EGL_NO_DISPLAY) {
+	        ALOGE("bindTextureImage: invalid display");
+	        return INVALID_OPERATION;
+	    }
+	
+	    GLenum error;
+	    while ((error = glGetError()) != GL_NO_ERROR) {
+	        GLC_LOGW("bindTextureImage: clearing GL error: %#04x", error);
+	    }
+	
+	    glBindTexture(mTexTarget, mTexName);
+	    if (mCurrentTexture == BufferQueue::INVALID_BUFFER_SLOT &&
+	            mCurrentTextureImage == NULL) {
+	        GLC_LOGE("bindTextureImage: no currently-bound texture");
+	        return NO_INIT;
+	    }
+	
+	    status_t err = mCurrentTextureImage->createIfNeeded(mEglDisplay,
+	                                                        mCurrentCrop);
+	    if (err != NO_ERROR) {
+	        GLC_LOGW("bindTextureImage: can't create image on display=%p slot=%d",
+	                mEglDisplay, mCurrentTexture);
+	        return UNKNOWN_ERROR;
+	    }
+	    mCurrentTextureImage->bindToTextureTarget(mTexTarget);
+	
+	    // In the rare case that the display is terminated and then initialized
+	    // again, we can't detect that the display changed (it didn't), but the
+	    // image is invalid. In this case, repeat the exact same steps while
+	    // forcing the creation of a new image.
+	    if ((error = glGetError()) != GL_NO_ERROR) {
+	        glBindTexture(mTexTarget, mTexName);
+	        status_t result = mCurrentTextureImage->createIfNeeded(mEglDisplay,
+	                                                               mCurrentCrop,
+	                                                               true);
+	        if (result != NO_ERROR) {
+	            GLC_LOGW("bindTextureImage: can't create image on display=%p slot=%d",
+	                    mEglDisplay, mCurrentTexture);
+	            return UNKNOWN_ERROR;
+	        }
+	        mCurrentTextureImage->bindToTextureTarget(mTexTarget);
+	        if ((error = glGetError()) != GL_NO_ERROR) {
+	            GLC_LOGE("bindTextureImage: error binding external image: %#04x", error);
+	            return UNKNOWN_ERROR;
+	        }
+	    }
+	
+	    // Wait for the new buffer to be ready.
+	    return doGLFenceWaitLocked();
+	}
+
+# 为什么会跳过前几帧？
+
+The image stream may come from either camera preview or video decode. A Surface created from a SurfaceTexture can be used as an output destination for the android.hardware.camera2, MediaCodec, MediaPlayer, and Allocation APIs. When updateTexImage() is called, the contents of the texture object specified when the SurfaceTexture was created are updated to contain the most recent image from the image stream. This may cause some frames of the stream to be skipped.
+
+A SurfaceTexture may also be used in place of a SurfaceHolder when specifying the output destination of the older Camera API. Doing so will cause all the frames from the image stream to be sent to the SurfaceTexture object rather than to the device's display.
+
+
+# TexutView跟SurfaceTexure，是可以先创建纹理，在绑定上去，
+
+    public SurfaceTexture(int texName) {
+        this(texName, false);
+    }
+
+使用SurfaceTexture实现滤镜的关键，就是要自己创建有id的textture，之后再处理，是直接输出到帧缓冲区，还是怎么处理，要看
+
+# glGenFramebuffers
+
+获取帧缓冲区，直接渲染到屏幕，
+
+# Frame Buffer Object（FBO）
+
+Frame Buffer Object（FBO）即为帧缓冲对象，用于离屏渲染缓冲。相对于其它同类技术，如数据拷贝或交换缓冲区等，使用FBO技术会更高效并且更容易实现。而且FBO不受窗口大小限制。FBO可以包含许多颜色缓冲区，可以同时从一个片元着色器写入。FBO是一个容器，自身不能用于渲染，需要与一些可渲染的缓冲区绑定在一起，像纹理或者渲染缓冲区。 
+Render Buffer Object（RBO）即为渲染缓冲对象，分为color buffer(颜色)、depth buffer(深度)、stencil buffer(模板)。 
+在使用FBO做离屏渲染时，可以只绑定纹理，也可以只绑定Render Buffer，也可以都绑定或者绑定多个，视使用场景而定。如只是对一个图像做变色处理等，只绑定纹理即可。如果需要往一个图像上增加3D的模型和贴纸，则一定还要绑定depth Render Buffer。 
 
 #     参考文档
 
