@@ -1208,6 +1208,8 @@ Frame Buffer Object（FBO）即为帧缓冲对象，用于离屏渲染缓冲。�
 Render Buffer Object（RBO）即为渲染缓冲对象，分为color buffer(颜色)、depth buffer(深度)、stencil buffer(模板)。 
 在使用FBO做离屏渲染时，可以只绑定纹理，也可以只绑定Render Buffer，也可以都绑定或者绑定多个，视使用场景而定。如只是对一个图像做变色处理等，只绑定纹理即可。如果需要往一个图像上增加3D的模型和贴纸，则一定还要绑定depth Render Buffer。 
 
+# GLsurfaceView方便在它创建了OpenGL上下文
+
 #     参考文档
 
 [Android BufferQueue简析](https://www.jianshu.com/p/edd7d264be73)
