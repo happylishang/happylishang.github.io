@@ -1210,6 +1210,19 @@ Render Buffer Object（RBO）即为渲染缓冲对象，分为color buffer(颜�
 
 # GLsurfaceView方便在它创建了OpenGL上下文
 
+猜测还是走SF那一套，不过EglSurface创建后，都是从这个对应的控件申请内存，也就说其实还是SF那一套
+
+# OpenGL的绘图内存如何获取的
+
+EglSurface的概念，是不是所有的内容都会流入EglSurface，它跟Surface绑定
+
+            mEglSurface = mEgl.eglCreateWindowSurface(mEglDisplay, mEglConfig, mSurface, null);
+
+EglSurface其实就是映射到Surface，当EglSurface bindTexre的时候，其实就是将数据传递到Surface，所以也是直接传递。 
+
 #     参考文档
 
-[Android BufferQueue简析](https://www.jianshu.com/p/edd7d264be73)
+[Android BufferQueue简析](https://www.jianshu.com/p/edd7d264be73)           
+[不错的demo GraphicsTestBed ](https://github.com/lb377463323/GraphicsTestBed)        
+[小窗播放视频的原理和实现（上）](http://www.10tiao.com/html/223/201712/2651232830/1.html)         
+[GLTextureViewActivity.java ](https://android.googlesource.com/platform/frameworks/base/+/master/tests/HwAccelerationTest/src/com/android/test/hwui/GLTextureViewActivity.java)
