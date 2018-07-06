@@ -1,3 +1,8 @@
+
+# CPU跟GPU交互
+
+着色器程序在GPU上执行，OpenGL主程序在CPU上执行，主程序（CPU）向显存输入顶点等数据，启动渲染过程，并对渲染过程进行控制。了解到这一点就可以了解显示列表（Display Lists）以及像 glFinish() 这种函数存在的原因了，前者（显示列表）将一组绘制指令放到GPU上，CPU只要发一条“执行这个显示列表”这些指令就执行，而不必CPU每次渲染都发送大量指令到GPU，从而节约PCI带宽（因为PCI总线比显存慢）；后者（glFinish）让CPU等待GPU将已发送的渲染指令执行完。
+
 # SurfaceTexture是什么？
 
 >引用的
@@ -1219,6 +1224,13 @@ EglSurface的概念，是不是所有的内容都会流入EglSurface，它跟Sur
             mEglSurface = mEgl.eglCreateWindowSurface(mEglDisplay, mEglConfig, mSurface, null);
 
 EglSurface其实就是映射到Surface，当EglSurface bindTexre的时候，其实就是将数据传递到Surface，所以也是直接传递。 
+
+# Texture是纹理，纹理是一个集合，采样用的，本身不算到绘制内存中去
+
+绘制的内容是从纹理中采样得到的，但是纹理本身不是绘制，纹理是模板，但是模板不是画。OpenGL是个标准的框架，按照里面走就行。
+
+
+
 
 #     参考文档
 
