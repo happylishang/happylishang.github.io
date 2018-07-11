@@ -61,15 +61,43 @@ OpenGL操作的编程矩阵，并不是点本身，而是其变换矩阵。
 
 # OpenGL坐标系
 
-* Local space (or Object space) 本地坐标，（原生坐标系）
-* World space						世界左边，在世界中的样子，三维就是三维
-* View space (or Eye space)	摄像机左边，应该是平行光投影
-* Clip space						透视坐标，应该是透视投影
+* Local space (or Object space) 本地坐标，（原坐标系,仅仅对自己有意义，比如一个球，两个球，都有自己的000，001，点面）
+
+>Local space is the coordinate space that is local to your object, i.e. where your object begins in. Imagine that you've created your cube in a modeling software package (like Blender). The origin of your cube is probably at (0,0,0) even though your cube might end up at a different location in your final application. Probably all the models you've created all have (0,0,0) as their initial position. All the vertices of your model are therefore in local space: they are all local to your object.
+
+
+* World space						世界左边，在世界中的样子，三维就是三维 （两个球，分别的相对位置，世界坐标系，相对世界的000点） 将球放到世界中，进入三维空间
+
+>	The model matrix is a transformation matrix that translates, scales and/or rotates your object to place it in the world at a location/orientation they belong to. Think of it as transforming a house by scaling it down (it was a bit too large in local space), translating it to a suburbia town and rotating it a bit to the left on the y-axis so that it neatly fits with the neighboring houses. You could think of the matrix in the previous tutorial to position the container all over the scene as a sort of model matrix as well; we transformed the local coordinates of the container to some different place in the scene/world.
+
+* View space (or Eye space)	摄像机(眼镜)，  就是从不同的视角看过去，但是这里没有牵扯到透射的概念
+
+>The view space is what people usually refer to as the camera of OpenGL (it is sometimes also known as the camera space or eye space). The view space is the result of transforming your world-space coordinates to coordinates that are in front of the user's view.
+
+
+* Clip space						裁剪
+
+>At the end of each vertex shader run, OpenGL expects the coordinates to be within a specific range and any coordinate that falls outside this range is clipped. Coordinates that are clipped are discarded, so the remaining coordinates will end up as fragments visible on your screen. This is also where clip space gets its name from.
+
+
 * Screen space
 
 Those are all a different state at which our vertices will be transformed in before finally ending up as fragments.
 
 ![](https://learnopengl.com/img/getting-started/coordinate_systems.png)
+
+
+	Vclip=Mprojection⋅Mview⋅Mmodel⋅Vlocal
+	
+Camera坐标系还是平行的，没有经过投射处理，机器没有肉眼的概念，Camera其实就是换个角度的问题，而坐标系依然是平行坐标系，没有近大远小的问题：
+
+![屏幕快照 2018-07-11 下午3.31.42.png](https://upload-images.jianshu.io/upload_images/1460468-1de606405c48f70c.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+# OpenGL文字渲染
+
+也就是说，当直接或间接调用Canvas.drawText()函数的时候，OpenGL 渲染器不会收到你发送的参数，而是收到一串数字、符号标识，还有x/y 坐标集合。
+
+
 
 # 参考文档
 
