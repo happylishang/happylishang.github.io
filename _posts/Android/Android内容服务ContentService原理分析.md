@@ -216,3 +216,5 @@ ContentService服务的启动是在系统启动，而它本身是一个系统服
 #  通知流程    
 
 ContentService可以看做是通知的中转站，进程A想要通知其他注册了某个Uri的进程，必须首先向ContentService这个消息分发中心发送消息，再由ContentService通知其他进程中的观察者。
+
+![ContentService框架.png](https://upload-images.jianshu.io/upload_images/1460468-846b5aa82fbb1761.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
