@@ -103,3 +103,11 @@ Camera坐标系还是平行的，没有经过投射处理，机器没有肉眼�
 
 [](https://blog.csdn.net/lyx2007825/article/details/8792475)      
 [Coordinate Systems ](https://learnopengl.com/Getting-started/Coordinate-Systems)
+
+
+View视图坐标系的理解，或者说Camera坐标系
+
+其实就是个坐标系旋转：不牵扯到透射，为什么这么说，坐标系及坐标本身并没发生近大远小，依旧是平行的坐标系，只是改变了位置跟角度，比如
+
+
+世界坐标系中的（0，0，0），转换到视图坐标系后是（a,b,c）,世界坐标系中（1，1，1）转换到视图坐标系周是（a+1,b+1,c+1）相对位置不变

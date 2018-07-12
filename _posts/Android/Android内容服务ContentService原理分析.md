@@ -1,0 +1,218 @@
+
+ContentService 是Android平台中数据更新通知的管理者，是数据同步服务的管理中枢，当操作Android手机中的联系人信息、通话记录等信息同步时，就可以通过它来完成。Android系统默认添加了同步监听。
+
+	public final class ContentService extends IContentService.Stub {
+	    private static final String TAG = "ContentService";
+	    private Context mContext;
+	    private boolean mFactoryTest;
+	    private final ObserverNode mRootNode = new ObserverNode("");
+	    private SyncManager mSyncManager = null;
+	    private final Object mSyncManagerLock = new Object();
+		 。。。
+
+可以看到ContentService是一Binder服务实体，可以提供服务，aidl文件中定义了它能提供的服务
+
+
+	interface IContentService {
+		 void unregisterContentObserver(IContentObserver observer);
+	    void registerContentObserver(in Uri uri, boolean notifyForDescendants,
+	            IContentObserver observer, int userHandle);
+	    void notifyChange(in Uri uri, IContentObserver observer,
+	            boolean observerWantsSelfNotifications, boolean syncToNetwork,
+	            int userHandle);
+	    void requestSync(in Account account, String authority, in Bundle extras);
+	    void sync(in SyncRequest request);
+	    ...
+	}
+		 
+ContentService服务的启动是在系统启动，而它本身是一个系统服务，运行在SystemServer进程，这也注定了notify的时候是通过像目标进程插入消息的方式来处理（类似AMS）	，作为系统服务，不可能阻塞为某个APP提供服务。
+    
+    public static ContentService main(Context context, boolean factoryTest) {
+        ContentService service = new ContentService(context, factoryTest);
+        ServiceManager.addService(ContentResolver.CONTENT_SERVICE_NAME, service);
+        return service;
+    }
+    
+虽然ContentService跟ContentProvider关系紧密，但是严格来说，这是完全独立的两套东西，首先从用法上用法，注册一个观察者：
+
+    public static void registerObserver(Context context,ContentObserver contentObserver) {
+        ContentResolver contentResolver = context.getContentResolver();
+        contentResolver.registerContentObserver(FileContentProvider.CONTENT_URI, true, contentObserver);
+    }    
+    
+在合适的时机，发通知， 可以看到，中间并没有牵扯到ContentProvider的东西，也就是说，ContentService提供了一个系统级的观察者模型，只是，比较适合做通知，不太适合发通知的时候，传递数据。
+
+    public static void notity(Context context,Uri uri) {
+        ContentResolver contentResolver = context.getContentResolver();
+        contentResolver.notifyChange(uri);
+    }
+
+# 注册流程
+
+先看下注册观察者
+
+    public final void registerContentObserver(Uri uri, boolean notifyForDescendents,
+            ContentObserver observer, int userHandle) {
+        try {
+            getContentService().registerContentObserver(uri, notifyForDescendents,
+                    observer.getContentObserver(), userHandle);
+        } catch (RemoteException e) {
+        }
+    }
+    
+    /** @hide */
+    public static final String CONTENT_SERVICE_NAME = "content";
+
+    /** @hide */
+    public static IContentService getContentService() {
+        if (sContentService != null) {
+            return sContentService;
+        }
+        IBinder b = ServiceManager.getService(CONTENT_SERVICE_NAME);
+        sContentService = IContentService.Stub.asInterface(b);
+        return sContentService;
+    }
+    
+采用的是单利的模式，这里直接向ServiceManager请求   ContentService服务，请求成功后，便可以获得该服务的代理，之后通过代理发送请求，首先看下注册，通过ContentObserver获取一个IContentObserver对象，APP端将该对象通过binder传递到ContentService服务，如此ContentService便能通过Binder向APP端发送通知
+ 
+     public IContentObserver getContentObserver() {
+        synchronized (mLock) {
+            if (mTransport == null) {
+                mTransport = new Transport(this);
+            }
+            return mTransport;
+        }
+    }
+    
+     private static final class Transport extends IContentObserver.Stub {
+        private ContentObserver mContentObserver;
+
+        public Transport(ContentObserver contentObserver) {
+            mContentObserver = contentObserver;
+        }
+
+        @Override
+        public void onChange(boolean selfChange, Uri uri, int userId) {
+            ContentObserver contentObserver = mContentObserver;
+            if (contentObserver != null) {
+                contentObserver.dispatchChange(selfChange, uri, userId);
+            }
+        }
+
+        public void releaseContentObserver() {
+            mContentObserver = null;
+        }
+    }
+    
+其实就是Android框架中非常常用的双C/S通信，   Transport本身是一个Binder实体对象，被注册到ContentService中，ContentService会维护一个Transport的List，将来通知不同的进程,接着看下register
+
+    @Override
+    public void registerContentObserver(Uri uri, boolean notifyForDescendants,
+            IContentObserver observer, int userHandle) {
+        <!--权限检查-->
+        if (callingUserHandle != userHandle &&
+                mContext.checkUriPermission(uri, pid, uid, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        != PackageManager.PERMISSION_GRANTED) {
+            enforceCrossUserPermission(userHandle,
+                    "no permission to observe other users' provider view");
+        }
+        ...
+        <!--2 添加到监听队列-->
+        synchronized (mRootNode) {
+            mRootNode.addObserverLocked(uri, observer, notifyForDescendants, mRootNode,
+                    uid, pid, userHandle);
+        }
+    }
+
+主要看下点2，添加监听对象，其实ContentService维护了一个监听对象的树，主要是根据Uri的路径，方便管理，同时提高查找及插入效率，每个监听对象对应一个节点，也就是一个ObserverNode对象， 而ContentService持有RootNode根对象，
+
+	 private final ObserverNode mRootNode = new ObserverNode("");
+	 
+![Content树.png](https://upload-images.jianshu.io/upload_images/1460468-3f1823c5571efc4e.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+而每个ObserverNode维护了一个ObserverEntry队列，每个ObserverEntry都对应一个Observer，同一个Uri可以有多个Observer，也就是会多个ObserverEntry，同时还有一些其他辅助信息，比如要跟Uri形成键值对，ObserverEntry还将自己设置成了Binder讣告的接受者，一旦APP端进程结束，可以通过Binder讣告机制让ContentService端收到通知，并做一些清理工作，具体实现如下：
+
+     public static final class ObserverNode {
+        private class ObserverEntry implements IBinder.DeathRecipient {
+            public final IContentObserver observer;
+            public final int uid;
+            public final int pid;
+            public final boolean notifyForDescendants;
+            private final int userHandle;
+            private final Object observersLock;
+
+            public ObserverEntry(IContentObserver o, boolean n, Object observersLock,
+                    int _uid, int _pid, int _userHandle) {
+                this.observersLock = observersLock;
+                observer = o;
+                uid = _uid;
+                pid = _pid;
+                userHandle = _userHandle;
+                notifyForDescendants = n;
+                try {
+                    observer.asBinder().linkToDeath(this, 0);
+                } catch (RemoteException e) {
+                    binderDied();
+                }
+            }
+          <!--做一些清理工作，删除observer-->
+            public void binderDied() {
+                synchronized (observersLock) {
+                    removeObserverLocked(observer);
+                }
+            }
+			 。。。
+        }
+
+        public static final int INSERT_TYPE = 0;
+        public static final int UPDATE_TYPE = 1;
+        public static final int DELETE_TYPE = 2;
+
+        private String mName;
+        private ArrayList<ObserverNode> mChildren = new ArrayList<ObserverNode>();
+        <!--维护自己node的回调队列-->
+        private ArrayList<ObserverEntry> mObservers = new ArrayList<ObserverEntry>();	 	. ..
+                
+接着看下Observer的add流程，addObserverLocked被外部调用的时候，一般传递的index是0，自己递归调用的时候，才不是0
+
+        private void addObserverLocked(Uri uri, int index, IContentObserver observer,
+                boolean notifyForDescendants, Object observersLock,
+                int uid, int pid, int userHandle) {
+                
+            // If this is the leaf node add the observer
+            <!--已经找到叶子节点，那么可以直接在node中插入ObserverEntry->
+            if (index == countUriSegments(uri)) {
+                mObservers.add(new ObserverEntry(observer, notifyForDescendants, observersLock,
+                        uid, pid, userHandle));
+                return;
+            }
+
+            // Look to see if the proper child already exists
+            <!--一层层往下剥离-->
+            String segment = getUriSegment(uri, index);
+			  ...
+            int N = mChildren.size();
+            <!--递归查找-->
+            for (int i = 0; i < N; i++) {
+                ObserverNode node = mChildren.get(i);
+                if (node.mName.equals(segment)) {
+                    node.addObserverLocked(uri, index + 1, observer, notifyForDescendants,
+                            observersLock, uid, pid, userHandle);
+                    return;
+                }
+            }
+
+            // No child found, create one
+            <!--找不到，就新建，并插入-->
+            ObserverNode node = new ObserverNode(segment);
+            mChildren.add(node);
+            node.addObserverLocked(uri, index + 1, observer, notifyForDescendants,
+                    observersLock, uid, pid, userHandle);
+        }
+  
+  比如我们查询content://A/B/C对应的ObserverNode，首先会找到Authority对应的A的ObserverNode，之后在A的children中查找Path=B的Node，然后在B的Children中查找Path=C的Node，找到该Node之后，往这个node的 ObserverEntry列表中添加一个对象，到这里就注册就完成了。
+  
+  
+#  通知流程    
+
+ContentService可以看做是通知的中转站，进程A想要通知其他注册了某个Uri的进程，必须首先向ContentService这个消息分发中心发送消息，再由ContentService通知其他进程中的观察者。
