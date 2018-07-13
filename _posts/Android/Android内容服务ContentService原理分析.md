@@ -1,7 +1,27 @@
+ContentService可以看做Android中一个系统级别的消息中心，可以说搭建了一个系统级的观察者模型，APP可以向消息中心注册观察者，选择订阅自己关心的消息，也可以通过消息中心发送信息，通知其他进程。ContentService服务伴随系统启动，本身是一个Binder系统服务，运行在SystemServer进程，作为系统服务，ContentService不可能阻塞为某个APP提供服务，这也注定了在分发消息的时候，是通过向目标进程插入消息的方式来处理（类似AMS），下面简单分析一下整体的架构，主要从一下几个方面了解下运行流程：
 
-ContentService 是Android平台中数据更新通知的管理者，是数据同步服务的管理中枢，当操作Android手机中的联系人信息、通话记录等信息同步时，就可以通过它来完成。Android系统默认添加了同步监听。
+* ContentService启动跟实质
+* 注册观察者
+* 管理观察者
+* 消息分发
 
-	public final class ContentService extends IContentService.Stub {
+# ContentService启动跟实质
+
+ContentService服务伴随系统启动，更准确的说是伴随SystemServer进程启动，其入口函数如下：
+    
+    public static ContentService main(Context context, boolean factoryTest) {
+    	 <!--新建Binder服务实体-->
+        ContentService service = new ContentService(context, factoryTest);
+        <!--添加到ServiceManager中-->
+        ServiceManager.addService(ContentResolver.CONTENT_SERVICE_NAME, service);
+        return service;
+    }
+
+同AMS、WMS等系统服务类似，ContentService也是一个Binder服务实体，而且受ServiceManager管理，需要注册ServiceManager中，方便APP将来获取该服务的代理。ContentService是一个Binder服务实体，具体实现如下：
+    
+
+        <!--关键点1-->
+	 public final class ContentService extends IContentService.Stub {
 	    private static final String TAG = "ContentService";
 	    private Context mContext;
 	    private boolean mFactoryTest;
@@ -10,42 +30,40 @@ ContentService 是Android平台中数据更新通知的管理者，是数据同�
 	    private final Object mSyncManagerLock = new Object();
 		 。。。
 
-可以看到ContentService是一Binder服务实体，可以提供服务，aidl文件中定义了它能提供的服务
-
+IContentService.Stub由IContentService.aidl文件生成，IContentService.aidl文件中定义了ContentService能提供的基本服务，比如注册/注销观察者、通知观察者等，如下：
 
 	interface IContentService {
+		<!--注销一个观察者-->
 		 void unregisterContentObserver(IContentObserver observer);
+		 <!--注册一个观察者-->
 	    void registerContentObserver(in Uri uri, boolean notifyForDescendants,
 	            IContentObserver observer, int userHandle);
+	    <!--通知观察者-->
 	    void notifyChange(in Uri uri, IContentObserver observer,
 	            boolean observerWantsSelfNotifications, boolean syncToNetwork,
 	            int userHandle);
-	    void requestSync(in Account account, String authority, in Bundle extras);
-	    void sync(in SyncRequest request);
 	    ...
 	}
-		 
-ContentService服务的启动是在系统启动，而它本身是一个系统服务，运行在SystemServer进程，这也注定了notify的时候是通过像目标进程插入消息的方式来处理（类似AMS）	，作为系统服务，不可能阻塞为某个APP提供服务。
-    
-    public static ContentService main(Context context, boolean factoryTest) {
-        ContentService service = new ContentService(context, factoryTest);
-        ServiceManager.addService(ContentResolver.CONTENT_SERVICE_NAME, service);
-        return service;
-    }
-    
-虽然ContentService跟ContentProvider关系紧密，但是严格来说，这是完全独立的两套东西，首先从用法上用法，注册一个观察者：
+
+虽然从使用上来说，ContentService跟ContentProvider关系紧密，但是理论上讲，这是完全独立的两套东西，ContentService是一个独立的消息分发模型，可以完全独立于ContentProvider使用，看一下基本用法：
+
+>1、注册一个观察者：
 
     public static void registerObserver(Context context,ContentObserver contentObserver) {
         ContentResolver contentResolver = context.getContentResolver();
         contentResolver.registerContentObserver(FileContentProvider.CONTENT_URI, true, contentObserver);
-    }    
-    
-在合适的时机，发通知， 可以看到，中间并没有牵扯到ContentProvider的东西，也就是说，ContentService提供了一个系统级的观察者模型，只是，比较适合做通知，不太适合发通知的时候，传递数据。
-
-    public static void notity(Context context,Uri uri) {
+    }
+        
+>2、通知观察者
+ 
+     public static void notity(Context context,Uri uri) {
         ContentResolver contentResolver = context.getContentResolver();
         contentResolver.notifyChange(uri);
     }
+    
+可以看到，期间只是借用了ContentResolver，但是并没有牵扯到ContentProvider，任何进程都能ContentService提供了一个系统级的观察者模型，只是，比较适合做通知，不太适合发通知的时候，传递数据。
+
+
 
 # 注册流程
 
