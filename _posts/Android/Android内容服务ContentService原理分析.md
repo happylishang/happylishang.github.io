@@ -1,3 +1,10 @@
+---
+layout: post
+title: "Android内容服务ContentService原理分析"
+category: Android  
+
+---
+
 ContentService可以看做Android中一个系统级别的消息中心，可以说搭建了一个系统级的观察者模型，APP可以向消息中心注册观察者，选择订阅自己关心的消息，也可以通过消息中心发送信息，通知其他进程，简单模型如下：
 
 ![“ContentService简单框架”.png](https://upload-images.jianshu.io/upload_images/1460468-f6b66069f275eec3.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
@@ -251,11 +258,11 @@ Transport本身是一个Binder实体对象，被注册到ContentService中，Con
    
 #  通知流程    
 
-前文已经说过，ContentService可以看做是通知的中转站，进程A想要通知其他注册了某个Uri的进程，必须首先向ContentService这个消息分发中心发送消息，再由ContentService通知其他进程中的观察者，简化模型如下图：
+前文已经说过，ContentService可以看做是通知的中转站，进程A想要通知其他注册了某个Uri的进程，必须首先向ContentService分发中心发送消息，再由ContentService通知其他进程中的观察者，简化模型如下图：
 
 ![ContentService框架.png](https://upload-images.jianshu.io/upload_images/1460468-846b5aa82fbb1761.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-下面简单跟踪下通知流程，入口函数如下
+简单跟踪下通知流程，入口函数如下
 
      public static void notity(Context context) {
         ContentResolver contentResolver = context.getContentResolver();
@@ -275,43 +282,23 @@ ContentResolver的notifyChange会进一步通过Binder，请求ContentService发
         }
     }
 
-那么ContentService无非就是通过之前的树，找到对应的节点，然后将节点注册回调List通知一遍，
+ContentService收到请求进一步处理，无非就是搜索之前的树，找到对应的节点，将节点上注册回调List通知一遍，具体逻辑如下：
 	
 	@Override
 	    public void notifyChange(Uri uri, IContentObserver observer,
 	            boolean observerWantsSelfNotifications, boolean syncToNetwork,
 	            int userHandle) {
-	        if (Log.isLoggable(TAG, Log.VERBOSE)) {
-	            Log.v(TAG, "Notifying update of " + uri + " for user " + userHandle
-	                    + " from observer " + observer + ", syncToNetwork " + syncToNetwork);
-	        }
-	
-	        final int uid = Binder.getCallingUid();
-	        final int pid = Binder.getCallingPid();
-	        final int callingUserHandle = UserHandle.getCallingUserId();
-	        // Notify for any user other than the caller requires uri grant or cross user permission
-	        if (callingUserHandle != userHandle &&
-	                mContext.checkUriPermission(uri, pid, uid, Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-	                        != PackageManager.PERMISSION_GRANTED) {
-	            enforceCrossUserPermission(userHandle, "no permission to notify other users");
-	        }
-	
-	        // We passed the permission check; resolve pseudouser targets as appropriate
-	        if (userHandle < 0) {
-	            if (userHandle == UserHandle.USER_CURRENT) {
-	                userHandle = ActivityManager.getCurrentUser();
-	            } else if (userHandle != UserHandle.USER_ALL) {
-	                throw new InvalidParameterException("Bad user handle for notifyChange: "
-	                        + userHandle);
-	            }
-	        }
-	
+
+	        <!--权限检测-->
 	        // This makes it so that future permission checks will be in the context of this
 	        // process rather than the caller's process. We will restore this before returning.
+	        
+	        <!--找回调，处理回调-->
 	        long identityToken = clearCallingIdentity();
 	        try {
 	            ArrayList<ObserverCall> calls = new ArrayList<ObserverCall>();
 	            synchronized (mRootNode) {
+	            <!--1 从根节点开始查找binder回调代理-->
 	                mRootNode.collectObserversLocked(uri, 0, observer, observerWantsSelfNotifications,
 	                        userHandle, calls);
 	            }
@@ -319,42 +306,15 @@ ContentResolver的notifyChange会进一步通过Binder，请求ContentService发
 	            for (int i=0; i<numCalls; i++) {
 	                ObserverCall oc = calls.get(i);
 	                try {
+	                <!--2 通知-->
 	                    oc.mObserver.onChange(oc.mSelfChange, uri, userHandle);
-	                    if (Log.isLoggable(TAG, Log.VERBOSE)) {
-	                        Log.v(TAG, "Notified " + oc.mObserver + " of " + "update at " + uri);
-	                    }
-	                } catch (RemoteException ex) {
-	                    synchronized (mRootNode) {
-	                        Log.w(TAG, "Found dead observer, removing");
-	                        IBinder binder = oc.mObserver.asBinder();
-	                        final ArrayList<ObserverNode.ObserverEntry> list
-	                                = oc.mNode.mObservers;
-	                        int numList = list.size();
-	                        for (int j=0; j<numList; j++) {
-	                            ObserverNode.ObserverEntry oe = list.get(j);
-	                            if (oe.observer.asBinder() == binder) {
-	                                list.remove(j);
-	                                j--;
-	                                numList--;
-	                            }
-	                        }
-	                    }
-	                }
-	            }
-	            if (syncToNetwork) {
-	                SyncManager syncManager = getSyncManager();
-	                if (syncManager != null) {
-	                    syncManager.scheduleLocalSync(null /* all accounts */, callingUserHandle, uid,
-	                            uri.getAuthority());
-	                }
-	            }
-	        } finally {
-	            restoreCallingIdentity(identityToken);
-	        }
-	    }
+	                } 
+	               ...
+
     
-ContentService发送通知可能是同步的，也可能是异步的，同步的就是Binder通信到来的时候，直接调用ContentObserver的回到，而异步，则是**插入消息就返回**，具体看下实现
-        
+从上面代码可以看出，其实就是两步，**先搜集所有的Binder回调，之后通过回调通知APP端**，搜集过程也是个递归的过程，也会存在父子粘连的一些回调逻辑（子Uri是否有必要通知路径中的父Uri回调），理解很简单，不再详述。这步之后，消息就通过Binder被传送给App端，在APP端，Binder实体的onTransact被回调，并处理相应的事务：
+            
+
      private static final class Transport extends IContentObserver.Stub {
         private ContentObserver mContentObserver;
 
@@ -377,7 +337,8 @@ ContentService发送通知可能是同步的，也可能是异步的，同步的
         }
     }
 
-ContentObserver在dispatchChange的时候，如果设置了Handler，就是异步，否则就是同步
+
+其实就是调用ContentObserver的dispatchChange，dispatchChange**可能是同步的，也可能是异步的**，如下
     
     private void dispatchChange(boolean selfChange, Uri uri, int userId) {
         if (mHandler == null) {
@@ -387,7 +348,7 @@ ContentObserver在dispatchChange的时候，如果设置了Handler，就是异�
         }
     }
     
-到这里，通知流程就完成了。
+如果ContentObserver设置了Handler来处理消息，那就是异步的，否则就是同步的，到这里，整个通知处理流程就完成了。
 
 # 总结    
 
