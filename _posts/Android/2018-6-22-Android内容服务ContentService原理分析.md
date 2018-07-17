@@ -9,7 +9,7 @@ ContentService可以看做Android中一个系统级别的消息中心，可以�
 
 ![“ContentService简单框架”.png](https://upload-images.jianshu.io/upload_images/1460468-f6b66069f275eec3.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-ContentService服务伴随系统启动，本身是一个Binder系统服务，运行在SystemServer进程。作为系统服务，最好能保持高效运行，如果不是非常紧急，APP可以选择异步处理消息，提高ContentService的运行效率，通过APP设置，可以让ContentService在分发消息的时候，仅仅插入目标进程的自己的Queue队列。下面简单分析一下整体的架构，主要从一下几个方面了解下运行流程：
+ContentService服务伴随系统启动，本身是一个Binder系统服务，运行在SystemServer进程。作为系统服务，最好能保持高效运行，因此ContentService通知APP都是异步的，也就是oneway的，仅仅插入目标进程（线程）的Queue队列，不必等待执行。下面简单分析一下整体的架构，主要从一下几个方面了解下运行流程：
 
 * ContentService启动跟实质
 * 注册观察者
@@ -337,8 +337,21 @@ ContentService收到请求进一步处理，无非就是搜索之前的树，找
         }
     }
 
+这里有一点需要注意，那就是IContentObserver中onChange是一个oneway请求，可以说，总是异步的，ContentService将消息塞入到APP端Binder线程的执行队列后就返回，不会等待处理结果才返回。
 
-其实就是调用ContentObserver的dispatchChange，dispatchChange**可能是同步的，也可能是异步的**，如下
+	interface IContentObserver
+	{
+	    /**
+	     * This method is called when an update occurs to the cursor that is being
+	     * observed. selfUpdate is true if the update was caused by a call to
+	     * commit on the cursor that is being observed.
+	     */
+	     contentService 用的是oneway
+	    oneway void onChange(boolean selfUpdate, in Uri uri, int userId);
+	}
+
+
+之后其实就是调用ContentObserver的dispatchChange，dispatchChange**可能是在Binder线程中同步执行，也可能是发送到一个与Handler绑定的线程中执行**，如下，
     
     private void dispatchChange(boolean selfChange, Uri uri, int userId) {
         if (mHandler == null) {
@@ -348,11 +361,57 @@ ContentService收到请求进一步处理，无非就是搜索之前的树，找
         }
     }
     
-如果ContentObserver设置了Handler来处理消息，那就是异步的，否则就是同步的，到这里，整个通知处理流程就完成了。
+但是整体上来看，由于Binder oneway的存在，ContentService的通知是个异步的过程，一般来说，Binder线程应该是先与Main线程执行，因为Main还要等待AMS的返回呢，不过，也不一定，所以无法保证同步。
+
+#  一个奇葩问题的注意事项 Binder循环调用
+
+假设有这样一个场景：
+
+* A进程notify，
+* A进程再收到通知
+* A进程请求获取ContentProvider的数据，并且ContentProvider位于A进程
+
+这个时候，如果，采用的是同步，也就是ContentObserver没有设置Handler，那就会遇到一个问题，系统会提示你没有权限访问ContentProvider，
+
+ > java.lang.SecurityException: Permission Denial: reading XXX  uri content://MyContentProvider from pid=0, uid=1000 requires the provider be exported, or grantUriPermission()
+ 
+ 为什么，明明是当前App中声明的ContentProvider，为什么不能访问，并且pid=0, uid=1000 是怎么来的，其实这个时候是因为Binder机制中的一个小"BUG"，需要用户自己避免,ContentProvider在使用的时候会校验权限，
+ 
+     /** {@hide} */
+    protected int enforceReadPermissionInner(Uri uri, String callingPkg, IBinder callerToken)
+            throws SecurityException {
+        final Context context = getContext();
+        // Binder.getCallingPid获取的可能不是我们想要的进程PID
+        final int pid = Binder.getCallingPid();
+        final int uid = Binder.getCallingUid();
+        String missingPerm = null;
+        int strongestMode = MODE_ALLOWED;
+        ...
+
+        final String failReason = mExported
+                ? " requires " + missingPerm + ", or grantUriPermission()"
+                : " requires the provider be exported, or grantUriPermission()";
+        throw new SecurityException("Permission Denial: reading "
+                + ContentProvider.this.getClass().getName() + " uri " + uri + " from pid=" + pid
+                + ", uid=" + uid + failReason);
+    }
+
+Binder.getCallingPid()获取的可能并不是我们想要的进程PID，因为之前同步访问的时候 Binder.getCallingPid()被赋值为系统进程PID，在同步访问的时候，由于ContentProvider本身在A进程中，会直接调用ContentProvider的相应服务函数，但是Binder.getCallingPid()返回值并没有被更新，因为这个时候访问的时候不会走跨进程，  Binder.getCallingPid()的返回值不会被 更新，也就是说  Binder.getCallingPid()获取的进程是上一个notify时候的系统进程，那么自然也就没有权限。如果将ContentProvider放到A进程之外的进程，就不会有问题，当然，Android提供了解决方案，那就是
+
+	<!--将Binder.getCallingPid()的值设定为当前进程-->
+ 
+    final long identity = Binder.clearCallingIdentity();
+    ...
+    <!--恢复之前保存的值-->
+    Binder.restoreCallingIdentity(identity);
+
+以上两个函数配合使用，就可以避免之前的问题。这个问题Google不能从Binder上在底层解决吗？总觉是Binder通信的BUG。
+
+
 
 # 总结    
 
 * ContentService是一个系统级别的消息中心，提供系统级别的观察者模型
 * ContentService的通信模型  其实是典型的Android 双C/S模型
 * ContentService内部是通过树+list的方式管理ContentObserver回调
-* ContentService在分发消息的时候，可以同步也可以异步，具体看APP端配置
+* ContentService在分发消息的时候，整体上是异步的，在APP端可以在Binder线程中同步处理，也可以发送到Handler绑定的线程中异步处理，具体看APP端配置
