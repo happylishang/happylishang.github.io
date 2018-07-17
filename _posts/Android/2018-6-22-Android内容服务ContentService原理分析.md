@@ -361,7 +361,7 @@ ContentService收到请求进一步处理，无非就是搜索之前的树，找
         }
     }
     
-但是整体上来看，由于Binder oneway的存在，ContentService的通知是个异步的过程，一般来说，Binder线程应该是先与Main线程执行，因为Main还要等待AMS的返回呢，不过，也不一定，所以无法保证同步。
+但是整体上来看，由于Binder oneway的存在，ContentService的通知是个异步的过程，一般来说，Binder线程应该是先与Main线程执行，因为Main还要等待AMS的返回呢，不过，也不一定，两个线程的竞争加上任务的繁重程度，所以是无法从根本上保证同步的。
 
 #  一个奇葩问题的注意事项 Binder循环调用
 
