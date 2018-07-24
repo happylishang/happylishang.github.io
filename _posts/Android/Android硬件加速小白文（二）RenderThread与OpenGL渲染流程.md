@@ -1792,3 +1792,6 @@ CPU要等待OpenGL处理完，处理完之后，CPU通知SF去合成
 GPU实际上是一组图形函数的集合，而这些函数由硬件实现
 
 CPU会将交给GPU的命令进行编程，很明显，这个挺像函数执行的模型，提供执行函数指令+数据，让GPU执行，
+
+
+![CPU与GPU通信](https://upload-images.jianshu.io/upload_images/1460468-e5d82359c2e55b1c.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
