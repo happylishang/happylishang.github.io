@@ -408,6 +408,17 @@ Binder.getCallingPid()获取的可能并不是我们想要的进程PID，因为�
 以上两个函数配合使用，就可以避免之前的问题。这个问题Google不能从Binder上在底层解决吗？总觉是Binder通信的BUG。
 
 
+# ContentService notify处理必须及时的原因（Binder问题）
+
+ContentService notify之后，APP端会有一个线程负责接收，在当前线程还未处理完上一个请求的 时候，下一个请求到来的话，还是被塞到该线程，而不是其他空闲的Binder线程，尽管是oneway的请求方式。如果是同步的请求，自然不必担心这个问题，因为肯定要等上一个请求返回，但是这个是oneway的，这可能就会引发问题，这大概算是Binder设计中的一个问题。如果ContentObserver 的onchange执行的比较耗时，那么ContentService发送过来的其他消息会继续加入到当前线程的执行队列，这样会影响APP端处理的速度。如果是不同线程的请求，binder确实会分配给不同的Binder线程，并且如果线程不够，还会创建新的，但是对于同一个线程的却不会，如下，是不同线程请求。
+
+![11531810316_.pic.jpg](https://upload-images.jianshu.io/upload_images/1460468-38be6aca9a9081af.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+如果是统一线程，效果如下
+
+![21531813083_.pic.jpg](https://upload-images.jianshu.io/upload_images/1460468-077214331cb04343.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+Binder线程不会明显增加。
 
 # 总结    
 
