@@ -1,15 +1,59 @@
+其实对于Surface，最关键的就是一个IGraphicBufferProducer，他是一个生产者，GraphicBuffer，deque eque 
 
-OpenGL ES（OpenGL for Embedded Systems）
+**BufferQueue是Android 中所有图形处理操作的核心。它的作用很简单：将生成图形数据缓冲区的一方（生产方）连接到接受数据以进行显示或进一步处理的一方（消耗方）。几乎所有在系统中移动图形数据缓冲区的内容都依赖于BufferQueue，比如显示、编码等。 以显示流程为例，生产者进程一般就是应用程序进程，消费者进程就是SurfaceFlinger进程，应用程序进程的surface对象和SurfaceFlinger进程的layer对象可以看做实际的生产者和消费者，主要类的关系如下所示：，应用程序申请surface时，会在SurfaceFlinger进程创建一个layer对象，接着会创建BufferQueueCore、BufferQueueProducer和BufferQueueConsumer对象，然后创建SurfaceFlingerConsumer和ProxyConsumerListener对象，而在应用程序进程这端会创建Surface对象和BpGraphicBufferProducer代理对象，应用程序进程通过Surface对象中的BpGraphicBufferProducer向SurfaceFlinger进程中的BufferQueueCore对象申请和提交GraphicBuffer，SurfaceFlinger进程中的BufferQueueCore对象通过ProxyConsumerListener、SurfaceFlingerConsumer、Layer一路通知到SurfaceFlinger有新的GraphicBuffer需要合成，SurfaceFlinger收到通知，通过Layer调用SurfaceFlingerConsumer的updateTexImage，将GraphicBuffer绘制成纹理，然后再合成输出。**
 
-OpenGL ES 定义了一个渲染图形的 API，但没有定义窗口系统。为了让 GLES 能够适合各种平台，GLES 将与知道如何通过操作系统创建和访问窗口的库结合使用。用于 Android 的库称为 EGL。如果要绘制纹理多边形，应使用 GLES 调用；如果要在屏幕上进行渲染，应使用 EGL 调用。
-
-在使用 GLES 进行任何操作之前，需要创建一个 GL 上下文。在 EGL 中，这意味着要创建一个 EGLContext 和一个 EGLSurface。GLES 操作适用于当前上下文，该上下文通过线程局部存储访问，而不是作为参数进行传递。这意味着您必须注意渲染代码在哪个线程上执行，以及该线程上的当前上下文。
-
+ 
 
 
-# CPU跟GPU交互
 
-着色器程序(shader program)在GPU上执行，OpenGL主程序在CPU上执行，主程序（CPU）向显存输入顶点等数据，启动渲染过程，并对渲染过程进行控制。了解到这一点就可以了解显示列表（Display Lists）以及像 glFinish() 这种函数存在的原因了，前者（显示列表）将一组绘制指令放到GPU上，CPU只要发一条“执行这个显示列表”这些指令就执行，而不必CPU每次渲染都发送大量指令到GPU，从而节约PCI带宽（因为PCI总线比显存慢）；后者（glFinish）让CPU等待GPU将已发送的渲染指令执行完。
+SurfaceTexture 类是在 Android 3.0 中推出的。就像 SurfaceView 是 Surface 和 View 的组合一样，SurfaceTexture 是 Surface 和 GLES 纹理的粗略组合（包含几个注意事项）。
+
+当您创建 SurfaceTexture 时，会创建一个应用是其消耗方的 BufferQueue。如果生产方将新的缓冲区加入队列，您的应用便会通过回调 (onFrameAvailable()) 获得通知。应用调用 updateTexImage()（这会释放先前保留的缓冲区），从队列中获取新的缓冲区，然后发出一些 EGL 调用，让缓冲区可作为外部纹理供 GLES 使用。
+
+外部纹理
+外部纹理 (GL_TEXTURE_EXTERNAL_OES) 与 GLES (GL_TEXTURE_2D) 创建的纹理并不完全相同：您对渲染器的配置必须有所不同，而且有一些操作是不能对外部纹理执行的。关键是，您可以直接从 BufferQueue 接收到的数据中渲染纹理多边形。gralloc 支持各种格式，因此我们需要保证缓冲区中数据的格式是 GLES 可以识别的格式。为此，当 SurfaceTexture 创建 BufferQueue 时，它将消耗方用法标记设置为 GRALLOC_USAGE_HW_TEXTURE，确保由 gralloc 创建的缓冲区均可供 GLES 使用。
+
+由于 SurfaceTexture 会与 EGL 上下文交互，因此您必须小心地从正确的会话中调用其方法（详见类文档）
+
+
+TextureView
+我们在 Android 4.0 中引入了 TextureView 类，它结合了 View 与 SurfaceTexture，是我们在此讨论的最复杂的 View 对象。
+
+使用 GLES 呈现
+我们已经知道，SurfaceTexture 是一个“GL 消费者”，它会占用图形数据的缓冲区，并将它们作为纹理进行提供。TextureView 会对 SurfaceTexture 进行封装，并接管对回调做出响应以及获取新缓冲区的责任。新缓冲区的就位会导致 TextureView 发出 View 失效请求。当被要求进行绘图时，TextureView 会使用最近收到的缓冲区的内容作为数据源，并根据 View 状态的指示，以相应的方式在相应的位置进行呈现。
+
+您可以使用 GLES 在 TextureView 上呈现内容，就像在 SurfaceView 上一样。只需将 SurfaceTexture 传递到 EGL 窗口创建调用即可。不过，这样做会导致潜在问题。
+
+在我们看到的大部分内容中，BufferQueue 是在不同进程之间传递缓冲区。当使用 GLES 呈现到 TextureView 时，生产者和消费者处于同一进程中，它们甚至可能会在单个线程上得到处理。假设我们以快速连续的方式从界面线程提交多个缓冲区。EGL 缓冲区交换调用需要使一个缓冲区从 BufferQueue 出列，而在有可用的缓冲区之前，它将处于暂停状态。只有当消费者获取一个缓冲区用于呈现时才会有可用的缓冲区，但是这一过程也会发生在界面线程上…因此我们陷入了困境。
+
+解决方案是让 BufferQueue 确保始终有一个可用的缓冲区能够出列，以使缓冲区交换始终不会暂停。要保证能够实现这一点，一种方法是让 BufferQueue 在新缓冲区加入队列时舍弃之前加入队列的缓冲区的内容，并对最小缓冲区计数和最大获取缓冲区计数施加限制（如果您的队列有三个缓冲区，而所有这三个缓冲区均被消费者获取，那么就没有可以出列的缓冲区，缓冲区交换调用必然会暂停或失败。因此我们需要防止消费者一次获取两个以上的缓冲区）。丢弃缓冲区通常是不可取的，因此仅允许在特定情况下发生，例如生产者和消费者处于同一进程中时。
+
+SurfaceView 还是 TextureView？
+SurfaceView 和 TextureView 扮演的角色类似，但是拥有截然不同的实现。要作出最合适的选择，则需要了解它们各自的利弊。
+因为 TextureView 是 View 层次结构的固有成员，所以其行为与其他所有 View 一样，可以与其他元素相互叠加。您可以执行任意转换，并通过简单的 API 调用将内容检索为位图。
+
+影响 TextureView 的主要因素是合成步骤的表现。使用 SurfaceView 时，内容可以写到 SurfaceFlinger（理想情况下使用叠加层）合成的独立分层中。使用 TextureView 时，View 合成往往使用 GLES 执行，并且对其内容进行的更新也可能会导致其他 View 元素重绘（例如，如果它们位于 TextureView 上方）。View 呈现完成后，应用界面层必须由 SurfaceFlinger 与其他分层合成，以便您可以高效地将每个可见像素合成两次。对于全屏视频播放器，或任何其他相当于位于视频上方的界面元素的应用，SurfaceView 可以带来更好的效果。
+
+如之前所述，受 DRM 保护的视频只能在叠加平面上呈现。支持受保护内容的视频播放器必须使用 SurfaceView 进行实现。
+
+案例研究：Grafika 的视频播放 (TextureView)
+Grafika 包括一对视频播放器，一个用 TextureView 实现，另一个用 SurfaceView 实现。对于这两个视频播放器来说，仅将帧从 MediaCodec 发送到 Surface 的视频解码部分是一样的。这两种实现之间最有趣的区别是呈现正确宽高比所需的步骤。
+
+SurfaceView 需要 FrameLayout 的自定义实现，而要重新调整 SurfaceTexture 的大小，只需使用 TextureView#setTransform() 配置转换矩阵即可。对于前者，您会通过 WindowManager 向 SurfaceFlinger 发送新的窗口位置和大小值；对于后者，您仅仅是在以不同的方式呈现它。
+
+否则，两种实现均遵循相同的模式。创建 Surface 后，系统会启用播放。点击“播放”时，系统会启动视频解码线程，并将 Surface 作为输出目标。之后，应用代码不需要执行任何操作，SurfaceFlinger（适用于 SurfaceView）或 TextureView 会处理合成和显示。
+
+案例研究：Grafika 的双重解码
+此操作组件演示了在 TextureView 中对 SurfaceTexture 的操控。
+
+此操作组件的基本结构是一对显示两个并排播放的不同视频的 TextureView。为了模拟视频会议应用的需求，我们希望在操作组件因屏幕方向发生变化而暂停和恢复时，MediaCodec 解码器能保持活动状态。原因在于，如果不对 MediaCodec 解码器使用的 Surface 进行完全重新配置，就无法更改它，而这是成本相当高的操作；因此我们希望 Surface 保持活动状态。Surface 只是 SurfaceTexture 的 BufferQueue 中生产者界面的句柄，而 SurfaceTexture 由 TextureView 管理；因此我们还需要 SurfaceTexture 保持活动状态。那么我们如何处理 TextureView 被关闭的情况呢？
+
+TextureView 提供的 setSurfaceTexture() 调用正好能够满足我们的需求。我们从 TextureView 获取对 SurfaceTexture 的引用，并将它们保存在静态字段中。当操作组件被关闭时，我们从 onSurfaceTextureDestroyed() 回调返回“false”，以防止 SurfaceTexture 被销毁。当操作组件重新启动时，我们将原来的 SurfaceTexture 填充到新的 TextureView 中。TextureView 类负责创建和破坏 EGL 上下文。
+
+每个视频解码器都是从单独的线程驱动的。乍一看，我们似乎需要每个线程的本地 EGL 上下文；但请注意，具有解码输出的缓冲区实际上是从 mediaserver 发送给我们的 BufferQueue 消费者 (SurfaceTexture)。TextureView 会为我们处理呈现，并在界面线程上执行。
+
+使用 SurfaceView 实现该操作组件可能较为困难。我们不能只创建一对 SurfaceView 并将输出引导至它们，因为 Surface 在屏幕方向改变期间会被销毁。此外，这样做会增加两个层，而由于可用叠加层的数量限制，我们不得不尽量将层数量减到最少。与上述方法不同，我们希望创建一对 SurfaceTexture，以从视频解码器接收输出，然后在应用中执行呈现，使用 GLES 将两个纹理间隙呈现到 SurfaceView 的 Surface。
+
 
 # SurfaceTexture是什么？
 
