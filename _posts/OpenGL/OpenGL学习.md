@@ -70,7 +70,12 @@ OpenGL操作的编程矩阵，并不是点本身，而是其变换矩阵。
 
 >	The model matrix is a transformation matrix that translates, scales and/or rotates your object to place it in the world at a location/orientation they belong to. Think of it as transforming a house by scaling it down (it was a bit too large in local space), translating it to a suburbia town and rotating it a bit to the left on the y-axis so that it neatly fits with the neighboring houses. You could think of the matrix in the previous tutorial to position the container all over the scene as a sort of model matrix as well; we transformed the local coordinates of the container to some different place in the scene/world.
 
-* View space (or Eye space)	摄像机(眼镜)，  就是从不同的视角看过去，但是这里没有牵扯到透射的概念
+* View space (or Eye space)	摄像机(眼镜)，  就是从不同的视角看过去，但是这里没有牵扯到透射的概念  
+
+
+
+OpenGL成像采用的是虚拟相机模型。在场景中你通过模型变换，**将物体放在场景中不同位置后，最终哪些部分需要成像，显示在屏幕上**，主要由视变换和后面要介绍的投影变换、视口变换等决定。**看到哪部分，视线在哪**  我们的目标是计算世界坐标系中的物体在相机坐标系下的坐标，坐标转换，基础是：坐标系的基础位置
+ 
 
 >The view space is what people usually refer to as the camera of OpenGL (it is sometimes also known as the camera space or eye space). The view space is the result of transforming your world-space coordinates to coordinates that are in front of the user's view.
 
@@ -97,7 +102,33 @@ Camera坐标系还是平行的，没有经过投射处理，机器没有肉眼�
 
 也就是说，当直接或间接调用Canvas.drawText()函数的时候，OpenGL 渲染器不会收到你发送的参数，而是收到一串数字、符号标识，还有x/y 坐标集合。
 
+ # OpenGL坐标系
 
+* Local space (or Object space) 本地坐标，（原生坐标系）
+* World space						世界左边，在世界中的样子，三维就是三维
+* View space (or Eye space)	摄像机左边，应该是平行光投影
+* Clip space						透视坐标，应该是透视投影
+* Screen space
+
+Those are all a different state at which our vertices will be transformed in before finally ending up as fragments.
+
+![](https://learnopengl.com/img/getting-started/coordinate_systems.png)
+
+
+OpenGL 设置的都是最后的结果，坐标转换矩阵可能需OpenGL自己换算，当然，也可以自己制定，自己规划转换流程
+
+NDC也是标准的x ：1，y ：1，z ：1标准的
+
+包括投影矩阵
+
+
+
+
+# 参考文档
+
+[](https://blog.csdn.net/lyx2007825/article/details/8792475)      
+[Coordinate Systems](https://learnopengl.com/Getting-started/Coordinate-Systems   )       
+[OpenGL学习脚印: 投影矩阵和视口变换矩阵(math-projection and viewport matrix)](https://blog.csdn.net/wangdingqiaoit/article/details/51589825)
 
 # 参考文档
 
