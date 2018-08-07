@@ -1,3 +1,10 @@
+
+---
+layout: post
+title: Android硬件加速-RenderThread与OpenGL GPU渲染
+category: Android
+
+---
       
 Android4.0之后，系统默认开启硬件加速来渲染View，之前，[理解Android硬件加速的小白文](http://www.jianshu.com/p/40f660e17a73)简单的讲述了硬件加速的简单模型，不过主要针对前半阶段，并没怎么说是如何使用OpenGL、GPU处理数据的，OpenGL主要处理的任务有Surface的composition及图形图像的渲染，本篇文章简单说一下后半部分的模型，这部分对于理解View渲染也有不少帮助，也能更好的帮助理解GPU渲染玄学曲线。
 
