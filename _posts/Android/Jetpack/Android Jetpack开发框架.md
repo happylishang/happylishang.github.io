@@ -40,6 +40,31 @@ lifecycle-aware components
 add之后，就能够得到通知，跟我们代码中的presenter使用类似，这个也就是一个封装，其实我们底层封装好，效果也是一样的。
 
 
+    void attach(Context context) {
+        mHandler = new Handler();
+        mRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE);
+        Application app = (Application) context.getApplicationContext();
+        app.registerActivityLifecycleCallbacks(new EmptyActivityLifecycleCallbacks() {
+            @Override
+            public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
+                ReportFragment.get(activity).setProcessListener(mInitializationListener);
+            }
+
+            @Override
+            public void onActivityPaused(Activity activity) {
+                activityPaused();
+            }
+
+            @Override
+            public void onActivityStopped(Activity activity) {
+                activityStopped();
+            }
+        });
+    }
+
+
+
+
 实例化一个ReportFragment
     
         @Override
@@ -65,13 +90,15 @@ add之后，就能够得到通知，跟我们代码中的presenter使用类似�
     }
 
 
-编译时候，注入一个provider，而且每个进程一个，就是辅助注册回调
+编译时候，注入一个provider，而且每个进程一个，就是辅助注册回调 ProcessLifecycleOwnerInitializer，其实就是借助APplication的lifecircle那一套
 
 	<provider
-	        android:name="android.arch.lifecycle.LifecycleRuntimeTrojanProvider"
-	        android:authorities="${applicationId}.lifecycle-trojan"
-	        android:exported="false"
-	        android:multiprocess="true" />
+	           android:name="android.arch.lifecycle.ProcessLifecycleOwnerInitializer"
+	           android:authorities="${applicationId}.lifecycle-trojan"
+	           android:exported="false"
+	           android:multiprocess="true" />
+
+ 
 
  
 ## LiveData
@@ -112,7 +139,8 @@ Activity Fragment等
 
 ## room   
 
-jetpack的这一套，要全部配合起来使用，才能说效率提升。比如room配合livedata，配合注解
+jetpack的这一套，要全部配合起来使用，才能说效率提升。比如room配合livedata，配合注解，   ComputableLiveData，不支持跨进程
+
 
 
 	@Dao
@@ -138,10 +166,81 @@ jetpack的这一套，要全部配合起来使用，才能说效率提升。比�
 	    fun insertGardenPlanting(gardenPlanting: GardenPlanting): Long
 	}
 
+最后会设置value的
+	
+	 @VisibleForTesting
+	    final Runnable mRefreshRunnable = new Runnable() {
+	        @WorkerThread
+	        @Override
+	        public void run() {
+	            boolean computed;
+	            do {
+	                computed = false;
+	                // compute can happen only in 1 thread but no reason to lock others.
+	                if (mComputing.compareAndSet(false, true)) {
+	                    // as long as it is invalid, keep computing.
+	                    try {
+	                        T value = null;
+	                        while (mInvalid.compareAndSet(true, false)) {
+	                            computed = true;
+	                            value = compute();
+	                        }
+	                        if (computed) {
+	                            mLiveData.postValue(value);
+	                        }
+	                    } finally {
+	                        // release compute lock
+	                        mComputing.set(false);
+	                    }
+	                }
+	                // check invalid after releasing compute lock to avoid the following scenario.
+	                // Thread A runs compute()
+	                // Thread A checks invalid, it is false
+	                // Main thread sets invalid to true
+	                // Thread B runs, fails to acquire compute lock and skips
+	                // Thread A releases compute lock
+	                // We've left invalid in set state. The check below recovers.
+	            } while (computed && mInvalid.get());
+	        }
+	    };
+	    
+	    
+		      @Override
+	  public long insertGardenPlanting(GardenPlanting gardenPlanting) {
+	    __db.beginTransaction();
+	    try {
+	      long _result = __insertionAdapterOfGardenPlanting.insertAndReturnId(gardenPlanting);
+	      __db.setTransactionSuccessful();
+	      return _result;
+	    } finally {
+	      __db.endTransaction();
+	    }
+	  }
+  
+  
+      public void endTransaction() {
+        mOpenHelper.getWritableDatabase().endTransaction();
+        if (!inTransaction()) {
+            // enqueue refresh only if we are NOT in a transaction. Otherwise, wait for the last
+            // endTransaction call to do it.
+            mInvalidationTracker.refreshVersionsAsync();
+        }
+    }
 
+
+    @SuppressWarnings("WeakerAccess")
+    public void refreshVersionsAsync() {
+        // TODO we should consider doing this sync instead of async.
+        if (mPendingRefresh.compareAndSet(false, true)) {
+            ArchTaskExecutor.getInstance().executeOnDiskIO(mRefreshRunnable);
+        }
+    }
+ 
+ room数据的LiveData是全局通知，而不是变化后通知，ROOM不做这些，而且ROOM自己的通知是不支持跨进程的。ROOM跟LiveData的结合其实是基于里面封装的ComputeLiveData，每次更新后，会coputer，通知
+    
 ## databinding
 
-在布局中让View跟model中的数据绑定，代码中注入model，databinding用起来感觉挺乱，
+在布局中让View跟model中的数据绑定，代码中注入model，databinding用起来感觉挺乱，  
 
 
 ## navigationg+paging是新的UI组件
@@ -149,3 +248,8 @@ jetpack的这一套，要全部配合起来使用，才能说效率提升。比�
 就业务需求上来说，并没有必要仰慕这个空间，更新迭代的速度太快。
 
 ## workmanager  处理异步（自己封装的好也没必要非要用这个）
+
+# 参考文档
+
+
+[Android Room with a View](https://codelabs.developers.google.com/codelabs/android-room-with-a-view/#6)           
