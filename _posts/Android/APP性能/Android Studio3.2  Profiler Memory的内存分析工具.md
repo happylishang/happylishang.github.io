@@ -61,9 +61,130 @@
 
 ![291540025853_.pic.jpg](https://upload-images.jianshu.io/upload_images/1460468-f1d8100edeecd85b.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 	
-## FinalizerReference大小跟内存泄漏的关系
+## FinalizerReference大小跟内存使用及内存泄漏的关系
 
+之前说Retained Size是此实例支配的内存大小，其实在Retained Size的统计上游很多限制，比如Depth：从任意 GC 根到所选实例的最短hop数，一个对象的Retained Size只会统计Depth比自己打的引用，而不会统计小的，这个可能是为了避免重复统计而引入的，但是其实Retained Size在整体上是免不了重复统计的问题，所以才会右下图的情况：
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-8791c7700db8e906.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
+FinalizerReference中refrent的对象的retain size是40M，但是没有被计算到FinalizerReference的retain size中去，而且就图表而言FinalizerReference的意义其实不大，FinalizerReference对象本身占用的内存不大，其次FinalizerReference的	retain size统计的可以说是FinalizerReference的重复累加的和，并不代表其引用对象的大小，仅仅是ReferenceQueue<Object> queue中ReferenceQueue的累加，
+
+	public final class FinalizerReference<T> extends Reference<T> {
+	    // This queue contains those objects eligible for finalization.
+	    public static final ReferenceQueue<Object> queue = new ReferenceQueue<Object>();
 	
+	    // Guards the list (not the queue).
+	    private static final Object LIST_LOCK = new Object();
+	
+	    // This list contains a FinalizerReference for every finalizable object in the heap.
+	    // Objects in this list may or may not be eligible for finalization yet.
+	    private static FinalizerReference<?> head = null;
+	
+	    // The links used to construct the list.
+	    private FinalizerReference<?> prev;
+	    private FinalizerReference<?> next;
+	
+	    // When the GC wants something finalized, it moves it from the 'referent' field to
+	    // the 'zombie' field instead.
+	    private T zombie;
+	
+	    public FinalizerReference(T r, ReferenceQueue<? super T> q) {
+	        super(r, q);
+	    }
+	
+	    @Override public T get() {
+	        return zombie;
+	    }
+	
+	    @Override public void clear() {
+	        zombie = null;
+	    }
+	
+	    public static void add(Object referent) {
+	        FinalizerReference<?> reference = new FinalizerReference<Object>(referent, queue);
+	        synchronized (LIST_LOCK) {
+	            reference.prev = null;
+	            reference.next = head;
+	            if (head != null) {
+	                head.prev = reference;
+	            }
+	            head = reference;
+	        }
+	    }
+	
+	    public static void remove(FinalizerReference<?> reference) {
+	        synchronized (LIST_LOCK) {
+	            FinalizerReference<?> next = reference.next;
+	            FinalizerReference<?> prev = reference.prev;
+	            reference.next = null;
+	            reference.prev = null;
+	            if (prev != null) {
+	                prev.next = next;
+	            } else {
+	                head = next;
+	            }
+	            if (next != null) {
+	                next.prev = prev;
+	            }
+	        }
+	    }
+    ...
+	}
+ 
+ 
+ 并且每个FinalizerReference retain size 都是其next+ FinalizerReference的shallowsize，反应的并不是其refrent对象内存的大小，如下：
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-97be22e531d4dcc3.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+ 
+ 因此FinalizerReference越大只能说明需要执行finalize的对象越多，并且对象是通过强引用被持有，等待Deamon线程回收。可以通过该下代码试验下：
+ 
+	 class ListItem40MClass {
+	        byte[] content = new byte[5];
+	
+	        ListItem40MClass() {
+	            for (int i = 0; i < content.length; i += 1000) {
+	                content[i] = 1;
+	            }
+	        }
+	
+	        @Override
+	        protected void finalize() throws Throwable {
+	            super.finalize();
+	            LogUtils.v("finalize ListItem40MClass");
+	        }
+	
+	        ListItem40MClass next;
+	    }
+	
+	
+	    @OnClick(R.id.first)
+	    void first() {
+	        if (head == null) {
+	            head = new ListItem40MClass();
+	        } else {
+	            for (int i = 0; i < 1000; i++) {
+	                ListItem40MClass tmp = head;
+	                while (tmp.next != null) {
+	                    tmp = tmp.next;
+	                }
+	                tmp.next = new ListItem40MClass();
+	            }
+	        }
+	    }
+    
+   多次点击后，需要finalize的对象指向上升，而FinalizerReference却会指数上升。
+   
+   ![image.png](https://upload-images.jianshu.io/upload_images/1460468-a118ea13d63a20d6.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+而且同之前40M的对比下，明显上一个内存占用更多，但是其实FinalizerReference的retain size却更小。再来理解FinalizerReference跟内存泄漏的关系就比价好理解了，回收线程没执行，实现了finalize方法的对象一直没有被释放，或者很迟才被释放，这个时候其实就算是泄漏了。
+
+## 到底如何看Profile的Memory图
+
+* 其一，看整体Java内存使用看shallowsize就可以了
+*  想要看哪些对象占用内存较多，可以看Retained Size，不过看Retained Size的时候，要注意过滤一些无用的比如  FinalizerReference，基本类型如：数组对象
+
+比如下图：
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-1b8f948f4a78ebe5.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+其Java用的
