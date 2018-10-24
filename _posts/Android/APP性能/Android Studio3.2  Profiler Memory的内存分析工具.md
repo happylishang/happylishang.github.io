@@ -178,13 +178,17 @@ FinalizerReference中refrent的对象的retain size是40M，但是没有被计�
 
 而且同之前40M的对比下，明显上一个内存占用更多，但是其实FinalizerReference的retain size却更小。再来理解FinalizerReference跟内存泄漏的关系就比价好理解了，回收线程没执行，实现了finalize方法的对象一直没有被释放，或者很迟才被释放，这个时候其实就算是泄漏了。
 
-## 到底如何看Profile的Memory图
+## 如何看Profiler的Memory图
 
 * 其一，看整体Java内存使用看shallowsize就可以了
 *  想要看哪些对象占用内存较多，可以看Retained Size，不过看Retained Size的时候，要注意过滤一些无用的比如  FinalizerReference，基本类型如：数组对象
 
-比如下图：
+比如下图：Android 6.0 nexus5
 
-![image.png](https://upload-images.jianshu.io/upload_images/1460468-1b8f948f4a78ebe5.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-172997af1c4810b8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-其Java用的
+从整体概况上看，Java堆内存的消耗是91兆左右，而整体的shallow size大概80M，其余应该是一些堆栈基础类型的消耗，而在Java堆栈中，占比最大的是byte[]，其次是Bitmap，bitmap中的byte[]也被算进了前面的byte[] retain size中，而FinilizerReference的retain size已经大的不像话，没什么参考价值，可以看到Bitmap本身其实占用内存很少，主要是里面的byte[]，当然这个是Android8.0之前的bitmap，8.0之后，bitmap的内存分配被转移到了native。
+
+
+
+
