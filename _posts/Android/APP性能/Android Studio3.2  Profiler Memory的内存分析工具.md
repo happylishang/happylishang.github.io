@@ -67,7 +67,7 @@
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-8791c7700db8e906.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-FinalizerReference中refrent的对象的retain size是40M，但是没有被计算到FinalizerReference的retain size中去，而且就图表而言FinalizerReference的意义其实不大，FinalizerReference对象本身占用的内存不大，其次FinalizerReference的	retain size统计的可以说是FinalizerReference的重复累加的和，并不代表其引用对象的大小，仅仅是ReferenceQueue<Object> queue中ReferenceQueue的累加，
+FinalizerReference中refrent的对象的retain size是40M，但是没有被计算到FinalizerReference的retain size中去，而且就图表而言FinalizerReference的意义其实不大，FinalizerReference对象本身占用的内存不大，其次FinalizerReference的retain size统计的可以说是FinalizerReference的重复累加的和，并不代表其引用对象的大小，仅仅是ReferenceQueue<Object> queue中ReferenceQueue的累加，
 
 	public final class FinalizerReference<T> extends Reference<T> {
 	    // This queue contains those objects eligible for finalization.
@@ -132,7 +132,7 @@ FinalizerReference中refrent的对象的retain size是40M，但是没有被计�
 	}
  
  
- 并且每个FinalizerReference retain size 都是其next+ FinalizerReference的shallowsize，反应的并不是其refrent对象内存的大小，如下：
+每个FinalizerReference retain size 都是其next+ FinalizerReference的shallowsize，反应的并不是其refrent对象内存的大小，如下：
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-97be22e531d4dcc3.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
  
@@ -172,16 +172,16 @@ FinalizerReference中refrent的对象的retain size是40M，但是没有被计�
 	        }
 	    }
     
-   多次点击后，需要finalize的对象指向上升，而FinalizerReference却会指数上升。
+ 多次点击后，可以看到finalize的对象线性上升，而FinalizerReference的retain size却会指数上升。
    
-   ![image.png](https://upload-images.jianshu.io/upload_images/1460468-a118ea13d63a20d6.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-a118ea13d63a20d6.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 而且同之前40M的对比下，明显上一个内存占用更多，但是其实FinalizerReference的retain size却更小。再来理解FinalizerReference跟内存泄漏的关系就比价好理解了，回收线程没执行，实现了finalize方法的对象一直没有被释放，或者很迟才被释放，这个时候其实就算是泄漏了。
 
 ## 如何看Profiler的Memory图
 
-* 其一，看整体Java内存使用看shallowsize就可以了
-*  想要看哪些对象占用内存较多，可以看Retained Size，不过看Retained Size的时候，要注意过滤一些无用的比如  FinalizerReference，基本类型如：数组对象
+* 第一：看整体Java内存使用看shallowsize就可以了
+*  第二：想要看哪些对象占用内存较多，可以看Retained Size，不过看Retained Size的时候，要注意过滤一些无用的比如  FinalizerReference，基本类型如：数组对象
 
 比如下图：Android 6.0 nexus5
 
@@ -189,6 +189,14 @@ FinalizerReference中refrent的对象的retain size是40M，但是没有被计�
 
 从整体概况上看，Java堆内存的消耗是91兆左右，而整体的shallow size大概80M，其余应该是一些堆栈基础类型的消耗，而在Java堆栈中，占比最大的是byte[]，其次是Bitmap，bitmap中的byte[]也被算进了前面的byte[] retain size中，而FinilizerReference的retain size已经大的不像话，没什么参考价值，可以看到Bitmap本身其实占用内存很少，主要是里面的byte[]，当然这个是Android8.0之前的bitmap，8.0之后，bitmap的内存分配被转移到了native。
 
+再来对比下Android8.0的nexus6p：可以看到占大头的Bitmap的内存转移到native中去了，降低了OOM风险。
 
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-2e2429c5b86a4553.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+Android 8.0 或更高版本，不用dump内存，直接选中某一段，就可以看这个时间段的内存分配：如下
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-af06d04a2fe93e11.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+在时间点1 ，我们创建了一个对象new ListItem40MClass()，ListItem40MClass有一个比较占内存的byte数组，上面的紫色原点就是代表有对象创建，然后会发现，最大的是byte数组，而最新的byte数组是在ListItem40MClass对象创建的时候分配的，这样我们就能比较方便的看到，到底是哪些对象导致的内存上升。
 
 
