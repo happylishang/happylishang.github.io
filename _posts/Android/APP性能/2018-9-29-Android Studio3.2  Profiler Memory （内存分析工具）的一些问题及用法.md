@@ -1,7 +1,8 @@
+
 ---
 layout: post
-title: Android Studio3.2  Profiler Memory （内存分析工具）的一些问题及用法
-categories: [Android]
+title: "Android Studio3.2  Profiler Memory （内存分析工具）的一些问题及用法"
+category: Android  
 
 ---
 
