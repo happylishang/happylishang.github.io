@@ -1,14 +1,18 @@
 
-## 内存使用统计问题  
+Memory Profiler 是 Android Studio自带的内存分析工具，可以帮助开发者很好的检测内存的使用，在出现问题时，也能比较方便的分析定位问题。
 
-整体内存的使用，看APP heap就可以了，
+## 查看整体的内存使用概况
+
+如果想要看一个APP整体内存的使用，看APP heap就可以了，不过需要注意Shallow Size跟Retained Size是意义，另外8.0之后native消耗的内存是不会被算到Java堆中去的。
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-8618c8d59f6559ee.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 * Allocations：堆中的实例数。
 * Shallow Size：此堆中所有实例的总大小（以字节为单位）。**其实算是比较真实的java堆内存**
-* Retained Size：为此类的所有实例而保留的内存总大小（以字节为单位）。**会有重复统计的问题**
+* Retained Size：为此类的所有实例而保留的内存总大小（以字节为单位）。**这个解释并不准确，因为Retained Size会有大量的重复统计**
+* native size：8.0之后的手机会显示，一般是Bitmap所使用的像素内存（8.0之后，转移到了native）
 
 举个例子，创建一个List的场景，有一个ListItem40MClass类，自身占用40M内存，每个对象有个指向下一个ListItem40MClass对象的引用，从而构成List，
-
 
     class ListItem40MClass {
     
@@ -193,10 +197,17 @@ FinalizerReference中refrent的对象的retain size是40M，但是没有被计�
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-2e2429c5b86a4553.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-Android 8.0 或更高版本，不用dump内存，直接选中某一段，就可以看这个时间段的内存分配：如下
+并且在Android 8.0或更高版本中，可以更清楚的查看对象及内存的动态分配，而且不用dump内存，直接选中某一段，就可以看这个时间段的内存分配：如下
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-af06d04a2fe93e11.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-在时间点1 ，我们创建了一个对象new ListItem40MClass()，ListItem40MClass有一个比较占内存的byte数组，上面的紫色原点就是代表有对象创建，然后会发现，最大的是byte数组，而最新的byte数组是在ListItem40MClass对象创建的时候分配的，这样我们就能比较方便的看到，到底是哪些对象导致的内存上升。
+如上图，在时间点1 ，我们创建了一个对象new ListItem40MClass()，ListItem40MClass有一个比较占内存的byte数组，上面的紫色圆点就是代表有对象创建，然后会发现内存大户是byte数组，而最新的byte数组是在ListItem40MClass对象创建的时候分配的，这样就能比较方便的看到，到底是哪些对象导致的内存上升。
 
+
+## 总结
+
+* 总体Java内存使用看shallow size
+* retained size只是个参考，不准确，存在各种重复统计问题
+* FinalizerReference retained size 大小极其不准确，而且其强引用的对象并没有被算进去，不过finilize确实可能导致内存泄漏
+* native size再8.0之后，对Bitmap的观测有帮助。
 
