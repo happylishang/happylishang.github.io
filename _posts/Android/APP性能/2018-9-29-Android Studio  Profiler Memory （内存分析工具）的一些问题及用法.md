@@ -1,10 +1,10 @@
 ---
-
 layout: post
-title: "Android Studio3.2  Profiler Memory （内存分析工具）的一些问题及用法"
+title: "Android Studio  Profiler Memory （内存分析工具）的一些问题及用法"
 category: Android  
 
 ---
+
 
 
 Memory Profiler 是 Android Studio自带的内存分析工具，可以帮助开发者很好的检测内存的使用，在出现问题时，也能比较方便的分析定位问题。
