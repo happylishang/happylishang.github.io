@@ -1,3 +1,485 @@
+A TextureView can be used to display a content stream. Such a content stream can for instance be a video or an OpenGL scene. The content stream can come from the application's process as well as a remote process.
+
+TextureView can only be used in a hardware accelerated window. When rendered in software, TextureView will draw nothing.
+
+Unlike SurfaceView, TextureView does not create a separate window but behaves as a regular View. This key difference allows a TextureView to be moved, transformed, animated, etc. For instance, you can make a TextureView semi-translucent by calling myView.setAlpha(0.5f).
+
+
+# SurfaceView不支持平移、缩放、透明度改变 - 这种说法并不严谨
+
+我们常说的View的动画，透明度，指的是里面的内容，它是跟随View自身的属性发生改变的，但是对于SurfaceView而言，它是一个独立的窗口，它的平移改变只是窗口属性的改变，但是里面的内容并不会跟随改变，比如缩放效果，虽然SurfaceView缩小了，但是里面绘制的内容并不会缩小，而SurfaceView自身是可以改变大小的
+
+
+因为SurfaceView的内容不在应用窗口上，所以不能使用变换（平移、缩放、旋转等） 
+
+
+# TextureView的数据流
+
+TextureView的数据从获取到显示中间经历了哪些呢，数据提供方肯定是多媒体设备，比如摄像头或者MediaPlayer等，这些数据是如何显示到TextureView上的呢？Android中图形内存的管理基本都是依赖BufferQueue进行处理，它采用了生产者消费者模式，数据提供方是生产者，这里拿拍照作为例子，拿摄像头就是生产者，它不断的捕获数据，并将数据传递给APP端的TextureView，TextureView再收到数据的时候，需要获取数据，并通知APP重绘，使用这部分数据，将其显示出来，TextureView没有独立的窗口，但是却有独立的图形内存分配，也拥有独立的Surface，只是这个Surface只是用来暂存，不是用来显示的，这些暂存的数据经过处理，被当做纹理最终被绘制到APP从SurfaceFlinger申请的那块内存中去，如此才完成了一次Camera数据的传递。
+
+![Android TextureView数据流向图.jpg](https://upload-images.jianshu.io/upload_images/1460468-89d2215172a685b6.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+# 为什么说SurfaceView的性能效率要比TextureView的高
+
+SurfaceView相比TextureView而言更加独立，而且更新不需要UI线程的参与，是有数据提供方直接通知SurfaceFlinger进行处理，而且相对来说，还少了一次内存大分配跟数据的处理，减少了开销。
+
+![Android SurfaceView数据流向图.jpg](https://upload-images.jianshu.io/upload_images/1460468-651f339379ec956a.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+* 视图的更新机制
+* 绘制的时候，如何处理DrawOp的使用呢
+
+# 用法
+
+	public class LiveCameraActivity extends Activity implements TextureView.SurfaceTextureListener {
+	      private Camera mCamera;
+	      private TextureView mTextureView;
+	
+	      protected void onCreate(Bundle savedInstanceState) {
+	          super.onCreate(savedInstanceState);
+	
+	          mTextureView = new TextureView(this);
+	          mTextureView.setSurfaceTextureListener(this);
+	          setContentView(mTextureView);
+	      }
+	
+	      public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
+	          mCamera = Camera.open();
+	
+	          try {
+	              mCamera.setPreviewTexture(surface);
+	              mCamera.startPreview();
+	          } catch (IOException ioe) {
+	          }
+	      }
+	
+	      public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
+	          // Ignored, Camera does all the work for us
+	      }
+	
+	      public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+	          mCamera.stopPreview();
+	          mCamera.release();
+	          return true;
+	      }
+	
+	      public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+	          // Invoked every time there's a new Camera preview frame
+	      }
+	  }
+ 
+ 
+
+有个前提概念：Layer的Render跟普通View的Render不一样，前者LayerRenderer，后者OpenGLRender
+
+**另一方面，对于前面提到的在Android 4.0引进的TextureView，它也不是通过Display List来绘制。由于它的底层实现直接就是一个Open GL纹理，因此就可以跳过Display List这一中间层，从而提高效率。这个Open GL纹理的绘制通过一个Layer Renderer来封装。Layer Renderer和Display List Renderer可以看作是同一级别的概念，它们都是通过Open GL命令来绘制UI元素的。只不过前者操作的是Open GL纹理，而后者操作的是Display List。
+**
+
+updateDeferred
+	
+	void RenderNode::pushLayerUpdate(TreeInfo& info) {
+    ...
+    if (dirty.intersect(0, 0, getWidth(), getHeight())) {
+        dirty.roundOut(&dirty);
+        mLayer->updateDeferred(this, dirty.fLeft, dirty.fTop, dirty.fRight, dirty.fBottom);
+    }
+    ...
+    
+ 传递的node是自己
+    
+	void Layer::updateDeferred(RenderNode* renderNode, int left, int top, int right, int bottom) {
+	    requireRenderer();
+	    this->renderNode = renderNode;
+	    const Rect r(left, top, right, bottom);
+	    dirtyRect.unionWith(r);
+	    deferredUpdateScheduled = true;
+	}
+
+替换render
+
+	void Layer::requireRenderer() {
+	    // 创建renderer
+	    if (!renderer) {
+	        renderer.reset(new LayerRenderer(renderState, this));
+	        renderer->initProperties();
+	    }
+	}
+
+这里的prepareDirty可就变样子了
+
+	void LayerRenderer::prepareDirty(float left, float top, float right, float bottom,
+	        bool opaque) {
+	    LAYER_RENDERER_LOGD("Rendering into layer, fbo = %d", mLayer->getFbo());
+	
+	    // 绑定Fbo 关键
+	    mRenderState.bindFramebuffer(mLayer->getFbo());
+	
+	    const float width = mLayer->layer.getWidth();
+	    const float height = mLayer->layer.getHeight();
+	
+	    Rect dirty(left, top, right, bottom);
+	    if (dirty.isEmpty() || (dirty.left <= 0 && dirty.top <= 0 &&
+	            dirty.right >= width && dirty.bottom >= height)) {
+	        mLayer->region.clear();
+	        dirty.set(0.0f, 0.0f, width, height);
+	    } else {
+	        dirty.intersect(0.0f, 0.0f, width, height);
+	        android::Rect r(dirty.left, dirty.top, dirty.right, dirty.bottom);
+	        mLayer->region.subtractSelf(r);
+	    }
+	    mLayer->clipRect.set(dirty);
+	
+	    OpenGLRenderer::prepareDirty(dirty.left, dirty.top, dirty.right, dirty.bottom, opaque);
+	}
+
+flush之前关键绑定自己Layer的fbo，绑定后，渲染目标就成了FBO，之后flush跟普通的类似，之后为这个Layer构建TextureVertex
+
+	bool LayerRenderer::finish() {
+	    bool retval = OpenGLRenderer::finish();
+	
+	    generateMesh();
+
+	    return retval;
+	}
+
+
+	void LayerRenderer::generateMesh() {
+	    if (mLayer->region.isRect() || mLayer->region.isEmpty()) {
+	        if (mLayer->mesh) {
+	            delete[] mLayer->mesh;
+	            mLayer->mesh = nullptr;
+	            mLayer->meshElementCount = 0;
+	        }
+	       <!--设置成Rect-->
+	        mLayer->setRegionAsRect();
+	        return;
+	    }
+	
+	    // avoid T-junctions as they cause artifacts in between the resultant
+	    // geometry when complex transforms occur.
+	    // TODO: generate the safeRegion only if necessary based on drawing transform (see
+	    // OpenGLRenderer::composeLayerRegion())
+	    Region safeRegion = Region::createTJunctionFreeRegion(mLayer->region);
+	
+	    size_t count;
+	    const android::Rect* rects = safeRegion.getArray(&count);
+	
+	    GLsizei elementCount = count * 6;
+	
+	    if (mLayer->mesh && mLayer->meshElementCount < elementCount) {
+	        delete[] mLayer->mesh;
+	        mLayer->mesh = nullptr;
+	    }
+	
+	    if (!mLayer->mesh) {
+	        mLayer->mesh = new TextureVertex[count * 4];
+	    }
+	    mLayer->meshElementCount = elementCount;
+	
+	    const float texX = 1.0f / float(mLayer->getWidth());
+	    const float texY = 1.0f / float(mLayer->getHeight());
+	    const float height = mLayer->layer.getHeight();
+	
+	    TextureVertex* mesh = mLayer->mesh;
+	
+		<!--处理数据-->
+	    for (size_t i = 0; i < count; i++) {
+	        const android::Rect* r = &rects[i];
+	
+	        const float u1 = r->left * texX;
+	        const float v1 = (height - r->top) * texY;
+	        const float u2 = r->right * texX;
+	        const float v2 = (height - r->bottom) * texY;
+	
+	        TextureVertex::set(mesh++, r->left, r->top, u1, v1);
+	        TextureVertex::set(mesh++, r->right, r->top, u2, v1);
+	        TextureVertex::set(mesh++, r->left, r->bottom, u1, v2);
+	        TextureVertex::set(mesh++, r->right, r->bottom, u2, v2);
+	    }
+	}
+
+之前issueOperations
+
+	/
+		template <class T>
+		void RenderNode::issueOperations(OpenGLRenderer& renderer, T& handler) {
+		    if (mDisplayListData->isEmpty()) {
+		        DISPLAY_LIST_LOGD("%*sEmpty display list (%p, %s)", handler.level() * 2, "",
+		                this, getName());
+		        return;
+		    }
+		   // renderer != mLayer->renderer.get() 到底是哪个render
+		    // 这里是LayRender还是OpenGLRender，如果是LayerRender，那么是第一次，否则是第二次，
+		    const bool drawLayer = (mLayer && (&renderer != mLayer->renderer.get()));
+		    // If we are updating the contents of mLayer, we don't want to apply any of
+		    // the RenderNode's properties to this issueOperations pass. Those will all
+		    // be applied when the layer is drawn, aka when this is true.
+		    const bool useViewProperties = (!mLayer || drawLayer);
+		    if (useViewProperties) {
+		        const Outline& outline = properties().getOutline();
+		        if (properties().getAlpha() <= 0 || (outline.getShouldClip() && outline.isEmpty())) {
+		            DISPLAY_LIST_LOGD("%*sRejected display list (%p, %s)", handler.level() * 2, "",
+		                    this, getName());
+		            return;
+		        }
+		    }
+		
+		    handler.startMark(getName());
+		
+		#if DEBUG_DISPLAY_LIST
+		    const Rect& clipRect = renderer.getLocalClipBounds();
+		    DISPLAY_LIST_LOGD("%*sStart display list (%p, %s), localClipBounds: %.0f, %.0f, %.0f, %.0f",
+		            handler.level() * 2, "", this, getName(),
+		            clipRect.left, clipRect.top, clipRect.right, clipRect.bottom);
+		#endif
+		
+		    LinearAllocator& alloc = handler.allocator();
+		    int restoreTo = renderer.getSaveCount();
+		    handler(new (alloc) SaveOp(SkCanvas::kMatrix_SaveFlag | SkCanvas::kClip_SaveFlag),
+		            PROPERTY_SAVECOUNT, properties().getClipToBounds());
+		
+		    DISPLAY_LIST_LOGD("%*sSave %d %d", (handler.level() + 1) * 2, "",
+		            SkCanvas::kMatrix_SaveFlag | SkCanvas::kClip_SaveFlag, restoreTo);
+		
+		    if (useViewProperties) {
+		        setViewProperties<T>(renderer, handler);
+		    }
+		
+		    bool quickRejected = properties().getClipToBounds()
+		            && renderer.quickRejectConservative(0, 0, properties().getWidth(), properties().getHeight());
+		    if (!quickRejected) {
+		        Matrix4 initialTransform(*(renderer.currentTransform()));
+		        renderer.setBaseTransform(initialTransform);
+		
+		
+		// 如果一个Render Node设置了Layer，那么就意味着这个Render Node的所有绘制命令都是作为一个整体进行执行的。
+		//也就是说，对于设置了Layer的Render Node，我们首先需要将它的Display List的所有绘制命令合成一个整体的绘制命令，
+		//目的就是为了得到一个FBO，然后渲染这个FBO就可以得一个Render Node的UI。
+		
+		// 对于设置了Layer的Render Node来说，它的成员函数defer会被调用两次。
+		// 第一次调用的时候，就是为了将它的Display List的所有绘制命令合成一个FBO。
+		// 第二次调用的时候，就是为了将合成后的FBO渲染到应用程序窗口的UI上。
+		
+		//        这时候RenderNode类的成员函数defer属于第一次执行。
+		        //那么RenderNode类的成员函数issueOperations是如何区分它是被第一次调用的成员函数defer调用，
+		        //还是第二次调用的成员函数defer调用呢？主要是通过比较参数renderer描述的OpenGLRender对象和成员变量mLayer指向的一个Layer对象的成员变量renderer描述折一个OpenGLRender对象来区分。
+		        //如果这两个OpenGLRenderer对象是同一个，就意味着是被第一次调用的成员函数defer调用；否则的话，
+		        //就是被第二次调用的成员函数defer调用。
+		
+		//        当RenderNode类的成员函数issueOperations是被第二次调用的成员函数defer调用的时候，
+		        //该Render Node的Display List的所有绘制命令已经被合成在一个FBO里面，
+		        //并且这个FBO是由它所关联的Layer对象维护的，
+		        //因此这时候只需要将该Layer对象封装成一个DrawLayerOp交给参数
+		        //handler描述的一个DeferOperationHandler对象处理即可。
+		
+		//        我们再确认一下现在RenderNode类的成员函数issueOperations是被第一次调用的成员函数defer调用。
+		        //它的参数renderer指向的一个OpenGLRenderer对象是从Layer类的成员函数defer传递进行的，
+		        //而Layer类的成员函数defer传递进行的这个OpenGLRenderer对象就正好是与Render Node关联的Layer对象的成员变量renderer描述折一个OpenGLRender对象，因此它们就是相同的。从前面的分析可以知道，这个OpenGLRenderer对象的实际类型是LayerRenderer。
+		
+		//        后面我们会看到，当Render Node的成员函数issueOperations是被第二次调用的成员函数defer调用的时候，
+		        //它的参数renderer指向的一个OpenGLRenderer对象的实际类型就是OpenGLRenderer，
+		        //它与当前正在处理的Render Node关联的Layer对象的成员变量描述折一个OpenGLRender对象不可能是相同的，
+		        //因为后者的实际类型是LayerRenderer。
+		
+		//        接下来我们就继续分析RenderNode类的成员函数issueOperations是被第一次调用的成员函数defer调用时的执行情况，这时候得到的本地变量drawLayer的值为false。
+		
+		        // drawLayer
+		        if (drawLayer) {
+		            // 第二次 FBO已经渲染完毕，构造一个新的即可
+		            handler(new (alloc) DrawLayerOp(mLayer, 0, 0),
+		                    renderer.getSaveCount() - 1, properties().getClipToBounds());
+		        } else {
+		            // 第一次
+		            const int saveCountOffset = renderer.getSaveCount() - 1;
+		            const int projectionReceiveIndex = mDisplayListData->projectionReceiveIndex;
+		            for (size_t chunkIndex = 0; chunkIndex < mDisplayListData->getChunks().size(); chunkIndex++) {
+		                const DisplayListData::Chunk& chunk = mDisplayListData->getChunks()[chunkIndex];
+		
+		                Vector<ZDrawRenderNodeOpPair> zTranslatedNodes;
+		                buildZSortedChildList(chunk, zTranslatedNodes);
+		
+		                issueOperationsOf3dChildren(kNegativeZChildren,
+		                        initialTransform, zTranslatedNodes, renderer, handler);
+		
+		
+		                for (size_t opIndex = chunk.beginOpIndex; opIndex < chunk.endOpIndex; opIndex++) {
+		                    DisplayListOp *op = mDisplayListData->displayListOps[opIndex];
+		#if DEBUG_DISPLAY_LIST
+		                    op->output(handler.level() + 1);
+		#endif
+		                    handler(op, saveCountOffset, properties().getClipToBounds());
+		
+		                    if (CC_UNLIKELY(!mProjectedNodes.isEmpty() && projectionReceiveIndex >= 0 &&
+		                        opIndex == static_cast<size_t>(projectionReceiveIndex))) {
+		                        issueOperationsOfProjectedChildren(renderer, handler);
+		                    }
+		                }
+		
+		                issueOperationsOf3dChildren(kPositiveZChildren,
+		                        initialTransform, zTranslatedNodes, renderer, handler);
+		            }
+		        }
+		    }
+		
+		    DISPLAY_LIST_LOGD("%*sRestoreToCount %d", (handler.level() + 1) * 2, "", restoreTo);
+		    handler(new (alloc) RestoreToCountOp(restoreTo),
+		            PROPERTY_SAVECOUNT, properties().getClipToBounds());
+		
+		    DISPLAY_LIST_LOGD("%*sDone (%p, %s)", handler.level() * 2, "", this, getName());
+		    handler.endMark();
+		}
+	
+
+最终会调用OpenGL的DrawLayerOp
+
+	void OpenGLRenderer::drawLayer(Layer* layer, float x, float y) {
+	    if (!layer) {
+	        return;
+	    }
+	
+	    mat4* transform = nullptr;
+	    if (layer->isTextureLayer()) {
+	        transform = &layer->getTransform();
+	        if (!transform->isIdentity()) {
+	            save(SkCanvas::kMatrix_SaveFlag);
+	            concatMatrix(*transform);
+	        }
+	    }
+	
+	    bool clipRequired = false;
+	    const bool rejected = mState.calculateQuickRejectForScissor(
+	            x, y, x + layer->layer.getWidth(), y + layer->layer.getHeight(),
+	            &clipRequired, nullptr, false);
+	
+	    if (rejected) {
+	        if (transform && !transform->isIdentity()) {
+	            restore();
+	        }
+	        return;
+	    }
+	
+	    EVENT_LOGD("drawLayer," RECT_STRING ", clipRequired %d", x, y,
+	            x + layer->layer.getWidth(), y + layer->layer.getHeight(), clipRequired);
+	
+	    updateLayer(layer, true);
+	
+	    mRenderState.scissor().setEnabled(mScissorOptimizationDisabled || clipRequired);
+	    mCaches.textureState().activateTexture(0);
+	
+	    if (CC_LIKELY(!layer->region.isEmpty())) {
+	        if (layer->region.isRect()) {
+	            DRAW_DOUBLE_STENCIL_IF(!layer->hasDrawnSinceUpdate,
+	                    composeLayerRect(layer, layer->regionRect));
+	        } else if (layer->mesh) {
+	            Glop glop;
+	            GlopBuilder(mRenderState, mCaches, &glop)
+	                    .setRoundRectClipState(currentSnapshot()->roundRectClipState)
+	                    .setMeshTexturedIndexedQuads(layer->mesh, layer->meshElementCount)
+	                    .setFillLayer(layer->getTexture(), layer->getColorFilter(), getLayerAlpha(layer), layer->getMode(), Blend::ModeOrderSwap::NoSwap)
+	                    .setTransform(*currentSnapshot(),  TransformFlags::None)
+	                    .setModelViewOffsetRectSnap(x, y, Rect(0, 0, layer->layer.getWidth(), layer->layer.getHeight()))
+	                    .build();
+	            DRAW_DOUBLE_STENCIL_IF(!layer->hasDrawnSinceUpdate, renderGlop(glop));
+	#if DEBUG_LAYERS_AS_REGIONS
+	            drawRegionRectsDebug(layer->region);
+	#endif
+	        }
+	
+	        if (layer->debugDrawUpdate) {
+	            layer->debugDrawUpdate = false;
+	
+	            SkPaint paint;
+	            paint.setColor(0x7f00ff00);
+	            drawColorRect(x, y, x + layer->layer.getWidth(), y + layer->layer.getHeight(), &paint);
+	        }
+	    }
+	    layer->hasDrawnSinceUpdate = true;
+	
+	    if (transform && !transform->isIdentity()) {
+	        restore();
+	    }
+	
+	    mDirty = true;
+	}
+
+假设不defer，
+	
+	void Layer::render(const OpenGLRenderer& rootRenderer) {
+	    ATRACE_LAYER_WORK("Direct-Issue");
+	
+	    updateLightPosFromRenderer(rootRenderer);
+	    renderer->setViewport(layer.getWidth(), layer.getHeight());
+	    renderer->prepareDirty(dirtyRect.left, dirtyRect.top, dirtyRect.right, dirtyRect.bottom,
+	            !isBlend());
+	
+	    renderer->drawRenderNode(renderNode.get(), dirtyRect, RenderNode::kReplayFlag_ClipChildren);
+	
+	    renderer->finish();
+	
+	    dirtyRect.setEmpty();
+	
+	    deferredUpdateScheduled = false;
+	    renderNode = nullptr;
+	}
+
+
+
+可以看到，最后生成的是一个mesh，存好，Layer，Layer所有的 东西存储在Mesh中，将来DrawLayerOp的时候，一并处理完成，注意FBO只会关联，本身没有存储，将来再次使用DrawLayerOp绘制到FrameBuffer中的时候，会使用相应fbo中的texture
+
+
+
+	GlopBuilder& GlopBuilder::setFillTextureLayer(Layer& layer, float alpha) {
+	    TRIGGER_STAGE(kFillStage);
+	    REQUIRE_STAGES(kMeshStage | kRoundRectClipStage);
+	
+	    mOutGlop->fill.texture = { &(layer.getTexture()),
+	            layer.getRenderTarget(), GL_LINEAR, GL_CLAMP_TO_EDGE, &layer.getTexTransform() };
+	    mOutGlop->fill.color = { alpha, alpha, alpha, alpha };
+	
+	    setFill(SK_ColorWHITE, alpha, layer.getMode(), Blend::ModeOrderSwap::NoSwap,
+	            nullptr, layer.getColorFilter());
+	
+	    mDescription.modulate = mOutGlop->fill.color.a < 1.0f;
+	    mDescription.hasTextureTransform = true;
+	    return *this;
+	}
+
+到这里，Layer的使用就完成了，之前是构建Mesh，
+
+	void OpenGLRenderer::drawTextureLayer(Layer* layer, const Rect& rect) {
+	    const bool tryToSnap = !layer->getForceFilter()
+	            && layer->getWidth() == (uint32_t) rect.getWidth()
+	            && layer->getHeight() == (uint32_t) rect.getHeight();
+	    Glop glop;
+	    GlopBuilder(mRenderState, mCaches, &glop)
+	            .setRoundRectClipState(currentSnapshot()->roundRectClipState)
+	            .setMeshTexturedUvQuad(nullptr, Rect(0, 1, 1, 0)) // TODO: simplify with VBO
+	            .setFillTextureLayer(*layer, getLayerAlpha(layer))
+	            .setTransform(*currentSnapshot(), TransformFlags::None)
+	            .setModelViewMapUnitToRectOptionalSnap(tryToSnap, rect)
+	            .build();
+	    renderGlop(glop);
+	}
+
+
+
+在OpenGL扩展中，GL_EXT_framebuffer_object提供了一种创建额外的不能显示的帧缓存对象的接口。为了和默认的“window系统生成”的帧缓存区别，这种帧缓冲成为应用程序帧缓存（application-createdframebuffer）。通过使用帧缓存对象（FBO），OpenGL可以将显示输出到引用程序帧缓存对象，而不是传统的“window系统生成”帧缓存。而且，它完全受OpenGL控制。
+
+相似于window系统提供的帧缓存，一个FBO也包含一些存储颜色、深度和模板数据的区域。（注意：没有累积缓存）我们把FBO中这些逻辑缓存称之为“帧缓存关联图像”，它们是一些能够和一个帧缓存对象关联起来的二维数组像素。
+
+有两种类型的“帧缓存关联图像”：纹理图像（texture images）和渲染缓存图像（renderbuffer images）。如果纹理对象的图像数据关联到帧缓存，OpenGL执行的是“渲染到纹理”（render to texture）操作。如果渲染缓存的图像数据关联到帧缓存，OpenGL执行的是离线渲染（offscreen rendering）。
+
+**FBO本身并没有任何图像存储区，只有多个关联点。**FBO提供了一种高效的切换机制；将前面的帧缓存关联图像从FBO分离，然后把新的帧缓存关联图像关联到FBO。在帧缓存关联图像之间切换比在FBO之间切换要快得多。FBO提供了glFramebufferTexture2DEXT()来切换2D纹理对象和glFramebufferRenderbufferEXT()来切换渲染缓存对象。
+
+
+一旦一个FBO被创建，在使用它之前必须绑定。
+
+void glBindFramebufferEXT(GLenum target, GLuint id)
+
+第一个参数target应该是GL_FRAMEBUFFER_EXT，第二个参数是FBO的ID号。一旦FBO被绑定，之后的所有的OpenGL操作都会对当前所绑定的FBO造成影响。ID号为0表示缺省帧缓存，即默认的window提供的帧缓存。因此，在glBindFramebufferEXT()中将ID号设置为0可以解绑定当前FBO。
+
+FBO本身没有图像存储区。我们必须帧缓存关联图像（纹理或渲染对象）关联到FBO。这种机制允许FBO快速地切换（分离和关联）帧缓存关联图像。切换帧缓存关联图像比在FBO之间切换要快得多。而且，它节省了不必要的数据拷贝和内存消耗。比如，一个纹理可以被关联到多个FBO上，图像存储区可以被多个FBO共享。
+
+
 # 纹理对象就会被附加上纹理图像
 
 生成了纹理和相应的多级渐远纹理后，释放图像的内存并解绑纹理对象是一个很好的习惯。
@@ -6,6 +488,79 @@ SOIL_free_image_data(image);
 glBindTexture(GL_TEXTURE_2D, 0);
 
 纹理中有自己的备份
+
+OpenGLRenderer::drawLayer跟flushLayer的区别，TetureView需要DrawLayerOp，
+
+	void OpenGLRenderer::drawLayer(Layer* layer, float x, float y) {
+	    if (!layer) {
+	        return;
+	    }
+	
+	    mat4* transform = nullptr;
+	    if (layer->isTextureLayer()) {
+	        transform = &layer->getTransform();
+	        if (!transform->isIdentity()) {
+	            save(SkCanvas::kMatrix_SaveFlag);
+	            concatMatrix(*transform);
+	        }
+	    }
+	
+	    bool clipRequired = false;
+	    const bool rejected = mState.calculateQuickRejectForScissor(
+	            x, y, x + layer->layer.getWidth(), y + layer->layer.getHeight(),
+	            &clipRequired, nullptr, false);
+	
+	    if (rejected) {
+	        if (transform && !transform->isIdentity()) {
+	            restore();
+	        }
+	        return;
+	    }
+	
+	    EVENT_LOGD("drawLayer," RECT_STRING ", clipRequired %d", x, y,
+	            x + layer->layer.getWidth(), y + layer->layer.getHeight(), clipRequired);
+	
+	    updateLayer(layer, true);
+	
+	    mRenderState.scissor().setEnabled(mScissorOptimizationDisabled || clipRequired);
+	    mCaches.textureState().activateTexture(0);
+	
+	    if (CC_LIKELY(!layer->region.isEmpty())) {
+	        if (layer->region.isRect()) {
+	            DRAW_DOUBLE_STENCIL_IF(!layer->hasDrawnSinceUpdate,
+	                    composeLayerRect(layer, layer->regionRect));
+	        } else if (layer->mesh) {
+	            Glop glop;
+	            GlopBuilder(mRenderState, mCaches, &glop)
+	                    .setRoundRectClipState(currentSnapshot()->roundRectClipState)
+	                    .setMeshTexturedIndexedQuads(layer->mesh, layer->meshElementCount)
+	                    .setFillLayer(layer->getTexture(), layer->getColorFilter(), getLayerAlpha(layer), layer->getMode(), Blend::ModeOrderSwap::NoSwap)
+	                    .setTransform(*currentSnapshot(),  TransformFlags::None)
+	                    .setModelViewOffsetRectSnap(x, y, Rect(0, 0, layer->layer.getWidth(), layer->layer.getHeight()))
+	                    .build();
+	            DRAW_DOUBLE_STENCIL_IF(!layer->hasDrawnSinceUpdate, renderGlop(glop));
+	#if DEBUG_LAYERS_AS_REGIONS
+	            drawRegionRectsDebug(layer->region);
+	#endif
+	        }
+	
+	        if (layer->debugDrawUpdate) {
+	            layer->debugDrawUpdate = false;
+	
+	            SkPaint paint;
+	            paint.setColor(0x7f00ff00);
+	            drawColorRect(x, y, x + layer->layer.getWidth(), y + layer->layer.getHeight(), &paint);
+	        }
+	    }
+	    layer->hasDrawnSinceUpdate = true;
+	
+	    if (transform && !transform->isIdentity()) {
+	        restore();
+	    }
+	
+	    mDirty = true;
+	}
+
 
 # HardWareLayer的概念，TextrueView如何获取HardwareLayer，它到底是什么？
 
@@ -676,8 +1231,6 @@ allocateTexture
 	
 	        // This should only happen if we run out of memory
 	        if (CC_UNLIKELY(GLUtils::dumpGLErrors())) {
-	            LOG_ALWAYS_FATAL("Could not allocate texture for layer (fbo=%d %dx%d)",
-	                    fbo, width, height);
 	            renderState.bindFramebuffer(previousFbo);
 	            layer->decStrong(nullptr);
 	            return nullptr;
@@ -694,8 +1247,165 @@ allocateTexture
 	}
 	
 	
-	
+# 	内存的使用跟绑定EglImage
 
+EGLImage代表一种由EGL客户API（如OpenGL，OpenVG）创建的共享资源类型。它的本意是共享2D图像数据，但是并没有明确限定共享数据的格式以及共享的目的，所以理论上来讲，应用程序以及相关的客户API可以基于任意的目的创建任意类型的共享数据。
+
+
+
+	    // mCurrentTextureImage is the EglImage/buffer of the current texture. It's
+    // possible that this buffer is not associated with any buffer slot, so we
+    // must track it separately in order to support the getCurrentBuffer method.
+    sp<EglImage> mCurrentTextureImage;
+
+
+	   class EglImage : public LightRefBase<EglImage>  {
+	    public:
+	        EglImage(sp<GraphicBuffer> graphicBuffer);
+	
+	        // createIfNeeded creates an EGLImage if required (we haven't created
+	        // one yet, or the EGLDisplay or crop-rect has changed).
+	        status_t createIfNeeded(EGLDisplay display,
+	                                const Rect& cropRect,
+	                                bool forceCreate = false);
+	
+	        // This calls glEGLImageTargetTexture2DOES to bind the image to the
+	        // texture in the specified texture target.
+	        void bindToTextureTarget(uint32_t texTarget);
+	
+	        const sp<GraphicBuffer>& graphicBuffer() { return mGraphicBuffer; }
+	        const native_handle* graphicBufferHandle() {
+	            return mGraphicBuffer == NULL ? NULL : mGraphicBuffer->handle;
+	        }
+	
+	    private:
+	        // Only allow instantiation using ref counting.
+	        friend class LightRefBase<EglImage>;
+	        virtual ~EglImage();
+	
+	        // createImage creates a new EGLImage from a GraphicBuffer.
+	        EGLImageKHR createImage(EGLDisplay dpy,
+	                const sp<GraphicBuffer>& graphicBuffer, const Rect& crop);
+	
+	        // Disallow copying
+	        EglImage(const EglImage& rhs);
+	        void operator = (const EglImage& rhs);
+	
+	        // mGraphicBuffer is the buffer that was used to create this image.
+	        sp<GraphicBuffer> mGraphicBuffer;
+	
+	        // mEglImage is the EGLImage created from mGraphicBuffer.
+	        EGLImageKHR mEglImage;
+	
+	        // mEGLDisplay is the EGLDisplay that was used to create mEglImage.
+	        EGLDisplay mEglDisplay;
+	
+	        // mCropRect is the crop rectangle passed to EGL when mEglImage
+	        // was created.
+	        Rect mCropRect;
+	    };
+
+
+
+	status_t GLConsumer::EglImage::createIfNeeded(EGLDisplay eglDisplay,
+	                                              const Rect& cropRect,
+	                                              bool forceCreation) {
+	    // If there's an image and it's no longer valid, destroy it.
+	    bool haveImage = mEglImage != EGL_NO_IMAGE_KHR;
+	    bool displayInvalid = mEglDisplay != eglDisplay;
+	    bool cropInvalid = hasEglAndroidImageCrop() && mCropRect != cropRect;
+	    if (haveImage && (displayInvalid || cropInvalid || forceCreation)) {
+	        if (!eglDestroyImageKHR(mEglDisplay, mEglImage)) {
+	           ALOGE("createIfNeeded: eglDestroyImageKHR failed");
+	        }
+	        eglTerminate(mEglDisplay);
+	        mEglImage = EGL_NO_IMAGE_KHR;
+	        mEglDisplay = EGL_NO_DISPLAY;
+	    }
+	
+	    // If there's no image, create one.
+	    if (mEglImage == EGL_NO_IMAGE_KHR) {
+	        mEglDisplay = eglDisplay;
+	        mCropRect = cropRect;
+	        mEglImage = createImage(mEglDisplay, mGraphicBuffer, mCropRect);
+	    }
+	
+	    // Fail if we can't create a valid image.
+	    if (mEglImage == EGL_NO_IMAGE_KHR) {
+	        mEglDisplay = EGL_NO_DISPLAY;
+	        mCropRect.makeInvalid();
+	        const sp<GraphicBuffer>& buffer = mGraphicBuffer;
+	        ALOGE("Failed to create image. size=%ux%u st=%u usage=%#" PRIx64 " fmt=%d",
+	            buffer->getWidth(), buffer->getHeight(), buffer->getStride(),
+	            buffer->getUsage(), buffer->getPixelFormat());
+	        return UNKNOWN_ERROR;
+	    }
+	
+	    return OK;
+	}
+
+	
+	status_t GLConsumer::bindTextureImageLocked() {
+	    if (mEglDisplay == EGL_NO_DISPLAY) {
+	        ALOGE("bindTextureImage: invalid display");
+	        return INVALID_OPERATION;
+	    }
+	
+	    GLenum error;
+	    while ((error = glGetError()) != GL_NO_ERROR) {
+	        GLC_LOGW("bindTextureImage: clearing GL error: %#04x", error);
+	    }
+	  // 设定挡墙的Texture，这里就已经他妈的获取了，还
+	    glBindTexture(mTexTarget, mTexName);
+	    if (mCurrentTexture == BufferQueue::INVALID_BUFFER_SLOT &&
+	            mCurrentTextureImage == NULL) {
+	        GLC_LOGE("bindTextureImage: no currently-bound texture");
+	        return NO_INIT;
+	    }
+	
+	    status_t err = mCurrentTextureImage->createIfNeeded(mEglDisplay,
+	                                                        mCurrentCrop);
+	    if (err != NO_ERROR) {
+	        GLC_LOGW("bindTextureImage: can't create image on display=%p slot=%d",
+	                mEglDisplay, mCurrentTexture);
+	        return UNKNOWN_ERROR;
+	    }
+	    // 通知的时候，就已经绑定了
+	    mCurrentTextureImage->bindToTextureTarget(mTexTarget);
+	
+	    // In the rare case that the display is terminated and then initialized
+	    // again, we can't detect that the display changed (it didn't), but the
+	    // image is invalid. In this case, repeat the exact same steps while
+	    // forcing the creation of a new image.
+	    if ((error = glGetError()) != GL_NO_ERROR) {
+	        glBindTexture(mTexTarget, mTexName);
+	        status_t result = mCurrentTextureImage->createIfNeeded(mEglDisplay,
+	                                                               mCurrentCrop,
+	                                                               true);
+	        if (result != NO_ERROR) {
+	            GLC_LOGW("bindTextureImage: can't create image on display=%p slot=%d",
+	                    mEglDisplay, mCurrentTexture);
+	            return UNKNOWN_ERROR;
+	        }
+	        // 通知的时候绑定了，当时如何共享到当前teture id
+	        mCurrentTextureImage->bindToTextureTarget(mTexTarget);
+	        if ((error = glGetError()) != GL_NO_ERROR) {
+	            GLC_LOGE("bindTextureImage: error binding external image: %#04x", error);
+	            return UNKNOWN_ERROR;
+	        }
+	    }
+	
+	    // Wait for the new buffer to be ready.
+	    return doGLFenceWaitLocked();
+	}
+
+
+
+
+	void GLConsumer::EglImage::bindToTextureTarget(uint32_t texTarget) {
+	    glEGLImageTargetTexture2DOES(texTarget,
+	            static_cast<GLeglImageOES>(mEglImage));
+	}
 
 
  
@@ -741,12 +1451,37 @@ EglSurface其实就是映射到Surface，当EglSurface bindTexre的时候，其�
 绘制的内容是从纹理中采样得到的，但是纹理本身不是绘制，纹理是模板，但是模板不是画。OpenGL是个标准的框架，按照里面走就行。
 
 
+SurfaceTeture  用的是GL_TEXTURE_EXTERNAL_OES
 
+# 8.0之后的渲染有了更多的选项
 
+	CanvasContext* CanvasContext::create(RenderThread& thread,
+	        bool translucent, RenderNode* rootRenderNode, IContextFactory* contextFactory) {
+	
+	    auto renderType = Properties::getRenderPipelineType();
+	
+	    switch (renderType) {
+	        case RenderPipelineType::OpenGL:
+	            return new CanvasContext(thread, translucent, rootRenderNode, contextFactory,
+	                    std::make_unique<OpenGLPipeline>(thread));
+	        case RenderPipelineType::SkiaGL:
+	            return new CanvasContext(thread, translucent, rootRenderNode, contextFactory,
+	                    std::make_unique<skiapipeline::SkiaOpenGLPipeline>(thread));
+	        case RenderPipelineType::SkiaVulkan:
+	            return new CanvasContext(thread, translucent, rootRenderNode, contextFactory,
+	                                std::make_unique<skiapipeline::SkiaVulkanPipeline>(thread));
+	        default:
+	            LOG_ALWAYS_FATAL("canvas context type %d not supported", (int32_t) renderType);
+	            break;
+	    }
+	    return nullptr;
+	}
 
 #     参考文档
 
 [Android BufferQueue简析](https://www.jianshu.com/p/edd7d264be73)           
 [不错的demo GraphicsTestBed ](https://github.com/lb377463323/GraphicsTestBed)        
 [小窗播放视频的原理和实现（上）](http://www.10tiao.com/html/223/201712/2651232830/1.html)         
-[GLTextureViewActivity.java ](https://android.googlesource.com/platform/frameworks/base/+/master/tests/HwAccelerationTest/src/com/android/test/hwui/GLTextureViewActivity.java)
+[GLTextureViewActivity.java ](https://android.googlesource.com/platform/frameworks/base/+/master/tests/HwAccelerationTest/src/com/android/test/hwui/GLTextureViewActivity.java)             
+[OpenGL】OpenGL帧缓存对象(FBO：Frame Buffer Object)](https://blog.csdn.net/xiajun07061225/article/details/7283929)                
+[原EGLImage与纹理](https://blog.csdn.net/fuyajun01/article/details/8940687)
