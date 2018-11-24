@@ -1,3 +1,10 @@
+[参考文档](https://developer.android.com/studio/profile/inspect-gpu-rendering?hl=zh-cn)
+
+
+
+颜色好像对不上，绿色是测量布局：
+
+
 直观上说，Vsync垂直同步信号是UI重绘的触发器
 
 系统获取FPS的原理：手机屏幕显示的内容是通过Android系统的SurfaceFlinger类，把当前系统里所有进程需要显示的信息合成一帧，然后提交到屏幕上显示，FPS就是1秒内SurfaceFlinger提交到屏幕的帧数，
@@ -5,6 +12,13 @@
 
 App停止操作后，FPS还是在一直变化，这种情况是否会影响到FPS的准确度？
 有的时候FPS很低，APP看起来却很流畅，是因为当前界面在1秒内只需要10帧的显示需求，当然不会卡顿，此时FPS只要高于10就可以了，如果屏幕根本没有绘制需求，那FPS的值就是0。
+
+
+
+**注： 尽管此工具名为 Profile GPU Rendering，但所有受监控的进程实际上发生在 CPU 中。 通过将命令提交到 GPU 触发渲染，GPU 异步渲染屏幕。 在某些情况下，GPU 会有太多工作要处理，在它可以提交新命令前，您的 CPU 必须等待。 在等待时，您将看到橙色条和红色条中出现峰值，且命令提交将被阻止，直到 GPU 命令队列腾出更多空间。**
+
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-6461878f98d427e0.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 # FPS只针对特定场景才有意义
 
@@ -15,7 +29,7 @@ App停止操作后，FPS还是在一直变化，这种情况是否会影响到FP
 * 掉帧的处理方式
 
 
-注意，必须重绘，才会看到GPU渲染更新，还要注意这些流程图跟踪的全部是在CPU中，并不能真正100%反应帧率，毕竟不是同步绘制
+**注意，必须重绘，才会看到GPU渲染更新，还要注意这些流程图跟踪的全部是在CPU中，并不能真正100%反应帧率，毕竟不是同步绘制**
 
 首先有个概念要清楚，GPU中OpenGL驱动分为软件实现跟硬件试下，软件实现的一般都是同步的，不存在GPU处理一说，Android源码自带的是软件实现的Agl，Android通过软件方法实现的一套OpenGL动态库
 
