@@ -1,6 +1,33 @@
-[参考文档](https://developer.android.com/studio/profile/inspect-gpu-rendering?hl=zh-cn)
+[参考文档1](https://developer.android.com/studio/profile/inspect-gpu-rendering?hl=zh-cn)
+[参考文档2](https://developer.android.com/topic/performance/rendering/profile-gpu)
 
 
+## Bitmap  prepareToDraw
+
+
+prepareToDraw
+
+added in API level 4
+
+public void prepareToDraw ()
+Builds caches associated with the bitmap that are used for drawing it.
+
+Starting in Build.VERSION_CODES.N, this call initiates an asynchronous upload to the GPU on RenderThread, if the Bitmap is not already uploaded. With Hardware Acceleration, Bitmaps must be uploaded to the GPU in order to be rendered. This is done by default the first time a Bitmap is drawn, but the process can take several milliseconds, depending on the size of the Bitmap. Each time a Bitmap is modified and drawn again, it must be re-uploaded.
+
+Calling this method in advance can save time in the first frame it's used. For example, it is recommended to call this on an image decoding worker thread when a decoded Bitmap is about to be displayed. It is recommended to make any pre-draw modifications to the Bitmap before calling this method, so the cached, uploaded copy may be reused without re-uploading.
+
+In Build.VERSION_CODES.KITKAT and below, for purgeable bitmaps, this call would attempt to ensure that the pixels have been decoded.
+
+
+## issue
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-7ee8aec8ad5b6ab6.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+
+
+# 关于触摸事件
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-429764b60708b10d.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 颜色好像对不上，绿色是测量布局：
 
