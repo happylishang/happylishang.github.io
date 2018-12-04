@@ -26,3 +26,17 @@
         android:layout_width="30dp"
         android:layout_height="30dp"
         android:layout_centerInParent="true"/>
+        
+        
+
+输入DisplayEventReceiver       WindowInputEventReceiver    ConsumeBatchedInputRunnable 
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-e6173e52c5e28102.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-59db43c5821639d6.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+https://digitalassetlinks.googleapis.com/v1/statements:list?
+   source.web.site=https://you.163.com
+   relation=delegate_permission/common.handle_all_urls
+
+ 
