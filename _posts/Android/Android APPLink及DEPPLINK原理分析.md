@@ -609,6 +609,24 @@ Status - Shows the current link-handling setting for this app. An app that has p
 
 # ResolverActivity
 
+
+> ActivityStatckSUpervisor
+
+        if (err == ActivityManager.START_SUCCESS) {
+            Slog.i(TAG, "START u" + userId + " {" + intent.toShortString(true, true, true, false)
+                    + "} from uid " + callingUid
+                    + " on display " + (container == null ? (mFocusedStack == null ?
+                            Display.DEFAULT_DISPLAY : mFocusedStack.mDisplayId) :
+                            (container.mActivityDisplay == null ? Display.DEFAULT_DISPLAY :
+                                    container.mActivityDisplay.mDisplayId)));
+        }
+        
+ 
+
+> 12-04 20:32:04.367   887  9064 I ActivityManager: START u0 {act=android.intent.action.VIEW dat=https://u.163.com/... cmp=android/com.android.internal.app.ResolverActivity (has extras)} from uid 10067 on display 0
+ 
+ 
+        
 # 参考文档  
 
 https://developer.android.com/training/app-links/verify-site-associations
