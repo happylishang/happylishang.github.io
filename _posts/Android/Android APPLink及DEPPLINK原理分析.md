@@ -1,3 +1,37 @@
+APPLink跟DeepLink其实都是用来唤起某个APP的特定界面的做法，一般是从APP外部，比如短信里面，或者浏览器里面。Android流程跟基本的startActivity类似，只不过多了一个选怎过程，因为这类跳转一般都是通过Action_View进行跳转，而响应这个Action的APP可能不止一个，而且还有些默认设置之类的，6.0之前可以都看作scheme的deeplink，6.0之后多了个APPLink，在安装时候，系统会对APP进行校验，如果APP配置了支持http/https，且可以自动校验，那么就去APP制定的服务器下载验证，验证过了后，其他APP通过Action_View并配置了scheme跳转的时候，就可以打开当前的配置，不过，这个流程难道需要服务器，可能是为了安全吧，因为，不依赖服务器，其实也完全可以做到。
+
+**APPLINK只是在安装时候多了一个验证，其他跟之前deeplink一样，如果没联网，验证失败，那就跟之前的deeplink表现一样**
+
+h5内部最好用自定义的scheme，不用http打头的，很容易被webview自己拦截，其次如果，不选择app，而选择浏览器打开，会怎样，需要重定位吗？
+
+private Result retrieveFromAndroid(AndroidAppAsset asset) throws AssociationServiceException {
+    try {
+AndroidPackageInfoFetcher
+    
+        
+Google弄了个AssetLink可以再APP跟Web之间共享，好像还跟Google框架有关系，比如登陆信息，类似账户信息共享。
+
+Share stored credentials between apps and sites
+
+	Share login credentials from the source to the target, so the user only needs to sign in once to access both services.	Details
+
+先无视掉吧。 参考文档：https://developers.google.com/identity/smartlock-passwords/android/associate-apps-and-sites
+
+If your app that uses Smart Lock for Passwords shares a user database with your website—or if your app and website use federated sign-in providers such as Google Sign-In—you can associate the app with the website so that users save their credentials once and then automatically sign in to both the app and the website.
+        
+
+流程
+
+* 安装
+* 校验scheme及http scheme（联网才行）
+* 持久化本地，放在哪？
+* 通过其他唤起APP
+* 已经校验设置了？直接唤起，否则选择 对于短信一般http 否则 自定义scheme
+* 选择界面ResolveActivity更新配置
+* 下一轮选择
+
+限制：是否会唤起APP，完全取决于第三方APP是否会发送对应的intent，系统没有强制行动规则，所以像微信，就完全禁止了scheme唤起，无论你发什么，都没有用，只能加他的白名单，像短信也类似，不过一般短信会允许http链接跳转第三方app，配合APPLink短信一般可以直接唤起
+
 1、APP link使用
 2、唤起原理
 3、安装原理
@@ -626,7 +660,425 @@ Status - Shows the current link-handling setting for this app. An app that has p
 > 12-04 20:32:04.367   887  9064 I ActivityManager: START u0 {act=android.intent.action.VIEW dat=https://u.163.com/... cmp=android/com.android.internal.app.ResolverActivity (has extras)} from uid 10067 on display 0
  
  
+>  ActivityStatckSUpervisor
+ 
+	 final int startActivityMayWait(IApplicationThread caller, int callingUid, String callingPackage, Intent intent, String resolvedType, IVoiceInteractionSession voiceSession, IVoiceInteractor voiceInteractor, IBinder resultTo, String resultWho, int requestCode, int startFlags, ProfilerInfo profilerInfo, WaitResult outResult, Configuration config, Bundle options, boolean ignoreTargetSecurity, int userId, IActivityContainer iContainer, TaskRecord inTask) {
+	    ...
+	    boolean componentSpecified = intent.getComponent() != null;
+	    //创建新的Intent对象，即便intent被修改也不受影响
+	    intent = new Intent(intent);
+	
+	    //收集Intent所指向的Activity信息, 当存在多个可供选择的Activity,则直接向用户弹出resolveActivity [见2.7.1]
+	    ActivityInfo aInfo = resolveActivity(intent, resolvedType, startFlags, profilerInfo, userId);
+	    
+  
+  
+      ActivityInfo resolveActivity(Intent intent, String resolvedType, int startFlags,
+            ProfilerInfo profilerInfo, int userId) {
+        // Collect information about the target of the Intent.
+        ActivityInfo aInfo;
+        try {
+            ResolveInfo rInfo =
+                AppGlobals.getPackageManager().resolveIntent(
+                        intent, resolvedType,
+                        PackageManager.MATCH_DEFAULT_ONLY
+                                    | ActivityManagerService.STOCK_PM_FLAGS, userId);
+            aInfo = rInfo != null ? rInfo.activityInfo : null;
+        } catch (RemoteException e) {
+            aInfo = null;
+        }
         
+   
+>    packagemanagerservice
+
+
+    @Override
+    public ResolveInfo resolveIntent(Intent intent, String resolvedType,
+            int flags, int userId) {
+        if (!sUserManager.exists(userId)) return null;
+        enforceCrossUserPermission(Binder.getCallingUid(), userId, false, false, "resolve intent");
+        List<ResolveInfo> query = queryIntentActivities(intent, resolvedType, flags, userId);
+        return chooseBestActivity(intent, resolvedType, flags, query, userId);
+    }
+
+@Override
+    public List<ResolveInfo> queryIntentActivities(Intent intent,
+            String resolvedType, int flags, int userId) {
+        if (!sUserManager.exists(userId)) return Collections.emptyList();
+        enforceCrossUserPermission(Binder.getCallingUid(), userId, false, false, "query intent activities");
+        ComponentName comp = intent.getComponent();
+        if (comp == null) {
+            if (intent.getSelector() != null) {
+                intent = intent.getSelector();
+                comp = intent.getComponent();
+            }
+        }
+
+        if (comp != null) {
+            final List<ResolveInfo> list = new ArrayList<ResolveInfo>(1);
+            final ActivityInfo ai = getActivityInfo(comp, flags, userId);
+            if (ai != null) {
+                final ResolveInfo ri = new ResolveInfo();
+                ri.activityInfo = ai;
+                list.add(ri);
+            }
+            return list;
+        }
+
+        // reader
+        synchronized (mPackages) {
+            final String pkgName = intent.getPackage();
+            if (pkgName == null) {
+                List<CrossProfileIntentFilter> matchingFilters =
+                        getMatchingCrossProfileIntentFilters(intent, resolvedType, userId);
+                // Check for results that need to skip the current profile.
+                ResolveInfo xpResolveInfo  = querySkipCurrentProfileIntents(matchingFilters, intent,
+                        resolvedType, flags, userId);
+                if (xpResolveInfo != null && isUserEnabled(xpResolveInfo.targetUserId)) {
+                    List<ResolveInfo> result = new ArrayList<ResolveInfo>(1);
+                    result.add(xpResolveInfo);
+                    return filterIfNotPrimaryUser(result, userId);
+                }
+
+                // Check for results in the current profile.
+                List<ResolveInfo> result = mActivities.queryIntent(
+                        intent, resolvedType, flags, userId);
+
+                // Check for cross profile results.
+                xpResolveInfo = queryCrossProfileIntents(
+                        matchingFilters, intent, resolvedType, flags, userId);
+                if (xpResolveInfo != null && isUserEnabled(xpResolveInfo.targetUserId)) {
+                    result.add(xpResolveInfo);
+                    Collections.sort(result, mResolvePrioritySorter);
+                }
+                result = filterIfNotPrimaryUser(result, userId);
+                if (hasWebURI(intent)) {
+                    CrossProfileDomainInfo xpDomainInfo = null;
+                    final UserInfo parent = getProfileParent(userId);
+                    if (parent != null) {
+                        xpDomainInfo = getCrossProfileDomainPreferredLpr(intent, resolvedType,
+                                flags, userId, parent.id);
+                    }
+                    if (xpDomainInfo != null) {
+                        if (xpResolveInfo != null) {
+                            // If we didn't remove it, the cross-profile ResolveInfo would be twice
+                            // in the result.
+                            result.remove(xpResolveInfo);
+                        }
+                        if (result.size() == 0) {
+                            result.add(xpDomainInfo.resolveInfo);
+                            return result;
+                        }
+                    } else if (result.size() <= 1) {
+                        return result;
+                    }
+                    result = filterCandidatesWithDomainPreferredActivitiesLPr(intent, flags, result,
+                            xpDomainInfo, userId);
+                    Collections.sort(result, mResolvePrioritySorter);
+                }
+                return result;
+            }
+            final PackageParser.Package pkg = mPackages.get(pkgName);
+            if (pkg != null) {
+                return filterIfNotPrimaryUser(
+                        mActivities.queryIntentForPackage(
+                                intent, resolvedType, flags, pkg.activities, userId),
+                        userId);
+            }
+            return new ArrayList<ResolveInfo>();
+        }
+    }
+    
+    private ResolveInfo chooseBestActivity(Intent intent, String resolvedType,
+            int flags, List<ResolveInfo> query, int userId) {
+        if (query != null) {
+            final int N = query.size();
+            if (N == 1) {
+                return query.get(0);
+            } else if (N > 1) {
+                final boolean debug = ((intent.getFlags() & Intent.FLAG_DEBUG_LOG_RESOLUTION) != 0);
+                // If there is more than one activity with the same priority,
+                // then let the user decide between them.
+                ResolveInfo r0 = query.get(0);
+                ResolveInfo r1 = query.get(1);
+                if (DEBUG_INTENT_MATCHING || debug) {
+                    Slog.v(TAG, r0.activityInfo.name + "=" + r0.priority + " vs "
+                            + r1.activityInfo.name + "=" + r1.priority);
+                }
+                // If the first activity has a higher priority, or a different
+                // default, then it is always desireable to pick it.
+                if (r0.priority != r1.priority
+                        || r0.preferredOrder != r1.preferredOrder
+                        || r0.isDefault != r1.isDefault) {
+                    return query.get(0);
+                }
+                // If we have saved a preference for a preferred activity for
+                // this Intent, use that.
+                ResolveInfo ri = findPreferredActivity(intent, resolvedType,
+                        flags, query, r0.priority, true, false, debug, userId);
+                if (ri != null) {
+                    return ri;
+                }
+                ri = new ResolveInfo(mResolveInfo);
+                ri.activityInfo = new ActivityInfo(ri.activityInfo);
+                ri.activityInfo.applicationInfo = new ApplicationInfo(
+                        ri.activityInfo.applicationInfo);
+                if (userId != 0) {
+                    ri.activityInfo.applicationInfo.uid = UserHandle.getUid(userId,
+                            UserHandle.getAppId(ri.activityInfo.applicationInfo.uid));
+                }
+                // Make sure that the resolver is displayable in car mode
+                if (ri.activityInfo.metaData == null) ri.activityInfo.metaData = new Bundle();
+                ri.activityInfo.metaData.putBoolean(Intent.METADATA_DOCK_HOME, true);
+                return ri;
+            }
+        }
+        return null;
+    }
+            
+        ResolveInfo findPreferredActivity(Intent intent, String resolvedType, int flags,
+            List<ResolveInfo> query, int priority, boolean always,
+            boolean removeMatches, boolean debug, int userId) {
+        if (!sUserManager.exists(userId)) return null;
+        // writer
+        synchronized (mPackages) {
+            if (intent.getSelector() != null) {
+                intent = intent.getSelector();
+            }
+            if (DEBUG_PREFERRED) intent.addFlags(Intent.FLAG_DEBUG_LOG_RESOLUTION);
+
+            // Try to find a matching persistent preferred activity.
+            ResolveInfo pri = findPersistentPreferredActivityLP(intent, resolvedType, flags, query,
+                    debug, userId);
+
+            // If a persistent preferred activity matched, use it.
+            if (pri != null) {
+                return pri;
+            }
+
+            PreferredIntentResolver pir = mSettings.mPreferredActivities.get(userId);
+            // Get the list of preferred activities that handle the intent
+            if (DEBUG_PREFERRED || debug) Slog.v(TAG, "Looking for preferred activities...");
+            List<PreferredActivity> prefs = pir != null
+                    ? pir.queryIntent(intent, resolvedType,
+                            (flags & PackageManager.MATCH_DEFAULT_ONLY) != 0, userId)
+                    : null;
+            if (prefs != null && prefs.size() > 0) {
+                boolean changed = false;
+                try {
+                    // First figure out how good the original match set is.
+                    // We will only allow preferred activities that came
+                    // from the same match quality.
+                    int match = 0;
+
+                    if (DEBUG_PREFERRED || debug) Slog.v(TAG, "Figuring out best match...");
+
+                    final int N = query.size();
+                    for (int j=0; j<N; j++) {
+                        final ResolveInfo ri = query.get(j);
+                        if (DEBUG_PREFERRED || debug) Slog.v(TAG, "Match for " + ri.activityInfo
+                                + ": 0x" + Integer.toHexString(match));
+                        if (ri.match > match) {
+                            match = ri.match;
+                        }
+                    }
+
+                    if (DEBUG_PREFERRED || debug) Slog.v(TAG, "Best match: 0x"
+                            + Integer.toHexString(match));
+
+                    match &= IntentFilter.MATCH_CATEGORY_MASK;
+                    final int M = prefs.size();
+                    for (int i=0; i<M; i++) {
+                        final PreferredActivity pa = prefs.get(i);
+                        if (DEBUG_PREFERRED || debug) {
+                            Slog.v(TAG, "Checking PreferredActivity ds="
+                                    + (pa.countDataSchemes() > 0 ? pa.getDataScheme(0) : "<none>")
+                                    + "\n  component=" + pa.mPref.mComponent);
+                            pa.dump(new LogPrinter(Log.VERBOSE, TAG, Log.LOG_ID_SYSTEM), "  ");
+                        }
+                        if (pa.mPref.mMatch != match) {
+                            if (DEBUG_PREFERRED || debug) Slog.v(TAG, "Skipping bad match "
+                                    + Integer.toHexString(pa.mPref.mMatch));
+                            continue;
+                        }
+                        // If it's not an "always" type preferred activity and that's what we're
+                        // looking for, skip it.
+                        if (always && !pa.mPref.mAlways) {
+                            if (DEBUG_PREFERRED || debug) Slog.v(TAG, "Skipping mAlways=false entry");
+                            continue;
+                        }
+                        final ActivityInfo ai = getActivityInfo(pa.mPref.mComponent,
+                                flags | PackageManager.GET_DISABLED_COMPONENTS, userId);
+                        if (DEBUG_PREFERRED || debug) {
+                            Slog.v(TAG, "Found preferred activity:");
+                            if (ai != null) {
+                                ai.dump(new LogPrinter(Log.VERBOSE, TAG, Log.LOG_ID_SYSTEM), "  ");
+                            } else {
+                                Slog.v(TAG, "  null");
+                            }
+                        }
+                        if (ai == null) {
+                            // This previously registered preferred activity
+                            // component is no longer known.  Most likely an update
+                            // to the app was installed and in the new version this
+                            // component no longer exists.  Clean it up by removing
+                            // it from the preferred activities list, and skip it.
+                            Slog.w(TAG, "Removing dangling preferred activity: "
+                                    + pa.mPref.mComponent);
+                            pir.removeFilter(pa);
+                            changed = true;
+                            continue;
+                        }
+                        for (int j=0; j<N; j++) {
+                            final ResolveInfo ri = query.get(j);
+                            if (!ri.activityInfo.applicationInfo.packageName
+                                    .equals(ai.applicationInfo.packageName)) {
+                                continue;
+                            }
+                            if (!ri.activityInfo.name.equals(ai.name)) {
+                                continue;
+                            }
+
+                            if (removeMatches) {
+                                pir.removeFilter(pa);
+                                changed = true;
+                                if (DEBUG_PREFERRED) {
+                                    Slog.v(TAG, "Removing match " + pa.mPref.mComponent);
+                                }
+                                break;
+                            }
+
+                            // Okay we found a previously set preferred or last chosen app.
+                            // If the result set is different from when this
+                            // was created, we need to clear it and re-ask the
+                            // user their preference, if we're looking for an "always" type entry.
+                            if (always && !pa.mPref.sameSet(query)) {
+                                Slog.i(TAG, "Result set changed, dropping preferred activity for "
+                                        + intent + " type " + resolvedType);
+                                if (DEBUG_PREFERRED) {
+                                    Slog.v(TAG, "Removing preferred activity since set changed "
+                                            + pa.mPref.mComponent);
+                                }
+                                pir.removeFilter(pa);
+                                // Re-add the filter as a "last chosen" entry (!always)
+                                PreferredActivity lastChosen = new PreferredActivity(
+                                        pa, pa.mPref.mMatch, null, pa.mPref.mComponent, false);
+                                pir.addFilter(lastChosen);
+                                changed = true;
+                                return null;
+                            }
+
+                            // Yay! Either the set matched or we're looking for the last chosen
+                            if (DEBUG_PREFERRED || debug) Slog.v(TAG, "Returning preferred activity: "
+                                    + ri.activityInfo.packageName + "/" + ri.activityInfo.name);
+                            return ri;
+                        }
+                    }
+                } finally {
+                    if (changed) {
+                        if (DEBUG_PREFERRED) {
+                            Slog.v(TAG, "Preferred activity bookkeeping changed; writing restrictions");
+                        }
+                        scheduleWritePackageRestrictionsLocked(userId);
+                    }
+                }
+            }
+        }
+        if (DEBUG_PREFERRED || debug) Slog.v(TAG, "No preferred activity to return");
+        return null;
+    }
+
+
+
+    @Override
+    public ActivityInfo getActivityInfo(ComponentName component, int flags, int userId) {
+        if (!sUserManager.exists(userId)) return null;
+        enforceCrossUserPermission(Binder.getCallingUid(), userId, false, false, "get activity info");
+        synchronized (mPackages) {
+            PackageParser.Activity a = mActivities.mActivities.get(component);
+
+            if (DEBUG_PACKAGE_INFO) Log.v(TAG, "getActivityInfo " + component + ": " + a);
+            if (a != null && mSettings.isEnabledLPr(a.info, flags, userId)) {
+                PackageSetting ps = mSettings.mPackages.get(component.getPackageName());
+                if (ps == null) return null;
+                return PackageParser.generateActivityInfo(a, flags, ps.readUserState(userId),
+                        userId);
+            }
+            if (mResolveComponentName.equals(component)) {
+                return PackageParser.generateActivityInfo(mResolveActivity, flags,
+                        new PackageUserState(), userId);
+            }
+        }
+        return null;
+    }
+  
+  弄一个  ResolverActivity
+  
+        public static final ActivityInfo generateActivityInfo(ActivityInfo ai, int flags,
+            PackageUserState state, int userId) {
+        if (ai == null) return null;
+        if (!checkUseInstalledOrHidden(flags, state)) {
+            return null;
+        }
+        // This is only used to return the ResolverActivity; we will just always
+        // make a copy.
+        ai = new ActivityInfo(ai);
+        ai.applicationInfo = generateApplicationInfo(ai.applicationInfo, flags, state, userId);
+        return ai;
+    }
+
+# 验证成功失败都有回调
+
+	  private static class IsAssociatedResultReceiver extends ResultReceiver {
+	
+	        private final int mVerificationId;
+	        private final PackageManager mPackageManager;
+	
+	        public IsAssociatedResultReceiver(Handler handler, PackageManager packageManager,
+	                int verificationId) {
+	            super(handler);
+	            mVerificationId = verificationId;
+	            mPackageManager = packageManager;
+	        }
+	
+	        @Override
+	        protected void onReceiveResult(int resultCode, Bundle resultData) {
+	            if (resultCode == DirectStatementService.RESULT_SUCCESS) {
+	                if (resultData.getBoolean(DirectStatementService.IS_ASSOCIATED)) {
+	                    // 验证成功则一定说明所有的都是成功的，不需要传递
+	                    mPackageManager.verifyIntentFilter(mVerificationId,
+	                            PackageManager.INTENT_FILTER_VERIFICATION_SUCCESS,
+	                            Collections.<String>emptyList());
+	                } else {
+	                    // 如果失败，则传递失败的数据，保留成功的
+	                    mPackageManager.verifyIntentFilter(mVerificationId,
+	                            PackageManager.INTENT_FILTER_VERIFICATION_FAILURE,
+	                            resultData.getStringArrayList(DirectStatementService.FAILED_SOURCES));
+	                }
+	            } else {
+	                sendErrorToPackageManager(mPackageManager, mVerificationId);
+	            }
+	        }
+	    }
+    
+成功是所有的都会成功，失败，是部分或者全部失败，部分失败，成功的还是可以支持的
+
+    @Override
+    public void verifyIntentFilter(int id, int verificationCode, List<String> failedDomains)
+            throws RemoteException {
+        mContext.enforceCallingOrSelfPermission(
+                Manifest.permission.INTENT_FILTER_VERIFICATION_AGENT,
+                "Only intentfilter verification agents can verify applications");
+
+        final Message msg = mHandler.obtainMessage(INTENT_FILTER_VERIFIED);
+        final IntentFilterVerificationResponse response = new IntentFilterVerificationResponse(
+                Binder.getCallingUid(), verificationCode, failedDomains);
+        msg.arg1 = id;
+        msg.obj = response;
+        mHandler.sendMessage(msg);
+    }
+    
+
 # 参考文档  
 
 https://developer.android.com/training/app-links/verify-site-associations
