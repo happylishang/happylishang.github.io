@@ -1078,6 +1078,8 @@ Status - Shows the current link-handling setting for this app. An app that has p
         mHandler.sendMessage(msg);
     }
     
+    
+为什么不在每次启动的时候验证，可能是为了防止有些用户需要自己选择吧
 
 # 参考文档  
 
