@@ -1,4 +1,68 @@
-APPLink跟DeepLink其实都是用来唤起某个APP的特定界面的做法，一般是从APP外部，比如短信里面，或者浏览器里面。Android流程跟基本的startActivity类似，只不过多了一个选怎过程，因为这类跳转一般都是通过Action_View进行跳转，而响应这个Action的APP可能不止一个，而且还有些默认设置之类的，6.0之前可以都看作scheme的deeplink，6.0之后多了个APPLink，在安装时候，系统会对APP进行校验，如果APP配置了支持http/https，且可以自动校验，那么就去APP制定的服务器下载验证，验证过了后，其他APP通过Action_View并配置了scheme跳转的时候，就可以打开当前的配置，不过，这个流程难道需要服务器，可能是为了安全吧，因为，不依赖服务器，其实也完全可以做到。
+APP开发中经常会有这种需求：在浏览器或者短信中唤起APP，如果安装了就唤起，否则引导下载。对于Android而言，这里主要牵扯的技术就是deeplink，也可以简单看成scheme，Android一直是支持scheme的，但是由于Android的开源特性，不同手机厂商或者不同浏览器厂家处理的千奇百怪，有些能拉起，有些不行，本文只简单分析下link的原理，包括deeplink，也包括Android6.0之后的AppLink。**其实个人认为，AppLink可以就是deeplink，只不过它类似于一种验证过（或者说用户选择过）的deeplink，也就是设置了默认打开**，如果单从APP端来看，区别主要在Manifest文件中的android:autoVerify="true"，如下，
+
+> deeplink配置（不限http/https）
+
+    <intent-filter>
+        <data android:scheme="https" android:host="test.example.com"  />
+        <category android:name="android.intent.category.DEFAULT" />
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.BROWSABLE" />
+    </intent-filter>
+
+	 （不限http/https）
+     <intent-filter>
+		    <data android:scheme="example" />
+		    <!-- 下面这几行也必须得设置 -->
+		    <category android:name="android.intent.category.DEFAULT" />
+		    <action android:name="android.intent.action.VIEW" />
+		    <category android:name="android.intent.category.BROWSABLE" />
+    </intent-filter>
+            
+            
+> applink配置（只能http/https）
+    
+    <intent-filter android:autoVerify="true">
+        <data android:scheme="https" android:host="test.example.com"  />
+        <category android:name="android.intent.category.DEFAULT" />
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.BROWSABLE" />
+    </intent-filter>
+            
+在Android原生的APPLink实现中，需要APP跟服务端双向验证才能让APPLink生效，如果如果APPLink验证失败，APPLink会完全退化成deepLink，这也是为什么说APPLINK是一种特殊的deepLink，所以先分析下deepLink，deepLink理解了，APPLink就很容易理解。
+
+# deepLink原理分析
+
+deeplink的scheme相应分两种：一种是只有一个APP能相应，另一种是有多个APP可以相应，比如，如果为一个APP的Activity配置了http scheme类型的deepLink，如果通过短信或者其他方式唤起这种link的时候，一般会出现一个让用户选择的弹窗，因为一般而言，系统会带个浏览器，也相应这类scheme，比如下面的例子：
+
+	>adb shell am start -a android.intent.action.VIEW   -c android.intent.category.BROWSABLE  -d "https://test.example.com/b/g"
+
+    <intent-filter>
+        <data android:scheme="https" android:host="test.example.com"  />
+        <category android:name="android.intent.category.DEFAULT" />
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.BROWSABLE" />
+    </intent-filter>
+    
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-91770dac931bbb36.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+如果是设置了一个私用的，并且没有跟其他app重复的，那么会直接打开，比如下面的：
+
+	>adb shell am start -a android.intent.action.VIEW   -c android.intent.category.BROWSABLE  -d "example://test.example.com/b/g"
+	
+     <intent-filter>
+		    <data android:scheme="example" />
+		    <!-- 下面这几行也必须得设置 -->
+		    <category android:name="android.intent.category.DEFAULT" />
+		    <action android:name="android.intent.action.VIEW" />
+		    <category android:name="android.intent.category.BROWSABLE" />
+    </intent-filter>
+
+当然，如果你的私有scheme跟其他APP的重复了，那个还是会唤起APP选择界面（其实是一个ResolverActivity）。下面就来看看，这个scheme是如何匹配并拉起对应APP的。
+
+
+
+            
+Android的APPLink跟DeepLink其实都是用来唤起某个APP的特定界面的做法，一般是从APP外部，比如短信里面，或者浏览器里面。Android流程跟基本的startActivity类似，只不过多了一个选怎过程，因为这类跳转一般都是通过Action_View进行跳转，而响应这个Action的APP可能不止一个，而且还有些默认设置之类的，6.0之前可以都看作scheme的deeplink，6.0之后多了个APPLink，在安装时候，系统会对APP进行校验，如果APP配置了支持http/https，且可以自动校验，那么就去APP制定的服务器下载验证，验证过了后，其他APP通过Action_View并配置了scheme跳转的时候，就可以打开当前的配置，不过，这个流程难道需要服务器，可能是为了安全吧，因为，不依赖服务器，其实也完全可以做到。
 
 **APPLINK只是在安装时候多了一个验证，其他跟之前deeplink一样，如果没联网，验证失败，那就跟之前的deeplink表现一样**
 
@@ -20,7 +84,7 @@ Share stored credentials between apps and sites
 If your app that uses Smart Lock for Passwords shares a user database with your website—or if your app and website use federated sign-in providers such as Google Sign-In—you can associate the app with the website so that users save their credentials once and then automatically sign in to both the app and the website.
         
 
-流程
+# APPLink验证流程流程
 
 * 安装
 * 校验scheme及http scheme（联网才行）
@@ -606,7 +670,7 @@ public final class IntentFilterVerificationReceiver extends BroadcastReceiver {
     
 # 查看Verify的权限   
 
-adb shell dumpsys package d
+adb shell dumpsys package d   
 
 Note: Make sure you wait at least 20 seconds after installation of your app to allow for the system to complete the verification process.
 
@@ -1080,6 +1144,8 @@ Status - Shows the current link-handling setting for this app. An app that has p
     
     
 为什么不在每次启动的时候验证，可能是为了防止有些用户需要自己选择吧
+
+也可以本机做，不过，可能为了保证APP跟网站都是开发者群体所有，才采用了双向的验证吧。
 
 # 参考文档  
 
