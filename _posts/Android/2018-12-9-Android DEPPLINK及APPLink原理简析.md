@@ -431,64 +431,6 @@ IntentFilterVerificationReceiver收到验证消息后，通过start一个DirectS
 AndroidAppAsset好像是Google的另一套assetlink类的东西，好像用在APP web登陆信息共享之类的地方 ，不看，直接看retrieveFromWeb：从名字就能看出，这是获取服务端Applink的配置，获取后跟本地校验，如果通过了，那就是applink启动成功：
     
         
-
-
-
-
-    /**
-     * Receives the result of {@code StatementService.CHECK_ACTION} from
-     * {@link DirectStatementService} and passes it back to {@link PackageManager}.
-     */
-    private static class IsAssociatedResultReceiver extends ResultReceiver {
-
-        private final int mVerificationId;
-        private final PackageManager mPackageManager;
-
-        public IsAssociatedResultReceiver(Handler handler, PackageManager packageManager,
-                int verificationId) {
-            super(handler);
-            mVerificationId = verificationId;
-            mPackageManager = packageManager;
-        }
-
-        @Override
-        protected void onReceiveResult(int resultCode, Bundle resultData) {
-            if (resultCode == DirectStatementService.RESULT_SUCCESS) {
-                if (resultData.getBoolean(DirectStatementService.IS_ASSOCIATED)) {
-                    mPackageManager.verifyIntentFilter(mVerificationId,
-                            PackageManager.INTENT_FILTER_VERIFICATION_SUCCESS,
-                            Collections.<String>emptyList());
-                } else {
-                    mPackageManager.verifyIntentFilter(mVerificationId,
-                            PackageManager.INTENT_FILTER_VERIFICATION_FAILURE,
-                            resultData.getStringArrayList(DirectStatementService.FAILED_SOURCES));
-                }
-            } else {
-                sendErrorToPackageManager(mPackageManager, mVerificationId);
-            }
-        }
-    }
-}
-
-
-
-> 12-03 17:07:22.362 14747  6055 I Finsky  : [258] com.google.android.finsky.p2p.f.run(3): Wrote row to frosting DB: 723
-> 12-03 17:07:22.365  6207  6059 I SingleHostAsyncVerifier: Verification result: checking for a statement with source b <
-> 12-03 17:07:22.365  6207  6059 I SingleHostAsyncVerifier:   a: "https://u.163.com"
-> 12-03 17:07:22.365  6207  6059 I SingleHostAsyncVerifier: >
-> 12-03 17:07:22.365  6207  6059 I SingleHostAsyncVerifier: , relation delegate_permission/common.handle_all_urls, and target a <
-> 12-03 17:07:22.365  6207  6059 I SingleHostAsyncVerifier:   a <
-> 12-03 17:07:22.365  6207  6059 I SingleHostAsyncVerifier:     a: "31:38:96:7E:26:41:9D:B1:73:EC:04:B2:0C:91:09:E0:42:72:DE:21:A5:D7:3B:47:E0:49:62:5F:FF:C4:D9:7A"
-> 12-03 17:07:22.365  6207  6059 I SingleHostAsyncVerifier:   >
-> 12-03 17:07:22.365  6207  6059 I SingleHostAsyncVerifier:   b: "com.netease.yanxuan"
-> 12-03 17:07:22.365  6207  6059 I SingleHostAsyncVerifier: >
-> 12-03 17:07:22.365  6207  6059 I SingleHostAsyncVerifier:  --> false.
-> 12-03 17:07:22.366  6207  6049 I IntentFilterIntentOp: Verification 2 complete. Success:false. Failed hosts:u.163.com.
-> 12-03 17:07:22.375  6207  6075 I Icing   : Usage reports ok 0, Failed Usage reports 0, indexed 0, rejected 0, imm upload false
-
-
-      
-    
     private Result retrieveStatementFromUrl(String urlString, int maxIncludeLevel,
                                             AbstractAsset source)
             throws AssociationServiceException {
