@@ -1,6 +1,12 @@
 # 最主要的一点：VSYNC同步信号的接受要用户主动去注册，才会接受，而且是单次有效
 
 
+![](https://upload-images.jianshu.io/upload_images/1945694-7fad604f2e3cf38d.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/896/format/webp)
+
+* Down事件 直接处理
+* Move事件 对于大多数Move事件，结合绘制过程处理，当应用收到Vsync时，处理一批Move事件（Move事件之间的间隔通常小于16ms）
+* Up事件 直接处理
+
 
 有几个触发要区分清楚
 
@@ -27,8 +33,6 @@
         android:layout_height="30dp"
         android:layout_centerInParent="true"/>
         
-        
-
 输入DisplayEventReceiver       WindowInputEventReceiver    ConsumeBatchedInputRunnable 
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-e6173e52c5e28102.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
@@ -39,4 +43,7 @@ https://digitalassetlinks.googleapis.com/v1/statements:list?
    source.web.site=https://you.163.com
    relation=delegate_permission/common.handle_all_urls
 
- 
+
+#  参考文档
+
+[Android应用处理MotionEvent的过程](https://www.jianshu.com/p/c2e26c6d4ac1)  

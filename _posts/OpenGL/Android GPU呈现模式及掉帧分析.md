@@ -1,7 +1,252 @@
-[参考文档1](https://developer.android.com/studio/profile/inspect-gpu-rendering?hl=zh-cn)
+[参考文档1](https://developer.android.com/studio/profile/inspect-gpu-rendering?hl=zh-cn)       
 [参考文档2](https://developer.android.com/topic/performance/rendering/profile-gpu)
 
 
+
+![](https://upload-images.jianshu.io/upload_images/1945694-7fad604f2e3cf38d.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/896/format/webp)
+
+* Down事件 直接处理
+* Move事件 对于大多数Move事件，结合绘制过程处理，当应用收到Vsync时，处理一批Move事件（Move事件之间的间隔通常小于16ms）
+* Up事件 直接处理
+
+用一个自定义布局作为测试，先看看输入事件
+
+为何Down UP事件不会GPU Profiler中input延时有影响，如上就是原因，因为这两个事件不会算到里面
+
+	    @Override
+	    public boolean dispatchTouchEvent(MotionEvent ev) {
+	        try {
+	            Thread.sleep(20);
+	        } catch (InterruptedException e) {
+	            e.printStackTrace();
+	        }
+	        mTextView.setText("" + System.currentTimeMillis());
+	        requestLayout();
+	        super.dispatchTouchEvent(ev);
+	        return true;
+	    }
+	    
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-29dcaf12b3a2759b.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+输入事件加个20ms延时，上图红色方块部分正好映射到输入事件耗时，其实是MOVE事件，不过，这似乎跟官方文档的颜色对不上，如下图
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-0da84239c597b22d.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+然后再看看布局测量耗时，为布局测量加个测试
+
+
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        try {
+            Thread.sleep(20);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+    }
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-d6db3c11c2bc3204.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+输入事件之就是测量布局，因为我们这里没有动效耗时，先忽略动效。不过这里有个不太好理解的底下深色部分那部分是什么呢？为什么还会动态变化呢？按照官方文档解释是：**其他时间/VSync 延迟**，官方解释如下：
+
+
+> Miscellaneous
+
+> In addition to the time it takes the rendering system to perform its work, there’s an additional set of work that occurs on the main thread and has nothing to do with rendering. Time that this work consumes is reported as misc time. Misc time generally represents work that might be occurring on the UI thread between two consecutive frames of rendering.
+> 
+> When this segment is large
+> If this value is high, it is likely that your app has callbacks, intents, or other work that should be happening on another thread. Tools such as Method tracing or Systrace can provide visibility into the tasks that are running on the main thread. This information can help you target performance improvements.
+
+
+	 void doFrame(long frameTimeNanos, int frame) {
+	        final long startNanos;
+	        synchronized (mLock) {
+	            if (!mFrameScheduled) {
+	         ...
+	          // 设置vsync开始
+	          <!--关键点1-->
+	            mFrameInfo.setVsync(intendedFrameTimeNanos, frameTimeNanos);
+	            mFrameScheduled = false;
+	            mLastFrameTimeNanos = frameTimeNanos;
+	        }
+	
+	        try {
+	            Trace.traceBegin(Trace.TRACE_TAG_VIEW, "Choreographer#doFrame");
+	       	 // 开始处理输入
+	            mFrameInfo.markInputHandlingStart();
+	            doCallbacks(Choreographer.CALLBACK_INPUT, frameTimeNanos);
+	    		 // 开始处理动画
+	            mFrameInfo.markAnimationsStart();
+	            doCallbacks(Choreographer.CALLBACK_ANIMATION, frameTimeNanos);
+	     		 // 开始处理测量布局
+	            mFrameInfo.markPerformTraversalsStart();
+	            doCallbacks(Choreographer.CALLBACK_TRAVERSAL, frameTimeNanos);
+	            doCallbacks(Choreographer.CALLBACK_COMMIT, frameTimeNanos);
+	        } finally {
+	            Trace.traceEnd(Trace.TRACE_TAG_VIEW);
+	        }
+
+ mFrameInfo.setVsync代表一个GPU Profiler柱状图的开始。      
+
+> adb shell dumpsys gfxinfo  com.snail.labaffinity  framestats
+
+	---PROFILEDATA---
+	Flags,IntendedVsync,Vsync,OldestInputEvent,NewestInputEvent,HandleInputStart,AnimationStart,PerformTraversalsStart,DrawStart,SyncQueued,SyncStart,IssueDrawCommandsStart,SwapBuffers,FrameCompleted,
+	0,1001692707421551,1001692707421551,1001692644983000,1001692703788000,1001692707792467,1001692760678614,1001692760684447,1001692761844395,1001692762753405,1001692762858613,1001692763011582,1001692767238561,1001692768593613,
+	0,1001692774585923,1001692774585923,1001692712150000,1001692770943000,1001692774929811,1001692827529603,1001692827535176,1001692828162936,1001692828998092,1001692829048405,1001692829241321,1001692833842155,1001692834748822,
+	0,1001692841750295,1001692841750295,1001692779289000,1001692838071000,1001692842103405,1001692894429863,1001692894436165,1001692895064759,1001692895912051,1001692895959290,1001692896120697,1001692899783509,1001692900774134,
+	0,1001692908914667,1001692908914667,1001692846455000,1001692905242000,1001692909246113,1001692961335176,1001692961341061,1001692961990645,1001692962887832,1001692962933301,1001692963088770,1001692967199134,1001692967809134,
+	
+
+
+
+
+
+
+
+
+
+
+
+由于数据块是 CSV 格式的输出，因此将其粘贴到所选的电子表格工具或使用脚本进行收集和解析非常简单。 下表解释了输出数据列的格式。 所有时间戳均以纳秒计。
+
+标志
+“标志”列带有“0”的行可以通过从 FRAME_COMPLETED 列中减去 INTENDED_VSYNC 列计算得出总帧时间。
+该列为非零值的行将被忽略，因为其对应的帧已被确定为偏离正常性能，其布局和绘制时间预计超过 16 毫秒。 可能出现这种情况有如下几个原因：
+窗口布局发生变化（例如，应用的第一帧或在旋转后）
+此外，如果帧的某些值包含无意义的时间戳，则也可能跳过该帧。 例如，如果帧的运行速度超过 60fps，或者如果屏幕上的所有内容最终都准确无误，则可能跳过该帧，这不一定表示应用中存在问题。
+INTENDED_VSYNC
+帧的预期起点。如果此值不同于 VSYNC，则表示 UI 线程中发生的工作使其无法及时响应垂直同步信号。
+VSYNC
+所有垂直同步侦听器中使用的时间值和帧绘图（Choreographer 帧回调、动画、View.getDrawingTime() 等等）
+如需进一步了解 VSYNC 及其对应用产生的影响，请观看了解 VSYNC 视频。
+OLDEST_INPUT_EVENT
+输入队列中最早输入事件的时间戳或 Long.MAX_VALUE（如果帧没有输入事件）。
+此值主要用于平台工作，对应用开发者的作用有限。
+NEWEST_INPUT_EVENT
+输入队列中最新输入事件的时间戳或 0（如果帧没有输入事件）。
+此值主要用于平台工作，对应用开发者的作用有限。
+但是，可以通过查看 (FRAME_COMPLETED - NEWEST_INPUT_EVENT) 大致了解应用增加的延迟时间。
+HANDLE_INPUT_START
+将输入事件分派给应用的时间戳。
+通过观察此时间戳与 ANIMATION_START 之间的时差，可以测量应用处理输入事件所花的时间。
+如果这个数字较高（> 2 毫秒），则表明应用处理 View.onTouchEvent() 等输入事件所花的时间太长，这意味着此工作需要进行优化或转交给其他线程。 请注意，有些情况下（例如，启动新Activity或类似活动的点击事件），这个数字较大是预料之中并且可以接受的。
+ANIMATION_START
+在 Choreographer 中注册的动画运行的时间戳。
+通过观察此时间戳与 PERFORM_TRANVERSALS_START 之间的时差，可以确定评估正在运行的所有动画（ObjectAnimator、ViewPropertyAnimator 和通用转换）所需的时间。
+如果这个数字较高（> 2 毫秒），请检查您的应用是否编写了任何自定义动画，或检查 ObjectAnimator 在对哪些字段设置动画并确保它们适用于动画。
+如需了解有关 Choreographer 的更多信息，请观看利弊视频。
+PERFORM_TRAVERSALS_START
+如果您从此值中扣除 DRAW_START，则可推断出完成布局和测量阶段所需的时间（请注意，在滚动或动画期间，您会希望此时间接近于零）。
+如需了解有关呈现管道的测量和布局阶段的更多信息，请观看失效、布局和性能视频。
+DRAW_START
+performTraversals 绘制阶段的开始时间。这是记录任何失效视图的显示列表的起点。
+此时间与 SYNC_START 之间的时差就是对树中的所有失效视图调用 View.draw() 所需的时间。
+如需了解有关绘图模型的详细信息，请参阅硬件加速或失效、布局和性能视频。
+SYNC_START
+绘制同步阶段的开始时间。
+如果此时间与 ISSUE_DRAW_COMMANDS_START 之间的时差较大（约 > 0.4 毫秒），则通常表示绘制了大量必须上传到 GPU 的新位图。
+如需进一步了解同步阶段，请观看 GPU 呈现模式分析视频。
+ISSUE_DRAW_COMMANDS_START
+硬件呈现器开始向 GPU 发出绘图命令的时间。
+此时间与 FRAME_COMPLETED 之间的时差让您可以大致了解应用生成的 GPU 工作量。 绘制过度或呈现效果不佳等问题都会在此显示出来。
+SWAP_BUFFERS
+调用 eglSwapBuffers 的时间，此调用不属于平台工作，相对乏味。
+FRAME_COMPLETED
+全部完成！处理此帧所花的总时间可以通过执行 FRAME_COMPLETED - INTENDED_VSYNC 计算得出。
+您可以通过不同的方法使用此数据。一种简单却有用的可视化方式就是在不同的延迟时段中显示帧时间 (FRAME_COMPLETED - INTENDED_VSYNC) 分布的直方图（参见下图）。 此图直观地表明，大部分帧非常有效，截止时间远低于 16 毫秒（显示为红色），但是少数帧明显超出了截止时间。 我们可以观察此直方图中的变化趋势，了解所产生的整体变化或新异常值。 此外，您还可以根据数据中的多个时间戳绘制表示输入延迟、布局所用时间或其他类似关注指标的图形。
+
+
+
+
+
+
+
+    /**
+     * Request unbuffered dispatch of the given stream of MotionEvents to this View.
+     *
+     * Until this View receives a corresponding {@link MotionEvent#ACTION_UP}, ask that the input
+     * system not batch {@link MotionEvent}s but instead deliver them as soon as they're
+     * available. This method should only be called for touch events.
+     *
+     * <p class="note">This api is not intended for most applications. Buffered dispatch
+     * provides many of benefits, and just requesting unbuffered dispatch on most MotionEvent
+     * streams will not improve your input latency. Side effects include: increased latency,
+     * jittery scrolls and inability to take advantage of system resampling. Talk to your input
+     * professional to see if {@link #requestUnbufferedDispatch(MotionEvent)} is right for
+     * you.</p>
+     */
+
+	   public final void requestUnbufferedDispatch(MotionEvent event) {
+	        final int action = event.getAction();
+	        if (mAttachInfo == null
+	                || action != MotionEvent.ACTION_DOWN && action != MotionEvent.ACTION_MOVE
+	                || !event.isTouchEvent()) {
+	            return;
+	        }
+	        mAttachInfo.mUnbufferedDispatchRequested = true;
+	    }
+	    
+ mUnbufferedDispatchRequested应该是为了不批量处理用的，正常情况下是需要批量处理的，这了一般只限定MOVE事件
+ 
+ 
 ## Bitmap  prepareToDraw
 
 
@@ -362,13 +607,13 @@ Java层的信息来自下面，其实只有Java层的task在UI线程，其余的
 	
 	        try {
 	            Trace.traceBegin(Trace.TRACE_TAG_VIEW, "Choreographer#doFrame");
-	
+	            <!--输入事件-->
 	            mFrameInfo.markInputHandlingStart();
 	            doCallbacks(Choreographer.CALLBACK_INPUT, frameTimeNanos);
-	
+	            <!--动画-->
 	            mFrameInfo.markAnimationsStart();
 	            doCallbacks(Choreographer.CALLBACK_ANIMATION, frameTimeNanos);
-	
+	            <!---->
 	            mFrameInfo.markPerformTraversalsStart();
 	
 
