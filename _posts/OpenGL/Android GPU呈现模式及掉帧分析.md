@@ -1,3 +1,5 @@
+消费分批次，无论是输入事件还是测量绘制，都要分批次，上一批没完成，下一批就算到了也没用，算丢弃吧
+
 [参考文档1](https://developer.android.com/studio/profile/inspect-gpu-rendering?hl=zh-cn)       
 [参考文档2](https://developer.android.com/topic/performance/rendering/profile-gpu)
 
@@ -153,12 +155,36 @@
 	0,1001692774585923,1001692774585923,1001692712150000,1001692770943000,1001692774929811,1001692827529603,1001692827535176,1001692828162936,1001692828998092,1001692829048405,1001692829241321,1001692833842155,1001692834748822,
 	0,1001692841750295,1001692841750295,1001692779289000,1001692838071000,1001692842103405,1001692894429863,1001692894436165,1001692895064759,1001692895912051,1001692895959290,1001692896120697,1001692899783509,1001692900774134,
 	0,1001692908914667,1001692908914667,1001692846455000,1001692905242000,1001692909246113,1001692961335176,1001692961341061,1001692961990645,1001692962887832,1001692962933301,1001692963088770,1001692967199134,1001692967809134,
-	
+
+	0,1006270418867 ,1006270452200 ,9223372036854775,0,1006270467341,1006270467363,1006270467366554,1006270491639992,1006270497920460,1006270498202023,1006270498375564,1006270504900460,1006270505562075,	
+
+FrameInfo 里面也定义了某些状态
 
 
+    // The intended vsync time, unadjusted by jitter
+    private static final int INTENDED_VSYNC = 1;
 
+    // Jitter-adjusted vsync time, this is what was used as input into the
+    // animation & drawing system
+    private static final int VSYNC = 2;
 
+    // The time of the oldest input event
+    private static final int OLDEST_INPUT_EVENT = 3;
 
+    // The time of the newest input event
+    private static final int NEWEST_INPUT_EVENT = 4;
+
+    // When input event handling started
+    private static final int HANDLE_INPUT_START = 5;
+
+    // When animation evaluations started
+    private static final int ANIMATION_START = 6;
+
+    // When ViewRootImpl#performTraversals() started
+    private static final int PERFORM_TRAVERSALS_START = 7;
+
+    // When View:draw() started
+    private static final int DRAW_START = 8;
 
 
 
