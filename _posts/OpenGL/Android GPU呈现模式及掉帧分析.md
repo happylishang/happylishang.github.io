@@ -188,10 +188,73 @@ FrameInfo 里面也定义了某些状态
 
 
 
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-0c1e0ae042b03876.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+这个栈是怎么回事？为什么Input会通测量布局一一对应？不是一次批量处理完，再处理下一个？
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-efb39dfd42ad34f5.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+为什么延时加到输入事件上，就是另一番表现？？ 从上面的截图可以猜出： **上一次invalid导致的绘制事件，紧挨着当前这一次的输入事件，同一个vsync下相应**？不过比价好奇是为什么有时候重合呢？
+
+    void scheduleTraversals() {
+        // 重复多次调用invalid requestLayout只会标记一次，等到下一次Vsync信号到，只会执行执行一次
+        if (!mTraversalScheduled) {
+            mTraversalScheduled = true;
+            mTraversalBarrier = mHandler.getLooper().getQueue().postSyncBarrier();
+            mChoreographer.postCallback(
+                    Choreographer.CALLBACK_TRAVERSAL, mTraversalRunnable, null);
+            <!--关键点1预判下，更新UI的时候，通常伴随MOVE事件-->
+            // mUnbufferedInputDispatch =false 一般都是false 所以会执行scheduleConsumeBatchedInput
+            if (!mUnbufferedInputDispatch) {
+                scheduleConsumeBatchedInput();
+            }
+            notifyRendererOfFramePending();
+            pokeDrawLockIfNeeded();
+        }
+    }
+
+**scheduleTraversals本身也会调用scheduleConsumeBatchedInput来预备应对下一批MOVE事件，可能是为了提前预判吧**，不过这个时候仍然是只有一个Vsync
+
+    private void scheduleFrameLocked(long now) {
+        if (!mFrameScheduled) {
+        <!--保证单一-->
+            mFrameScheduled = true;
+            if (USE_VSYNC) 
+                // as soon as possible.
+                if (isRunningOnLooperThreadLocked()) {
+                    scheduleVsyncLocked();
+                    ...
+          }
 
 
+# 请求Vsync是个异步过程 很明显不会阻塞等待垂直同步信号到来
 
-由于数据块是 CSV 格式的输出，因此将其粘贴到所选的电子表格工具或使用脚本进行收集和解析非常简单。 下表解释了输出数据列的格式。 所有时间戳均以纳秒计。
+	status_t NativeDisplayEventReceiver::scheduleVsync() {
+	    if (!mWaitingForVsync) {
+	        ALOGV("receiver %p ~ Scheduling vsync.", this);
+	
+	        // Drain all pending events.
+	        nsecs_t vsyncTimestamp;
+	        int32_t vsyncDisplayId;
+	        uint32_t vsyncCount;
+	        processPendingEvents(&vsyncTimestamp, &vsyncDisplayId, &vsyncCount);
+	
+	        status_t status = mReceiver.requestNextVsync();
+	        if (status) {
+	            ALOGW("Failed to request next vsync, status=%d", status);
+	            return status;
+	        }
+	
+	        mWaitingForVsync = true;
+	    }
+	    return OK;
+	}
+
+    /*
+     * requestNextVsync() schedules the next vsync event. It has no effect if the vsync rate is > 0.
+     */
+    virtual void requestNextVsync() = 0; // Asynchronous
+
 
 标志
 “标志”列带有“0”的行可以通过从 FRAME_COMPLETED 列中减去 INTENDED_VSYNC 列计算得出总帧时间。

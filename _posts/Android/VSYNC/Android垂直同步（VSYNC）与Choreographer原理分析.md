@@ -44,6 +44,31 @@ https://digitalassetlinks.googleapis.com/v1/statements:list?
    relation=delegate_permission/common.handle_all_urls
 
 
+	
+	status_t NativeDisplayEventReceiver::scheduleVsync() {
+	    if (!mWaitingForVsync) {
+	        ALOGV("receiver %p ~ Scheduling vsync.", this);
+	
+	        // Drain all pending events.
+	        nsecs_t vsyncTimestamp;
+	        int32_t vsyncDisplayId;
+	        uint32_t vsyncCount;
+	        processPendingEvents(&vsyncTimestamp, &vsyncDisplayId, &vsyncCount);
+	
+	        status_t status = mReceiver.requestNextVsync();
+	        if (status) {
+	            ALOGW("Failed to request next vsync, status=%d", status);
+	            return status;
+	        }
+	
+	        mWaitingForVsync = true;
+	    }
+	    return OK;
+	}
+	
+不会同时请求两个vsync信号
+
+
 #  参考文档
 
 [Android应用处理MotionEvent的过程](https://www.jianshu.com/p/c2e26c6d4ac1)  
