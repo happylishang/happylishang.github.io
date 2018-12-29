@@ -194,7 +194,14 @@ FrameInfo 里面也定义了某些状态
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-efb39dfd42ad34f5.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-为什么延时加到输入事件上，就是另一番表现？？ 从上面的截图可以猜出： **上一次invalid导致的绘制事件，紧挨着当前这一次的输入事件，同一个vsync下相应**？不过比价好奇是为什么有时候重合呢？
+为什么延时加到输入事件上，就是另一番表现？ **这里比较怀疑是他娘的Android Profiler CPU统计的bug，虽然是一套逻辑，但是不是同一组函数栈，合并了。证据就是doFrame的调用次数跟CPU Profiler 的压根对应不起来，所以之类是有问题的**。 
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-8eed61b5aa599e76.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-9dca8476e0eec275.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+
+也就是说，垂直同步信号机制下，同一个16ms内，或者说在下一个垂直同步信号到来之前，最多只能处理一个MOVE的pathc、最多只有一个绘制请求、一次动画更新，
 
     void scheduleTraversals() {
         // 重复多次调用invalid requestLayout只会标记一次，等到下一次Vsync信号到，只会执行执行一次
@@ -254,6 +261,115 @@ FrameInfo 里面也定义了某些状态
      * requestNextVsync() schedules the next vsync event. It has no effect if the vsync rate is > 0.
      */
     virtual void requestNextVsync() = 0; // Asynchronous
+
+
+在运行行期间，是可以动态增加CallBack的，比如相应MOVE事件的时候，触发重绘，这个重绘会在当前MOVE时间处理完毕后立即执行，而不会等待到下一次Vsync信号的到来。
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-c4f3f9d6eb99e0fc.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-19bc89f8d6cc97b9.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+
+# 一般MOVE时间伴随这个scroll，比如List，更新机制里面还少不了动效
+
+    public void scrollTo(int x, int y) {
+        if (mScrollX != x || mScrollY != y) {
+            int oldX = mScrollX;
+            int oldY = mScrollY;
+            mScrollX = x;
+            mScrollY = y;
+            invalidateParentCaches();
+            onScrollChanged(mScrollX, mScrollY, oldX, oldY);
+            if (!awakenScrollBars()) {
+                postInvalidateOnAnimation();
+            }
+        }
+    }
+        public void postInvalidateOnAnimation() {
+        // We try only with the AttachInfo because there's no point in invalidating
+        // if we are not attached to our window
+        final AttachInfo attachInfo = mAttachInfo;
+        if (attachInfo != null) {
+            attachInfo.mViewRootImpl.dispatchInvalidateOnAnimation(this);
+        }
+    }
+    
+    final class InvalidateOnAnimationRunnable implements Runnable {
+    private boolean mPosted;
+    private final ArrayList<View> mViews = new ArrayList<View>();
+    private final ArrayList<AttachInfo.InvalidateInfo> mViewRects =
+            new ArrayList<AttachInfo.InvalidateInfo>();
+    private View[] mTempViews;
+    private AttachInfo.InvalidateInfo[] mTempViewRects;
+
+    public void addView(View view) {
+        synchronized (this) {
+            mViews.add(view);
+            postIfNeededLocked();
+        }
+    }
+    
+    private void postIfNeededLocked() {
+        if (!mPosted) {
+            mChoreographer.postCallback(Choreographer.CALLBACK_ANIMATION, this, null);
+            mPosted = true;
+        }
+    }
+
+
+
+# skip Frame同Vsync的耗时
+
+
+跳帧：如何理解这个，其实就是Vsync到了，到开始执行所经历的时间，也就是说Vsync信号到了后，并不一定会被立刻执行，因为UI线程可能被阻塞再某个地方，比如在Touch事件中，我们申请了重绘，之后进行了一个耗时操作，那么这个时候，必然会导致Vsync信号被延时执行，因为下个消息的执行
+
+    void doFrame(long frameTimeNanos, int frame) {
+        final long startNanos;
+        synchronized (mLock) {
+            if (!mFrameScheduled) {
+                return; // no work to do
+            }
+
+            if (DEBUG_JANK && mDebugPrintNextFrameTimeDelta) {
+                mDebugPrintNextFrameTimeDelta = false;
+                Log.d(TAG, "Frame time delta: "
+                        + ((frameTimeNanos - mLastFrameTimeNanos) * 0.000001f) + " ms");
+            }
+
+            long intendedFrameTimeNanos = frameTimeNanos;
+            startNanos = System.nanoTime();
+            final long jitterNanos = startNanos - frameTimeNanos;
+            if (jitterNanos >= mFrameIntervalNanos) {
+                final long skippedFrames = jitterNanos / mFrameIntervalNanos;
+                if (skippedFrames >= SKIPPED_FRAME_WARNING_LIMIT) {
+                    Log.i(TAG, "Skipped " + skippedFrames + " frames!  "
+                            + "The application may be doing too much work on its main thread.");
+                }
+                final long lastFrameOffset = jitterNanos % mFrameIntervalNanos;
+                if (DEBUG_JANK) {
+                    Log.d(TAG, "Missed vsync by " + (jitterNanos * 0.000001f) + " ms "
+                            + "which is more than the frame interval of "
+                            + (mFrameIntervalNanos * 0.000001f) + " ms!  "
+                            + "Skipping " + skippedFrames + " frames and setting frame "
+                            + "time to " + (lastFrameOffset * 0.000001f) + " ms in the past.");
+                }
+                frameTimeNanos = startNanos - lastFrameOffset;
+            }
+
+            if (frameTimeNanos < mLastFrameTimeNanos) {
+                if (DEBUG_JANK) {
+                    Log.d(TAG, "Frame time appears to be going backwards.  May be due to a "
+                            + "previously skipped frame.  Waiting for next vsync.");
+                }
+                scheduleVsyncLocked();
+                return;
+            }
+
+            mFrameInfo.setVsync(intendedFrameTimeNanos, frameTimeNanos);
+            mFrameScheduled = false;
+            mLastFrameTimeNanos = frameTimeNanos;
+        }
+
 
 
 标志
