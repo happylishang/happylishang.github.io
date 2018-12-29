@@ -117,6 +117,8 @@
 > If this value is high, it is likely that your app has callbacks, intents, or other work that should be happening on another thread. Tools such as Method tracing or Systrace can provide visibility into the tasks that are running on the main thread. This information can help you target performance improvements.
 
 
+字面上看，是两个连续帧之间等待的耗时，这么说有点不好理解，个人理解是：**Vsync信号到来到下一次doFrame的开始时间，这个时间其实并不能很好的反应出绘制，也仅仅是是连续的时候有些参考价值。**，换句话说invalide放在耗时操作前后带来影响有很大差别，虽然全局上看没啥问题，但是GPU Profiler呈现的表有很大区别，个人认为这里应该算是他的bug吧，不过这个时间官方也说了 has nothing to do with rendering，
+
 	 void doFrame(long frameTimeNanos, int frame) {
 	        final long startNanos;
 	        synchronized (mLock) {
@@ -318,7 +320,7 @@ FrameInfo 里面也定义了某些状态
 
 
 
-# skip Frame同Vsync的耗时
+# Skiped Frame同Vsync的耗时 
 
 
 跳帧：如何理解这个，其实就是Vsync信号到了后，并不一定会被立刻执行，因为UI线程可能被阻塞再某个地方，比如在Touch事件中，我们申请了重绘，之后进行了一个耗时操作，那么这个时候，必然会导致Vsync信号被延时执行，
@@ -334,7 +336,8 @@ FrameInfo 里面也定义了某些状态
 	        }
 	        return true;
 	    }
-
+	    
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-5e249d3b7e80a829.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 
 	    @Override
@@ -351,6 +354,9 @@ FrameInfo 里面也定义了某些状态
 
  ![image.png](https://upload-images.jianshu.io/upload_images/1460468-2418fd574dbba5e5.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 	    
+以上就是scrollTo在延时前后的区别，不过无论哪种，都其实都是跳帧了，而且跳帧都是一样的，但是日志统计的跳帧缺有问题， 因为都是耗时的，只不过，下面显示的是等待，但是有时候不是盲目等待，也就是说，其实每一帧真正的耗时可能并不是我们看到的样子。个人觉得算是个BUG。
+
+
 	    
     void doFrame(long frameTimeNanos, int frame) {
         final long startNanos;
