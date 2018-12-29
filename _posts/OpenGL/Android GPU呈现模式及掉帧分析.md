@@ -321,8 +321,37 @@ FrameInfo 里面也定义了某些状态
 # skip Frame同Vsync的耗时
 
 
-跳帧：如何理解这个，其实就是Vsync到了，到开始执行所经历的时间，也就是说Vsync信号到了后，并不一定会被立刻执行，因为UI线程可能被阻塞再某个地方，比如在Touch事件中，我们申请了重绘，之后进行了一个耗时操作，那么这个时候，必然会导致Vsync信号被延时执行，因为下个消息的执行
+跳帧：如何理解这个，其实就是Vsync信号到了后，并不一定会被立刻执行，因为UI线程可能被阻塞再某个地方，比如在Touch事件中，我们申请了重绘，之后进行了一个耗时操作，那么这个时候，必然会导致Vsync信号被延时执行，
 
+	    @Override
+	    public boolean dispatchTouchEvent(MotionEvent ev) {
+	        super.dispatchTouchEvent(ev);
+	        scrollTo(0,new Random().nextInt(15));
+	        try {
+	            Thread.sleep(40);
+	        } catch (InterruptedException e) {
+	            e.printStackTrace();
+	        }
+	        return true;
+	    }
+
+
+
+	    @Override
+	    public boolean dispatchTouchEvent(MotionEvent ev) {
+	        super.dispatchTouchEvent(ev);
+	        try {
+	            Thread.sleep(40);
+	        } catch (InterruptedException e) {
+	            e.printStackTrace();
+	        }
+	        scrollTo(0,new Random().nextInt(15));
+	        return true;
+	    }
+
+ ![image.png](https://upload-images.jianshu.io/upload_images/1460468-2418fd574dbba5e5.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+	    
+	    
     void doFrame(long frameTimeNanos, int frame) {
         final long startNanos;
         synchronized (mLock) {
