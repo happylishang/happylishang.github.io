@@ -61,6 +61,7 @@ Profile GPU Rendering工具的使用很简单，就是直观上看一帧的耗�
 	            e.printStackTrace();
 	        }
 	        mTextView.setText("" + System.currentTimeMillis());
+	        requestLayout();
 	        super.dispatchTouchEvent(ev);
 	        return true;
 	    }
@@ -87,7 +88,7 @@ Profile GPU Rendering工具的使用很简单，就是直观上看一帧的耗�
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-0da84239c597b22d.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 
-然后再看看布局测量耗时，加个延时，会发现
+然后再看看布局测量耗时，加个延时，会发现测量布局的颜色跟官方文档也对应不上。
 
 
     @Override
@@ -103,7 +104,8 @@ Profile GPU Rendering工具的使用很简单，就是直观上看一帧的耗�
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-d6db3c11c2bc3204.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 
-
+除了颜色对应不上之外还发现，似乎多出了第三部分耗时，VSYNC同步耗时，这部分耗时怎么来的？其次，为什么每个条形图有一个绘制跟Input耗时呢？而且一一对应，一个Inputc触发一个耗时，不是应该下一个VSYNC信号到来再执行吗？
+这三部分原理主要牵扯到：VSYNC垂直同步信号、ViewRootImpl、Choreographer、Touch时间处理机制。
 
 
 
