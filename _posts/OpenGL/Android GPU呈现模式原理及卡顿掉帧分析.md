@@ -1,8 +1,10 @@
-在APP开发中，卡顿绝对优化的大头，Google为了帮助开发者更好的定位问题，提供了不少工具，比如Systrace、Android Studio自带的CPU Profiler、GPU呈现模式分析工具等，其目的主要是帮助定位哪段代码、哪块逻辑比较耗时，影响UI渲染，最终导致了卡顿。是测量布局耗时严重，还是触摸事件处理比较耗时导致UI绘制时间不足，还是什么其他的原因。比如下面的GPU呈现模式分析工具，就用一种很直观的方式呈现可能耗时的节点。
+前言：**MOVE一般要导致UI的更新，不然MOVE事件有毛用**
+
+APP开发中，卡顿绝对优化的大头，Google为了帮助开发者更好的定位问题，提供了不少工具，如Systrace、GPU呈现模式分析工具、Android Studio自带的CPU Profiler等，主要是辅助定位哪段代码、哪块逻辑比较耗时，影响UI渲染，导致了卡顿。拿Profile GPU Rendering工具而言，它用一种很直观的方式呈现可能超时的节点，该工具及其原理也是本文的重点：
 
 ![gettingstarted_image003.png](https://upload-images.jianshu.io/upload_images/1460468-57ebb2dda8157015.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-CPU Profiler也会提供相似的图表，本文主要围绕着GPU呈现模式分析工具展开，简析下各个阶段耗时统计的原理，不过在使用及分析过程中也遇到了不少问题，可能是工具自身的BUG，这给分析带来了不少困惑。比如如下几点：
+CPU Profiler也会提供相似的图表，本文主要围绕着GPU呈现模式分析工具展开，简析各个阶段耗时统计的原理，同时总结下在使用及分析过程中也遇到的一些问题，可能算工具自身的BUG，这给分析带来了不少困惑。比如如下几点：
 
 * GPU呈现模式分析工具跟Google官方文档上似乎对应不起来（各个颜色代表的阶段）
 * CPU Profiler的函数调用似乎有些调用被合并了，并非独立的调用栈（影响分析哪块耗时）
@@ -17,41 +19,11 @@ Profile GPU Rendering工具的使用很简单，就是直观上看一帧的耗�
 
 想要完全理解各个阶段，要对硬件加速及GPU渲染有一定的了解，不过，有一点，必须先记心里：**虽名为 Profile GPU Rendering，但图标中所有阶段都发生在CPU中，不是GPU** 。最终CPU将命令提交到 GPU 后触发GPU异步渲染屏幕，之后CPU会处理下一帧，而GPU并行处理渲染，两者硬件上算是并行。 不过，有些时候，GPU可能过于繁忙，不能跟上CPU的步伐，这个时候，CPU必须等待，也就是最终的swapbuffer部分，主要是最后的红色及黄色部分（**同步上传的部分不会有问题，个人认为是因为在Android GPU与CPU是共享内存区域的**），在等待时，将看到橙色条和红色条中出现峰值，且命令提交将被阻止，直到 GPU 命令队列腾出更多空间。
 
-不过，这里会面临第一个问题，Profile GPU Rendering工具的颜色好像跟官方文档对不上。
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+在使用Profile GPU Rendering工具时，我面临第一个问题是：**官方文档的使用指导好像不太对**。
+ 
 # Profile GPU Rendering工具颜色问题
 
-这里先用一个小段代码模拟，并鉴别出各个阶段，最后再分析源码，从下往上，先忽略VSYNC部分，先看输入事件，在一个自定义布局中，为触摸事件添加延时，并触发重绘。
+真正使用该工具的时候，条形图的颜色跟文档好像对不上，为了测试，这里先用一个小段代码模拟场景，鉴别出各个阶段，最后再分析源码。从下往上，先忽略VSYNC部分，先看输入事件，在一个自定义布局中，为触摸事件添加延时，并触发重绘。
 
 	    @Override
 	    public boolean dispatchTouchEvent(MotionEvent ev) {
@@ -67,29 +39,18 @@ Profile GPU Rendering工具的使用很简单，就是直观上看一帧的耗�
 	    }
 
 
+这个时候看到的超时部分主要是输入事件引起的，进而确定下输入事件的颜色：
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-29dcaf12b3a2759b.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+ 
 
-
-
-
-
-
-
-
-
-输入事件加个20ms延后，上图红色方块部分正好映射到输入事件耗时，，不过，这似乎跟官方文档的颜色对不上，如下图
-
-
-
-
+输入事件加个20ms延后，上图红色方块部分正好映射到输入事件耗时，这里就能看到，输入事件的颜色跟官方文档的颜色对不上，如下图
 
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-0da84239c597b22d.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 
-然后再看看布局测量耗时，加个延时，会发现测量布局的颜色跟官方文档也对应不上。
-
+同样，测量布局的耗时也跟文档对不上。为布局测量加个耗时，即可验证：
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
@@ -103,9 +64,217 @@ Profile GPU Rendering工具的使用很简单，就是直观上看一帧的耗�
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-d6db3c11c2bc3204.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
+可以看到，上图中测量布局的耗时跟官方文档的颜色也对不上。除此之外，**似乎**多出了第三部分耗时，这部分其实是VSYNC同步耗时，这部分耗时怎么来的，真的存在耗时吗？官方解释似乎是连个连续帧之间的耗时，但是后面分析会发现，可能这个解释同源码对应不起来。
 
-除了颜色对应不上之外还发现，似乎多出了第三部分耗时，VSYNC同步耗时，这部分耗时怎么来的？其次，为什么每个条形图有一个绘制跟Input耗时呢？而且一一对应，一个Inputc触发一个耗时，不是应该下一个VSYNC信号到来再执行吗？
-这三部分原理主要牵扯到：VSYNC垂直同步信号、ViewRootImpl、Choreographer、Touch时间处理机制。
+> Miscellaneous
+
+> In addition to the time it takes the rendering system to perform its work, there’s an additional set of work that occurs on the main thread and has nothing to do with rendering. Time that this work consumes is reported as misc time. Misc time generally represents work that might be occurring on the UI thread between two consecutive frames of rendering.
+
+其次，为什么几乎每个条形图都有一个**测量布局耗时**跟**输入事件耗时**呢？为什么是一一对应，而不是有多个？测量布局是在Touch事件之后立即执行呢，还是等待下一个VSYNC信号到来再执行呢？这部主要牵扯到的内容：VSYNC垂直同步信号、ViewRootImpl、Choreographer、Touch事件处理机制，后面会逐步说明，先来看一下以上三个事件的耗时是怎么统计的。
+
+
+# Miscellaneous VSYNC延时
+
+Profile GPU Rendering工具统计的入口在Choreographer类中，时机是VSYNC信号Message被执行，注意这里是**信号消息被执行，而不是信号到来**，因为信号到来并不意味着立即被执行，因为VSYNC信号的申请是异步的，信号申请后线程继续执行当前消息，SurfaceFlinger在下一次分发VSYNC的时候直接往APP UI线程的MessageQueue插入一条VSYNC到来的消息，而消息被插入后，并不会立即被执行，而是要等待之前的消息执行完毕后才会执行，而**VSYNC延时其实就是VSYNC消息到来到被执行之间的延时**。
+
+	 void doFrame(long frameTimeNanos, int frame) {
+	        final long startNanos;
+	        synchronized (mLock) {
+	            if (!mFrameScheduled) {
+	         ...
+	            long intendedFrameTimeNanos = frameTimeNanos;
+	      
+	          <!--关键点1  设置vsync开始，并记录起始时间 -->
+	            mFrameInfo.setVsync(intendedFrameTimeNanos, frameTimeNanos);
+	            mFrameScheduled = false;
+	            mLastFrameTimeNanos = frameTimeNanos;
+	           }
+		        try {
+	       	 // 开始处理输入事件，并记录起始时间
+	            mFrameInfo.markInputHandlingStart();
+	            doCallbacks(Choreographer.CALLBACK_INPUT, frameTimeNanos);
+	    		 // 开始处理动画，并记录起始时间 
+	            mFrameInfo.markAnimationsStart();
+	            doCallbacks(Choreographer.CALLBACK_ANIMATION, frameTimeNanos);
+	     		 // 开始处理测量布局，并记录起始时间
+	            mFrameInfo.markPerformTraversalsStart();
+	            doCallbacks(Choreographer.CALLBACK_TRAVERSAL, frameTimeNanos);
+	        } finally {
+	        }
+
+这里的	VSYNC延时其实是 mFrameInfo.markInputHandlingStart - frameTimeNanos，而frameTimeNanos是VSYNC信号到达的时间戳，如下
+
+    private final class FrameDisplayEventReceiver extends DisplayEventReceiver
+            implements Runnable {
+        private boolean mHavePendingVsync;
+        private long mTimestampNanos;
+        private int mFrame;
+ 
+        public FrameDisplayEventReceiver(Looper looper) {
+            super(looper);
+        }
+
+        @Override
+        public void onVsync(long timestampNanos, int builtInDisplayId, int frame) {
+            ...
+            <!--存下时间戳，并往UI的MessageQueue发送一个消息-->
+            mTimestampNanos = timestampNanos;
+            mFrame = frame;
+            Message msg = Message.obtain(mHandler, this);
+            msg.setAsynchronous(true);
+            mHandler.sendMessageAtTime(msg, timestampNanos / TimeUtils.NANOS_PER_MS);
+        }
+
+        @Override
+        public void run() {
+           <!--将之前的时间戳作为参数传递给doFrame-->
+            mHavePendingVsync = false;
+            doFrame(mTimestampNanos, mFrame);
+        }
+    }
+    
+ onVsync是VSYNC信号到达的时候在Native层回调Java层的方法，其实是MessegeQueue的native消息队列那一套，并且VSYNC要一个执行完，下一个才会生效，否则下一个VSYNC只能在队列中等待，所以之前说的？？？第三部分延时就是VSYNC延时，但是这部分不应该被算到渲染中去，另外根据写法，VSYNC延时可能也有很大出入。看doFrame中有一部分是统计掉帧的，个人理解也许这部分统计并不是特别靠谱，下面看下掉帧的部分。
+
+# Skiped Frame同Vsync的耗时 
+
+有些APM检测工具通过将Choreographer的SKIPPED_FRAME_WARNING_LIMIT设置为1，来达到掉帧检测的目的，即如下设置：
+
+        try {
+            Field field = Choreographer.class.getDeclaredField("SKIPPED_FRAME_WARNING_LIMIT");
+            field.setAccessible(true);
+            field.set(Choreographer.class, 0);
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
+        
+如果出现卡顿，在log日志中就能看到如下信息
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-bc381411e8299cc6.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+其实这里并不是太严谨，看源码中原理如下：
+
+    void doFrame(long frameTimeNanos, int frame) {
+        final long startNanos;
+        synchronized (mLock) {
+            if (!mFrameScheduled) {
+                return; // no work to do
+            }
+            
+            long intendedFrameTimeNanos = frameTimeNanos;
+            <!--skip frame关键点-->
+            startNanos = System.nanoTime();
+            final long jitterNanos = startNanos - frameTimeNanos;
+            if (jitterNanos >= mFrameIntervalNanos) {
+                final long skippedFrames = jitterNanos / mFrameIntervalNanos;
+                if (skippedFrames >= SKIPPED_FRAME_WARNING_LIMIT) {
+                    Log.i(TAG, "Skipped " + skippedFrames + " frames!  "
+                            + "The application may be doing too much work on its main thread.");
+                }
+          ...
+        }
+
+可以看到跳帧检测的关键点就是Vsync信号被延时，但是Vsync信号被延时真的能反应跳帧吗？Vsync信号到了后，并不一定会被立刻执行，因为UI线程可能被阻塞再某个地方，比如在Touch事件中，触发了重绘，但是异步申请VSYNC后继续执行了一个耗时操作，那么这个时候，必然会导致Vsync信号被延时执行，那么跳帧日志就会被打印，如下
+
+	    @Override
+	    public boolean dispatchTouchEvent(MotionEvent ev) {
+	        super.dispatchTouchEvent(ev);
+	        scrollTo(0,new Random().nextInt(15));
+	        try {
+	            Thread.sleep(40);
+	        } catch (InterruptedException e) {
+	            e.printStackTrace();
+	        }
+	        return true;
+	    }
+	    
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-5e249d3b7e80a829.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+可以看到，颜色2的部分就是Vsync信信号延时，这个时候会有掉帧日志。但是如果将触发UI重绘的消息放到延时操作后面呢？毫无疑问，卡顿依然有，但是这时会发生一个有趣的现象，跳帧没了，系统认为没有帧丢失，代码如下：
+
+	    @Override
+	    public boolean dispatchTouchEvent(MotionEvent ev) {
+	        super.dispatchTouchEvent(ev);
+	        try {
+	            Thread.sleep(40);
+	        } catch (InterruptedException e) {
+	            e.printStackTrace();
+	        }
+	        scrollTo(0,new Random().nextInt(15));
+	        return true;
+	    }
+
+ ![image.png](https://upload-images.jianshu.io/upload_images/1460468-2418fd574dbba5e5.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+ 
+ 可以看到，图中几乎没有Vsync信信号延时，这时为什么？因为下一个VSYNC信号的申请是由scrollTo触发，触发后并没有什么延时操作，知道VSYNC信号到来后，立即执行doFrame，这个之间的延时很少，系统就认为没有掉帧，但是其实卡顿依旧。因为整体来看，一段时间内的帧率是相同的。
+   
+   
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-00d823d551cde305.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)  
+     
+以上就是scrollTo在延时前后的区别，无论哪种，都其实都是掉帧了，而且掉帧都是一样的，但是日志统计的跳帧却出现了问题，每一帧真正的耗时可能并不是我们看到的样子，个人觉得这可能算是工具的一个BUG，不能很精确的反应卡顿问题，依靠真个做FPS侦测，应该也都有问题，**比如滚动时候，处理耗时操作，之后更新UI，这种情况下，通过这种方式是检测不出跳帧的。**，当然不排除有其他更好的方案，下面看一下Input时间耗时。
+
+
+# 输入事件耗时分析
+
+输入事件其实就是：InputManagerService捕获用户输入，通过Socket将事件传递给APP端（往UI线程的消息队列里插入消息），不过对于不同的触摸事件有不同的处理机制，对于Down、UP事件，APP端需要直接处理，对于Move事件，要结合重绘事件处理，其实就是要等到下一次VSYNC到来，分批处理。可以认为**只有MOVE事件才被GPU柱状图统计到里面，UP、DOWN事件被立即执行，不会等待VSYNC跟UI重绘一起执行。**
+
+	 void doFrame(long frameTimeNanos, int frame) {
+	        final long startNanos;
+	        synchronized (mLock) {
+	            if (!mFrameScheduled) { 
+	            ...
+	          // 设置vsync开始，并记录起始时间
+	          <!--关键点1-->
+	            mFrameInfo.setVsync(intendedFrameTimeNanos, frameTimeNanos);
+	            mFrameScheduled = false;
+	            mLastFrameTimeNanos = frameTimeNanos;
+	           }
+		        try {
+	       	 // 开始处理输入事件，并记录起始时间
+	            mFrameInfo.markInputHandlingStart();
+	            doCallbacks(Choreographer.CALLBACK_INPUT, frameTimeNanos);
+	    		 // 开始处理动画，并记录起始时间 
+	            mFrameInfo.markAnimationsStart();
+	            doCallbacks(Choreographer.CALLBACK_ANIMATION, frameTimeNanos);
+	     		 // 开始处理测量布局，并记录起始时间
+	            mFrameInfo.markPerformTraversalsStart();
+	            doCallbacks(Choreographer.CALLBACK_TRAVERSAL, frameTimeNanos);
+	            doCallbacks(Choreographer.CALLBACK_COMMIT, frameTimeNanos);
+	        } finally {
+	        }
+
+ 
+ 	 
+	 
+	/**
+     * Request unbuffered dispatch of the given stream of MotionEvents to this View.
+     *
+     * Until this View receives a corresponding {@link MotionEvent#ACTION_UP}, ask that the input
+     * system not batch {@link MotionEvent}s but instead deliver them as soon as they're
+     * available. This method should only be called for touch events.
+     *
+     * <p class="note">This api is not intended for most applications. Buffered dispatch
+     * provides many of benefits, and just requesting unbuffered dispatch on most MotionEvent
+     * streams will not improve your input latency. Side effects include: increased latency,
+     * jittery scrolls and inability to take advantage of system resampling. Talk to your input
+     * professional to see if {@link #requestUnbufferedDispatch(MotionEvent)} is right for
+     * you.</p>
+     */
+
+	   public final void requestUnbufferedDispatch(MotionEvent event) {
+	        final int action = event.getAction();
+	        if (mAttachInfo == null
+	                || action != MotionEvent.ACTION_DOWN && action != MotionEvent.ACTION_MOVE
+	                || !event.isTouchEvent()) {
+	            return;
+	        }
+	        mAttachInfo.mUnbufferedDispatchRequested = true;
+	    }
+	    
+ mUnbufferedDispatchRequested应该是为了不批量处理用的，正常情况下是需要批量处理的，这了一般只限定MOVE事件
+ 
+ 
+ 
+ 
 
 
 
@@ -114,7 +283,7 @@ Profile GPU Rendering工具的使用很简单，就是直观上看一帧的耗�
 其实主要是MOVE事件  消费分批次，无论是输入事件还是测量绘制，都要分批次，上一批没完成，下一批就算到了也没用，算丢弃吧
 
 
-> Down、UP事件 直接处理、Move事件 对于大多数Move事件，结合绘制过程处理，当应用收到Vsync时，处理一批Move事件（Move事件之间的间隔通常小于16ms）
+ 
 
 用一个自定义布局作为测试，先看看输入事件
 
@@ -178,42 +347,12 @@ Profile GPU Rendering工具的使用很简单，就是直观上看一帧的耗�
 > Miscellaneous
 
 > In addition to the time it takes the rendering system to perform its work, there’s an additional set of work that occurs on the main thread and has nothing to do with rendering. Time that this work consumes is reported as misc time. Misc time generally represents work that might be occurring on the UI thread between two consecutive frames of rendering.
-> 
-> When this segment is large
-> If this value is high, it is likely that your app has callbacks, intents, or other work that should be happening on another thread. Tools such as Method tracing or Systrace can provide visibility into the tasks that are running on the main thread. This information can help you target performance improvements.
+ 
 
 
 字面上看，是两个连续帧之间等待的耗时，这么说有点不好理解，个人理解是：**Vsync信号到来到下一次doFrame的开始时间，这个时间其实并不能很好的反应出绘制，也仅仅是是连续的时候有些参考价值。**，换句话说invalide放在耗时操作前后带来影响有很大差别，虽然全局上看没啥问题，但是GPU Profiler呈现的表有很大区别，个人认为这里应该算是他的bug吧，不过这个时间官方也说了 has nothing to do with rendering，
 
-	 void doFrame(long frameTimeNanos, int frame) {
-	        final long startNanos;
-	        synchronized (mLock) {
-	            if (!mFrameScheduled) {
-	         ...
-	          // 设置vsync开始
-	          <!--关键点1-->
-	            mFrameInfo.setVsync(intendedFrameTimeNanos, frameTimeNanos);
-	            mFrameScheduled = false;
-	            mLastFrameTimeNanos = frameTimeNanos;
-	        }
-	
-	        try {
-	            Trace.traceBegin(Trace.TRACE_TAG_VIEW, "Choreographer#doFrame");
-	       	 // 开始处理输入
-	            mFrameInfo.markInputHandlingStart();
-	            doCallbacks(Choreographer.CALLBACK_INPUT, frameTimeNanos);
-	    		 // 开始处理动画
-	            mFrameInfo.markAnimationsStart();
-	            doCallbacks(Choreographer.CALLBACK_ANIMATION, frameTimeNanos);
-	     		 // 开始处理测量布局
-	            mFrameInfo.markPerformTraversalsStart();
-	            doCallbacks(Choreographer.CALLBACK_TRAVERSAL, frameTimeNanos);
-	            doCallbacks(Choreographer.CALLBACK_COMMIT, frameTimeNanos);
-	        } finally {
-	            Trace.traceEnd(Trace.TRACE_TAG_VIEW);
-	        }
-
- mFrameInfo.setVsync代表一个GPU Profiler柱状图的开始。      
+	 
 
 > adb shell dumpsys gfxinfo  com.snail.labaffinity  framestats
 
@@ -338,7 +477,7 @@ FrameInfo 里面也定义了某些状态
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-19bc89f8d6cc97b9.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 
-# 一般MOVE时间伴随这个scroll，比如List，更新机制里面还少不了动效
+# 一般MOVE事件伴随Scroll，比如List，更新机制里面还少不了动效
 
     public void scrollTo(int x, int y) {
         if (mScrollX != x || mScrollY != y) {
@@ -385,123 +524,6 @@ FrameInfo 里面也定义了某些状态
     }
 
 
-
-# Skiped Frame同Vsync的耗时 
-
-
-跳帧：如何理解这个，其实就是Vsync信号到了后，并不一定会被立刻执行，因为UI线程可能被阻塞再某个地方，比如在Touch事件中，我们申请了重绘，之后进行了一个耗时操作，那么这个时候，必然会导致Vsync信号被延时执行，
-
-	    @Override
-	    public boolean dispatchTouchEvent(MotionEvent ev) {
-	        super.dispatchTouchEvent(ev);
-	        scrollTo(0,new Random().nextInt(15));
-	        try {
-	            Thread.sleep(40);
-	        } catch (InterruptedException e) {
-	            e.printStackTrace();
-	        }
-	        return true;
-	    }
-	    
-![image.png](https://upload-images.jianshu.io/upload_images/1460468-5e249d3b7e80a829.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-
-	    @Override
-	    public boolean dispatchTouchEvent(MotionEvent ev) {
-	        super.dispatchTouchEvent(ev);
-	        try {
-	            Thread.sleep(40);
-	        } catch (InterruptedException e) {
-	            e.printStackTrace();
-	        }
-	        scrollTo(0,new Random().nextInt(15));
-	        return true;
-	    }
-
- ![image.png](https://upload-images.jianshu.io/upload_images/1460468-2418fd574dbba5e5.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-	    
-以上就是scrollTo在延时前后的区别，不过无论哪种，都其实都是跳帧了，而且跳帧都是一样的，但是日志统计的跳帧缺有问题， 因为都是耗时的，只不过，下面显示的是等待，但是有时候不是盲目等待，也就是说，其实每一帧真正的耗时可能并不是我们看到的样子。个人觉得算是个BUG，可能不能很精确的反应卡顿问题，看以上两个对比就知道了，其实绘制间隔差不多，只是有个Vsync同步的误差，也就是说，之前的Skip Frame可能跟我们直观上理解的跳帧是不同的，FPS侦测，应该也都有问题，**比如滚动时候，处理耗时操作，耗时操作后，才更新UI，这个时候，其实跳帧检测是检测不出来的。**
-
-![image.png](https://upload-images.jianshu.io/upload_images/1460468-00d823d551cde305.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-	    
-    void doFrame(long frameTimeNanos, int frame) {
-        final long startNanos;
-        synchronized (mLock) {
-            if (!mFrameScheduled) {
-                return; // no work to do
-            }
-
-            if (DEBUG_JANK && mDebugPrintNextFrameTimeDelta) {
-                mDebugPrintNextFrameTimeDelta = false;
-                Log.d(TAG, "Frame time delta: "
-                        + ((frameTimeNanos - mLastFrameTimeNanos) * 0.000001f) + " ms");
-            }
-
-            long intendedFrameTimeNanos = frameTimeNanos;
-            startNanos = System.nanoTime();
-            final long jitterNanos = startNanos - frameTimeNanos;
-            if (jitterNanos >= mFrameIntervalNanos) {
-                final long skippedFrames = jitterNanos / mFrameIntervalNanos;
-                if (skippedFrames >= SKIPPED_FRAME_WARNING_LIMIT) {
-                    Log.i(TAG, "Skipped " + skippedFrames + " frames!  "
-                            + "The application may be doing too much work on its main thread.");
-                }
-                final long lastFrameOffset = jitterNanos % mFrameIntervalNanos;
-                if (DEBUG_JANK) {
-                    Log.d(TAG, "Missed vsync by " + (jitterNanos * 0.000001f) + " ms "
-                            + "which is more than the frame interval of "
-                            + (mFrameIntervalNanos * 0.000001f) + " ms!  "
-                            + "Skipping " + skippedFrames + " frames and setting frame "
-                            + "time to " + (lastFrameOffset * 0.000001f) + " ms in the past.");
-                }
-                frameTimeNanos = startNanos - lastFrameOffset;
-            }
-
-            if (frameTimeNanos < mLastFrameTimeNanos) {
-                if (DEBUG_JANK) {
-                    Log.d(TAG, "Frame time appears to be going backwards.  May be due to a "
-                            + "previously skipped frame.  Waiting for next vsync.");
-                }
-                scheduleVsyncLocked();
-                return;
-            }
-
-            mFrameInfo.setVsync(intendedFrameTimeNanos, frameTimeNanos);
-            mFrameScheduled = false;
-            mLastFrameTimeNanos = frameTimeNanos;
-        }
-
- 
- 
-
-    /**
-     * Request unbuffered dispatch of the given stream of MotionEvents to this View.
-     *
-     * Until this View receives a corresponding {@link MotionEvent#ACTION_UP}, ask that the input
-     * system not batch {@link MotionEvent}s but instead deliver them as soon as they're
-     * available. This method should only be called for touch events.
-     *
-     * <p class="note">This api is not intended for most applications. Buffered dispatch
-     * provides many of benefits, and just requesting unbuffered dispatch on most MotionEvent
-     * streams will not improve your input latency. Side effects include: increased latency,
-     * jittery scrolls and inability to take advantage of system resampling. Talk to your input
-     * professional to see if {@link #requestUnbufferedDispatch(MotionEvent)} is right for
-     * you.</p>
-     */
-
-	   public final void requestUnbufferedDispatch(MotionEvent event) {
-	        final int action = event.getAction();
-	        if (mAttachInfo == null
-	                || action != MotionEvent.ACTION_DOWN && action != MotionEvent.ACTION_MOVE
-	                || !event.isTouchEvent()) {
-	            return;
-	        }
-	        mAttachInfo.mUnbufferedDispatchRequested = true;
-	    }
-	    
- mUnbufferedDispatchRequested应该是为了不批量处理用的，正常情况下是需要批量处理的，这了一般只限定MOVE事件
- 
- 
 ## Bitmap  prepareToDraw
 
 
@@ -541,8 +563,7 @@ App停止操作后，FPS还是在一直变化，这种情况是否会影响到FP
 有的时候FPS很低，APP看起来却很流畅，是因为当前界面在1秒内只需要10帧的显示需求，当然不会卡顿，此时FPS只要高于10就可以了，如果屏幕根本没有绘制需求，那FPS的值就是0。
 
 
-
-**注： 尽管此工具名为 Profile GPU Rendering，但所有受监控的进程实际上发生在 CPU 中。 通过将命令提交到 GPU 触发渲染，GPU 异步渲染屏幕。 在某些情况下，GPU 会有太多工作要处理，在它可以提交新命令前，您的 CPU 必须等待。 在等待时，您将看到橙色条和红色条中出现峰值，且命令提交将被阻止，直到 GPU 命令队列腾出更多空间。**
+ 
 
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-6461878f98d427e0.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
