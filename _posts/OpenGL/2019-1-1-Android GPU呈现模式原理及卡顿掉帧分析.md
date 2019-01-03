@@ -231,15 +231,16 @@ Profile GPU Rendering工具统计的入口在Choreographer类中，时机是VSYN
 
 > FrameInfoVisualizer.cpp
 
-	static const std::array<BarSegment,7> Bar {{
-	    { FrameInfoIndex::IntendedVsync, FrameInfoIndex::HandleInputStart, 0x00796B },
-	    { FrameInfoIndex::HandleInputStart, FrameInfoIndex::PerformTraversalsStart, 0x388E3C },
-	    { FrameInfoIndex::PerformTraversalsStart, FrameInfoIndex::DrawStart, 0x689F38},
-	    { FrameInfoIndex::DrawStart, FrameInfoIndex::SyncStart, 0x2196F3},
-	    { FrameInfoIndex::SyncStart, FrameInfoIndex::IssueDrawCommandsStart, 0x4FC3F7},
-	    { FrameInfoIndex::IssueDrawCommandsStart, FrameInfoIndex::SwapBuffers, 0xF44336},
-	    { FrameInfoIndex::SwapBuffers, FrameInfoIndex::FrameCompleted, 0xFF9800},
-	}};
+
+		static const std::array<BarSegment,7> Bar {{
+		    { FrameInfoIndex::IntendedVsync, FrameInfoIndex::HandleInputStart, 0x00796B },
+		    { FrameInfoIndex::HandleInputStart, FrameInfoIndex::PerformTraversalsStart, 0x388E3C },
+		    { FrameInfoIndex::PerformTraversalsStart, FrameInfoIndex::DrawStart, 0x689F38},
+		    { FrameInfoIndex::DrawStart, FrameInfoIndex::SyncStart, 0x2196F3},
+		    { FrameInfoIndex::SyncStart, FrameInfoIndex::IssueDrawCommandsStart, 0x4FC3F7},
+		    { FrameInfoIndex::IssueDrawCommandsStart, FrameInfoIndex::SwapBuffers, 0xF44336},
+		    { FrameInfoIndex::SwapBuffers, FrameInfoIndex::FrameCompleted, 0xFF9800},
+		}};
 	
 前文分析的VSYNC延时其实就是 FrameInfoIndex::HandleInputStart -FrameInfoIndex::IntendedVsync 颜色是0x00796B，输入事件耗时其实就是FrameInfoIndex::PerformTraversalsStart -FrameInfoIndex::HandleInputStart，不过这里只有7种，跟文档的8中对应不上。在doFrame可以得到验证：
 
