@@ -11,3 +11,6 @@ interface IContentObserver
 
 
 Binder.clearCallingIdentity();
+
+
+ Binder.getCallingPid()为什么会是0呢？因为本地Service中使用的时候，不牵扯到调用跟新CallId的机制
