@@ -1,4 +1,12 @@
-Android依托Java型虚拟机，OOM是经常遇到的问题，那么在快达到OOM的时候，系统难道不能回收部分界面来达到缩减开支的目的码？在系统内存不足的情况下，可以通过AMS及LowMemoryKiller杀优先级低的进程，来回收进程资源。但是这点对于前台OOM问题并没有多大帮助，因为每个Android应用有一个Java内存上限，比如256或者512M，而系统内存可能有6G或者8G，也就是说，一个APP的进程达到OOM的时候，可能系统内存还是很充足的，这个时候，系统如何避免OOM的呢？ios是会将不可见界面都回收，之后再恢复，Android做的并没有那么彻底，简单说：**对于单栈（TaskRecord）应用，在前台的时候，所有界面都不会被回收，只有多栈情况下，系统才会回收不可见栈的Activity**。注意回收的目标是不可见**栈（TaskRecord）**。
+---
+
+layout: post
+title: Android可见APP的不可见任务栈（TaskRecord）杀死分析
+category: Android
+
+---
+
+Android依托Java型虚拟机，OOM是经常遇到的问题，那么在快达到OOM的时候，系统难道不能回收部分界面来达到缩减开支的目的码？在系统内存不足的情况下，可以通过AMS及LowMemoryKiller杀优先级低的进程，来回收进程资源。但是这点对于前台OOM问题并没有多大帮助，因为每个Android应用有一个Java内存上限，比如256或者512M，而系统内存可能有6G或者8G，也就是说，一个APP的进程达到OOM的时候，可能系统内存还是很充足的，这个时候，系统如何避免OOM的呢？ios是会将不可见界面都回收，之后再恢复，Android做的并没有那么彻底，简单说：**对于单栈（TaskRecord）应用，在前台的时候，所有界面都不会被回收，只有多栈情况下，系统才会回收不可见栈的Activity**。注意回收的目标是不可见**栈（TaskRecord）**的Activity。
 
 ![前台APP回收场景](https://upload-images.jianshu.io/upload_images/1460468-e1eb5580372793d9.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
@@ -37,7 +45,9 @@ Google应该也是想到了这种情况，源码自身就给APP自身回收内�
 	                    ...
 					}
 					
-先关键点1，对于非系统进程，通过BinderInternal.addGcWatcher添加了一个内存监测工具，后面会发现，这个工具的检测时机是每个GC节点。而对于我们上文说的回收不可见Task的时机是在关键点2：Java使用内存超过3/4的时候，调用AMS的**releaseSomeActivities**，尝试释放不可见Activity，当然，并非所有不可见的Activity会被回收。
+先关键点1，对于非系统进程，通过BinderInternal.addGcWatcher添加了一个内存监测工具，后面会发现，这个工具的检测时机是每个GC节点。而对于我们上文说的回收不可见Task的时机是在关键点2：Java使用内存超过3/4的时候，调用AMS的**releaseSomeActivities**，尝试释放不可见Activity，当然，并非所有不可见的Activity会被回收，当APP内存超过3/4的时候，调用栈如下：
+
+![APP内存超过3/4就会尝试GC](https://upload-images.jianshu.io/upload_images/1460468-b7228230d4ad9487.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 
 # APP在GC节点的内存监测机制  
@@ -84,7 +94,7 @@ Google应该也是想到了这种情况，源码自身就给APP自身回收内�
 
 # AMS的TaskRecord栈释放机制
 
-如果再GC的时候，APP的Java内存使用超过了3/4，就会触发AMS的releaseSomeActivities，尝试回收界面，增加可用内存：
+如果GC的时候，APP的Java内存使用超过了3/4，就会触发AMS的releaseSomeActivities，尝试回收界面，增加可用内存，但是并非所有场景都会真的销毁Activity，比如单栈的APP就不会销毁，多栈的也要分场景，可能选择性销毁不可见Activity。
 
 > ActivityManagerService
 
@@ -103,33 +113,23 @@ Google应该也是想到了这种情况，源码自身就给APP自身回收内�
     
 	
     void releaseSomeActivitiesLocked(ProcessRecord app, String reason) {
-        // Examine all activities currently running in the process.
         TaskRecord firstTask = null;
-        // Tasks is non-null only if two or more tasks are found.
         ArraySet<TaskRecord> tasks = null;
-        if (DEBUG_RELEASE) Slog.d(TAG_RELEASE, "Trying to release some activities in " + app);
         for (int i = 0; i < app.activities.size(); i++) {
             ActivityRecord r = app.activities.get(i);
-            // First, if we find an activity that is in the process of being destroyed,
-            // then we just aren't going to do anything for now; we want things to settle
-            // down before we try to prune more activities.
+            <!--如果已经有一个进行，则不再继续-->
             if (r.finishing || r.state == DESTROYING || r.state == DESTROYED) {
-                if (DEBUG_RELEASE) Slog.d(TAG_RELEASE, "Abort release; already destroying: " + r);
                 return;
             }
-            // Don't consider any activies that are currently not in a state where they
-            // can be destroyed.
+            <!--过滤-->
             if (r.visible || !r.stopped || !r.haveState || r.state == RESUMED || r.state == PAUSING
                     || r.state == PAUSED || r.state == STOPPING) {
-                if (DEBUG_RELEASE) Slog.d(TAG_RELEASE, "Not releasing in-use activity: " + r);
                 continue;
             }
             if (r.task != null) {
-                if (DEBUG_RELEASE) Slog.d(TAG_RELEASE, "Collecting release task " + r.task
-                        + " from " + r);
                 if (firstTask == null) {
                     firstTask = r.task;
-                    // 销毁第一个task之后的activity
+             <!--关键点1 只要要多余一个TaskRecord才有机会走这一步，-->
                 } else if (firstTask != r.task) {
                     if (tasks == null) {
                         tasks = new ArraySet<>();
@@ -139,11 +139,12 @@ Google应该也是想到了这种情况，源码自身就给APP自身回收内�
                 }
             }
         }
+        <!--注释很明显，-->
         if (tasks == null) {
             if (DEBUG_RELEASE) Slog.d(TAG_RELEASE, "Didn't find two or more tasks to release");
             return;
         }
-        <!--关键点 释放multiple tasks中不可见Task-->
+ 
         // If we have activities in multiple tasks that are in a position to be destroyed,
         // let's iterate through the tasks and release the oldest one.
         final int numDisplays = mActivityDisplays.size();
@@ -159,7 +160,63 @@ Google应该也是想到了这种情况，源码自身就给APP自身回收内�
             }
         }
     }
+
+这里先看第一个关键点1：**如果想要tasks非空，则至少需要两个TaskRecord才行，不然，只有一个firstTask，永远无法满足firstTask != r.task这个条件**，也无法走
+
+	 tasks = new ArraySet<>();
+
+也就是说，APP当前进程中，至少两个TaskRecord才有必要走Activity的销毁逻辑，注释说明很清楚：Didn't find two or more tasks to release，如果能找到超过两个会怎么样呢？
     
-可以手动模拟
+     final int releaseSomeActivitiesLocked(ProcessRecord app, ArraySet<TaskRecord> tasks,
+            String reason) {
+        
+        <!--maxTasks 保证最多清理- tasks.size() / 4有效个，最少清理一个 同时最少保留一个前台TaskRecord->
+        int maxTasks = tasks.size() / 4;
+        if (maxTasks < 1) {
+        <!--至少清理一个-->
+            maxTasks = 1;
+        }
+        int numReleased = 0;
+        for (int taskNdx = 0; taskNdx < mTaskHistory.size() && maxTasks > 0; taskNdx++) {
+            final TaskRecord task = mTaskHistory.get(taskNdx);
+            if (!tasks.contains(task)) {
+                continue;
+            }
+            int curNum = 0;
+            final ArrayList<ActivityRecord> activities = task.mActivities;
+            for (int actNdx = 0; actNdx < activities.size(); actNdx++) {
+                final ActivityRecord activity = activities.get(actNdx);
+                if (activity.app == app && activity.isDestroyable()) {
+                    destroyActivityLocked(activity, true, reason);
+                    if (activities.get(actNdx) != activity) {
+                        actNdx--;
+                    }
+                    curNum++;
+                }
+            }
+            if (curNum > 0) {
+                numReleased += curNum;
+                maxTasks--;
+                if (mTaskHistory.get(taskNdx) != task) {
+                    // The entire task got removed, back up so we don't miss the next one.
+                    taskNdx--;
+                }
+            }
+        }
+        return numReleased;
+    }
+
+ActivityStack利用maxTasks 保证，最多清理tasks.size() / 4，最少清理1个TaskRecord，同时，至少要保证保留一个前台可见TaskRecord，比如如果有两个TaskRecord，则清理先前的一个，保留前台显示的这个，如果三个，则还要看看最老的是否被有效清理，也就是是否有Activity被清理，如果有则只清理一个，保留两个，如果没有，则继续清理次老的，保留一个前台展示的，如果有四个，类似，如果有5个，则至少两个清理，这里的规则如果有兴趣，可自己简单看下。一般APP中，很少有超过两个TaskRecord的。
+    
+# demo验证
+
+模拟了两个Task的模型，先启动在一个栈里面启动多个Activity，然后在通过startActivity启动一个新TaskRecord，并且在新栈中不断分配java内存，当Java内存使用超过3/4的时候，就会看到前一个TaskRecord栈内Activity被销毁的Log，同时如果通过studio的layoutinspect查看，会发现APP只保留了新栈内的Activity，验证了之前的分析。
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-fe5479d91ea4ba37.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+# 总结
+
+* 单栈的进程，Activity跟进程声明周期一致
+* 多栈的，只有不可见栈的Activity可能被销毁（Java内存超过3/4,不可见）
+* 该回收机制利用了Java虚拟机的gc机finalize
+* 至少两个TaskRecord占才有效，所以该机制并不激进，因为主流APP都是单栈。
