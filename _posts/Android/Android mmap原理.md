@@ -1,5 +1,17 @@
 # mmap系统调用流程
 
+mmap是Linux中常用的系统调用API，用途广泛，函数原型如下
+
+	void *mmap(void *start,size_t length,int prot,int flags,int fd,off_t offsize);
+
+几个重要参数
+
+* 参数start：指向欲映射的内存起始地址，通常设为 NULL，代表让系统自动选定地址，映射成功后返回该地址。
+* 参数length：代表将文件中多大的部分映射到内存。
+* 参数prot：映射区域的保护方式。可以为以下几种方式的组合：
+
+返回值是void *类型，分配成功后，被映射成虚拟内存地址。
+
 mmap属于系统调用，用户控件间接通过swi指令触发软中断，进入内核态（各种环境的切换），进入内核态之后，便可以调用内核函数进行处理。 mmap->mmap64->__mmap2->sys_mmap2-> sys_mmap_pgoff ->do_mmap_pgoff
 
 
@@ -137,6 +149,26 @@ open的时候，只需要根根inode节点，获取到file_operations既可，�
 open后，就可以利用fd找到file，之后利用file中的file_operations *f_op调用相应驱动函数，接着看mmap。
 
 # Binder mmap 的作用及原理
+
+
+Android应用进程启动之初会创建一个单例的ProcessState，构造函数执行时，同时完成binder mmap，为其分配一块内存，专门用于Binder通信，如下。
+
+	ProcessState::ProcessState(const char *driver)
+	    : mDriverName(String8(driver))
+	    , mDriverFD(open_driver(driver))
+	    ...
+	 {
+	    if (mDriverFD >= 0) {
+	        // mmap the binder, providing a chunk of virtual address space to receive transactions.
+	        mVMStart = mmap(0, BINDER_VM_SIZE, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, mDriverFD, 0);
+	        ...
+	    }
+	}
+	
+
+用空间，内核空间，用户空间页表，内核空间页表，真正访问及写内存的时候，缺页中断，分配内存。如果已经有了，则直接访问。而Binder mmap的关键是在内核分配内存后，更新内核页表的同时也更新用户空间对应的页表，并且让两个页表都指向同一块地址，这样的话，数据只需要从A进程的用户空间，拷贝到内核空间，而内核空间的这部分内存在B进程的用户空间也有映射（已经建立了页表）。所谓虚拟地址内核1G，其实是页表记录的访问范围。
+
+
 
 修改页表，用户空间，内核空间，用户态，内核态。
 
