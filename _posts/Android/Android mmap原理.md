@@ -109,30 +109,10 @@ current->mm->get_unmapped_area一般被赋值为arch_get_unmapped_area_topdown�
 		int aliasing = cache_is_vipt_aliasing();
 		struct vm_unmapped_area_info info;
 	
-		/*
-		 * We only need to do colour alignment if either the I or D
-		 * caches alias.
-		 */
-		if (aliasing)
-			do_align = filp || (flags & MAP_SHARED);
-	
-		/* requested length too big for entire address space */
-		if (len > TASK_SIZE)
-			return -ENOMEM;
-	
-		if (flags & MAP_FIXED) {
-			if (aliasing && flags & MAP_SHARED &&
-			    (addr - (pgoff << PAGE_SHIFT)) & (SHMLBA - 1))
-				return -EINVAL;
-			return addr;
-		}
-	
+		...	
 		/* requesting a specific address */
 		if (addr) {
-			if (do_align)
-				addr = COLOUR_ALIGN(addr, pgoff);
-			else
-				addr = PAGE_ALIGN(addr);
+			i<!--查找可用内存区域-->
 			vma = find_vma(mm, addr);
 			if (TASK_SIZE - len >= addr &&
 					(!vma || addr + len <= vm_start_gap(vma)))
