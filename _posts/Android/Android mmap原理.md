@@ -33,13 +33,19 @@ mmap属于系统调用，用户控件间接通过swi指令触发软中断，进�
 
 sys_mmap2最终通过sys_mmap_pgoff在内核态完成后续逻辑。
 
+
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-4ef89b52abe69e8e.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 sys_mmap_pgoff通过宏定义实现
 
+
+> /Users/personal/source_code/android/kernel/common/mm/mmap.c:
+
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-e627fb397a6ade9f.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 进而调用do_mmap_pgoff：
+
+> /Users/personal/source_code/android/kernel/common/mm/mmap.c:
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-c9eae5619ae93a8c.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
@@ -151,7 +157,7 @@ open后，就可以利用fd找到file，之后利用file中的file_operations *f
 # Binder mmap 的作用及原理
 
 
-Android应用进程启动之初会创建一个单例的ProcessState，构造函数执行时，同时完成binder mmap，为其分配一块内存，专门用于Binder通信，如下。
+Android应用在进程启动之初会创建一个单例的ProcessState对象，其构造函数执行时会同时完成binder mmap，为进程分配一块内存，专门用于Binder通信，如下。
 
 	ProcessState::ProcessState(const char *driver)
 	    : mDriverName(String8(driver))
@@ -165,6 +171,7 @@ Android应用进程启动之初会创建一个单例的ProcessState，构造函�
 	    }
 	}
 	
+第一个参数是分配地址，为0意味着让系统自动分配，
 
 用空间，内核空间，用户空间页表，内核空间页表，真正访问及写内存的时候，缺页中断，分配内存。如果已经有了，则直接访问。而Binder mmap的关键是在内核分配内存后，更新内核页表的同时也更新用户空间对应的页表，并且让两个页表都指向同一块地址，这样的话，数据只需要从A进程的用户空间，拷贝到内核空间，而内核空间的这部分内存在B进程的用户空间也有映射（已经建立了页表）。所谓虚拟地址内核1G，其实是页表记录的访问范围。
 
