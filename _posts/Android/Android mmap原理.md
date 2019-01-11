@@ -49,6 +49,121 @@ sys_mmap_pgoff通过宏定义实现
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-c9eae5619ae93a8c.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
+	unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
+				unsigned long len, unsigned long prot,
+				unsigned long flags, unsigned long pgoff,
+				unsigned long *populate)
+	{
+		struct mm_struct * mm = current->mm;
+		struct inode *inode;
+		vm_flags_t vm_flags;
+	
+		*populate = 0;
+	    ...
+		<!--获取用户空间有效虚拟地址-->
+		addr = get_unmapped_area(file, addr, len, pgoff, flags);
+		...
+		inode = file ? file_inode(file) : NULL;
+	   ...
+	   <!--分配，映射，更新页表-->
+		addr = mmap_region(file, addr, len, vm_flags, pgoff);
+		if (!IS_ERR_VALUE(addr) &&
+		    ((vm_flags & VM_LOCKED) ||
+		     (flags & (MAP_POPULATE | MAP_NONBLOCK)) == MAP_POPULATE))
+			*populate = len;
+		return addr;
+	}
+
+get_unmapped_area用于为用户空间找一块内存区域，
+	
+	
+	unsigned long
+	get_unmapped_area(struct file *file, unsigned long addr, unsigned long len,
+			unsigned long pgoff, unsigned long flags)
+	{
+		unsigned long (*get_area)(struct file *, unsigned long,
+					  unsigned long, unsigned long, unsigned long);
+		...
+		get_area = current->mm->get_unmapped_area;
+		if (file && file->f_op && file->f_op->get_unmapped_area)
+			get_area = file->f_op->get_unmapped_area;
+		addr = get_area(file, addr, len, pgoff, flags);
+		...
+		return error ? error : addr;
+	}
+
+current->mm->get_unmapped_area一般被赋值为arch_get_unmapped_area_topdown，
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-dcb7e7483cd42796.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+
+	unsigned long
+	arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
+				const unsigned long len, const unsigned long pgoff,
+				const unsigned long flags)
+	{
+		struct vm_area_struct *vma;
+		struct mm_struct *mm = current->mm;
+		unsigned long addr = addr0;
+		int do_align = 0;
+		int aliasing = cache_is_vipt_aliasing();
+		struct vm_unmapped_area_info info;
+	
+		/*
+		 * We only need to do colour alignment if either the I or D
+		 * caches alias.
+		 */
+		if (aliasing)
+			do_align = filp || (flags & MAP_SHARED);
+	
+		/* requested length too big for entire address space */
+		if (len > TASK_SIZE)
+			return -ENOMEM;
+	
+		if (flags & MAP_FIXED) {
+			if (aliasing && flags & MAP_SHARED &&
+			    (addr - (pgoff << PAGE_SHIFT)) & (SHMLBA - 1))
+				return -EINVAL;
+			return addr;
+		}
+	
+		/* requesting a specific address */
+		if (addr) {
+			if (do_align)
+				addr = COLOUR_ALIGN(addr, pgoff);
+			else
+				addr = PAGE_ALIGN(addr);
+			vma = find_vma(mm, addr);
+			if (TASK_SIZE - len >= addr &&
+					(!vma || addr + len <= vm_start_gap(vma)))
+				return addr;
+		}
+	
+		info.flags = VM_UNMAPPED_AREA_TOPDOWN;
+		info.length = len;
+		info.low_limit = PAGE_SIZE;
+		info.high_limit = mm->mmap_base;
+		info.align_mask = do_align ? (PAGE_MASK & (SHMLBA - 1)) : 0;
+		info.align_offset = pgoff << PAGE_SHIFT;
+		addr = vm_unmapped_area(&info);
+	
+		/*
+		 * A failed mmap() very likely causes application failure,
+		 * so fall back to the bottom-up function here. This scenario
+		 * can happen with large stack limits and large mmap()
+		 * allocations.
+		 */
+		if (addr & ~PAGE_MASK) {
+			VM_BUG_ON(addr != -ENOMEM);
+			info.flags = 0;
+			info.low_limit = mm->mmap_base;
+			info.high_limit = TASK_SIZE;
+			addr = vm_unmapped_area(&info);
+		}
+	
+		return addr;
+	}
+
 几经周转后，最终调用相应文件或者设备驱动中的mmap函数，完成该设备文件的mmap。
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-9a12647d1429c569.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
