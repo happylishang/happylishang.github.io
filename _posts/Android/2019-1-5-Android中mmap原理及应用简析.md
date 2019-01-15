@@ -312,6 +312,12 @@ binder_update_page_range完成了内存分配、页表修改等关键操作：
 
 共享内存是在普通文件mmap的基础上实现的，其实就是基于tmpfs文件系统的普通mmap。
 
+
+# 总结
+
+mmap首先通过系统调用进入内核，首先在当前进程用户空间找到适合的虚拟内存，之后如果有必要，分配物理内存，并更新页表。
+
+
 # 参考文档
 
 [mmap实例及原理分析](http://blog.rootk.com/post/mmap-example-and-kernel-implementation.html)       
