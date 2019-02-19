@@ -35,7 +35,7 @@ AppCompatDelegateImplV7实现了LayoutInflaterFactory接口，setFactory2传递�
 
 为什么Factory2不能合理创建View，它只能创建一些AppCompat类的基础View，其他的不行，所以经常null，最后调用的还是Layoutinflate的createViewFromTag，所以对于自定义的View，如果想要Hook，并达到换肤的目的，需要重写部分，Factory2就不是换肤的关键了，它只是一个Hook点，提供还如的关键入口与拦截，，Factory2主要
 
-# 资源加载
+# 资源加载 为何新建一个AssetManager跟Resource ：防止资源重复
 
 关键点，资源加载，如何实现动态资源加载
 
