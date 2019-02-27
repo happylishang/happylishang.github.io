@@ -157,7 +157,7 @@ https://blog.csdn.net/Zz110753/article/details/60877594
 	        at android.webkit.WebView.checkThread(WebView.java:2695)
 	    	... 6 more
 	    	
- 解决方式
+### * 多种 解决方式
 	
 在资源文件新建xml目录，新建文件、
 
@@ -170,6 +170,31 @@ https://blog.csdn.net/Zz110753/article/details/60877594
 	</network-security-config>
 
 复制代码然后在清单文件中application下加入android:networkSecurityConfig="@xml/network_security_config"即可
+
+* 全局1
+
+		 android:networkSecurityConfig="@xml/network_security_config"
+		<network-security-config>
+		    <base-config cleartextTrafficPermitted="true" />
+		</network-security-config>
+
+* 全局2
+
+		   android:usesCleartextTraffic="true"
+	   
+	   
+局部：
+
+	android:networkSecurityConfig="@xml/network_security_config"
+	<network-security-config>
+	    <domain-config cleartextTrafficPermitted="false">
+	        <domain includeSubdomains="true">example.com</domain>
+	        <domain includeSubdomains="true">cdn.example2.com</domain>
+	    </domain-config>
+	    <base-config cleartextTrafficPermitted="true" />
+	</network-security-config>
+ 
+
 
  	    	
 	    		        
