@@ -1,9 +1,28 @@
+ SurfaceView中Canvas是不支持硬件加速的
+ 
+            Canvas canvas = mSurfaceHolder.lockCanvas();//获取画布
+                            这里是false
+            canvas.isHardwareAccelerated()
+                
+而对于普通的自定义View
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        Log.v(this.getClass().getSimpleName(),""+canvas.isHardwareAccelerated());
+    }
+    
+这里返回的是true，是支持硬件加速的，其实是两个图层
+
 视频播放、拍照、录像都常会用到SurfaceView，SurfaceView其本质是什么，为什么说SurfaceView拥有独立的绘图表面，为什么能在子线程中绘制更新，并且SurfaceView是如何支持数据流的时时展示的呢？本文就简单分析下
 
 * SurfaceView拥有独立的绘图表面是什么意思，如何实现的（独立的试图的内存）
 * SurfaceView为何能在子线程更新UI
 * 视频播放或者拍照预览的数据如何时时更新到屏幕上
 * SurfaceView跟窗口管理的关系
+
+
+# 拍照跟普通lockCanvas有什么不同
 
 # SurfaceView跟窗口管理的关系
 
