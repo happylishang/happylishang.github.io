@@ -12,3 +12,7 @@ Activity:窗口的管理与分组更加不好做，Activity是AMS管理，但是
 
 Android布局性能越好，Android布局对于开发者的优势越明显，
 iOS早起的自己计算高度的能力不错，但是硬件性能上来之后，这种优势会被缩小，虽然仍然有，但是没以前那么明显，Android越来越流畅就是个典型例子。
+
+## ios MVC 其实是Android的MVP
+
+# ios View模型 路由 等
