@@ -22,6 +22,10 @@
 * SurfaceView跟窗口管理的关系
 
 
+
+
+
+
 # 拍照跟普通lockCanvas有什么不同
 
 # SurfaceView跟窗口管理的关系
