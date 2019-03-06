@@ -1,3 +1,9 @@
+>  何为硬件加速：不是一帧，而是一个图层的绘制是CPU还是GPU来实现
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-5a1c9581538cc306.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+ 图层的合成，也就是一帧图像的生成必然是通过GPU合成来实现的，必然是硬件加速的。
+ 
  SurfaceView中Canvas是不支持硬件加速的
  
             Canvas canvas = mSurfaceHolder.lockCanvas();//获取画布
@@ -12,7 +18,9 @@
         Log.v(this.getClass().getSimpleName(),""+canvas.isHardwareAccelerated());
     }
     
-这里返回的是true，是支持硬件加速的，其实是两个图层
+这里返回的是true，是支持硬件加速的，其实是两个图层，那么SurfaceView为什么要附着在一个已有窗口中呢？应该是为了管理，同时配合界面的生命周期。
+
+SurfaceView用的时候有几种场景，第一种：利用SurfaceView获得Canvas之后，自己绘图，注意，这里绘图可以看做是软件绘制，没有硬件加速，何为硬件加速，就是绘制的逻辑是通过CPU还是GPU来实现的，SF图层合成一定是GPU，但是每一个图层的绘制不一定是GPU，
 
 视频播放、拍照、录像都常会用到SurfaceView，SurfaceView其本质是什么，为什么说SurfaceView拥有独立的绘图表面，为什么能在子线程中绘制更新，并且SurfaceView是如何支持数据流的时时展示的呢？本文就简单分析下
 
