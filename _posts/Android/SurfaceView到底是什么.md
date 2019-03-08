@@ -1,3 +1,25 @@
+Canvas：默认是不支持硬件上加速 如果Activity禁止硬件加速得到的是ComptableCanvas 其实就是Canvas对应到Cpp就是 SkiaCanvas
+
+    public Canvas() {
+        if (!isHardwareAccelerated()) {
+            // 0 means no native bitmap
+            mNativeCanvasWrapper = initRaster(null);
+            mFinalizer = new CanvasFinalizer(mNativeCanvasWrapper);
+        } else {
+            mFinalizer = null;
+        }
+    }
+
+
+	// Native wrapper constructor used by Canvas(Bitmap)
+	static jlong initRaster(JNIEnv* env, jobject, jobject jbitmap) {
+	    SkBitmap bitmap;
+	    if (jbitmap != NULL) {
+	        GraphicsJNI::getSkBitmap(env, jbitmap, &bitmap);
+	    }
+	    return reinterpret_cast<jlong>(Canvas::create_canvas(bitmap));
+	}
+
 >  何为硬件加速：不是一帧，而是一个图层的绘制是CPU还是GPU来实现
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-5a1c9581538cc306.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
