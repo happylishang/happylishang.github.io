@@ -1,8 +1,19 @@
+
+查找：Warning: okio.DeflaterSink: can't find referenced class  打包问题时候
+
+	Warning: com.cmic.sso.sdk.d.b: can't find referenced method 'boolean requestRouteToHost(int,int)' in library class android.net.ConnectivityManager
+	Warning: com.cmic.sso.sdk.d.b: can't find referenced method 'int startUsingNetworkFeature(int,java.lang.String)' in library class android.net.ConnectivityManager
+	Warning: com.netease.nis.quick_pass_libary.utils.HttpUtil: can't find referenced method 'boolean requestRouteToHost(int,int)' in library class android.net.ConnectivityManager
+
+全屏幕 Translucent类的Activity不要设置方向
+
 targetsdk 之前是22 ，
 
 适应华为市场升级26 
 
 考拉:./aapt dump badging /Users/personal/Downloads/1541497180138kaola_40030600_832_quancha3.apk 
+
+# 少用多进程
 
 # 弹窗大小  24之后改了
 
@@ -157,7 +168,7 @@ https://blog.csdn.net/Zz110753/article/details/60877594
 	        at android.webkit.WebView.checkThread(WebView.java:2695)
 	    	... 6 more
 	    	
-### * 多种 解决方式
+#  多种 解决方式
 	
 在资源文件新建xml目录，新建文件、
 
@@ -206,6 +217,29 @@ https://blog.csdn.net/Zz110753/article/details/60877594
 
 * Android 8.0: java.lang.IllegalStateException: Not allowed to start service Intent 后台服务
 
+
+	From Google's docs on Android 8.0 behavior changes:
+	
+	The system allows apps to call Context.startForegroundService() even while the app is in the background. However, the app must call that service's startForeground() method within five seconds after the service is created.
+	
+	Solution: Call startForeground() in onCreate() for the Service which you use Context.startForegroundService()
+ 
+ Why this issue is happening is because Android framework can't guarantee your service get started within 5 second but on the other hand framework does have strict limit on foreground notification must be fired within 5 seconds, without checking if framework had tried to start the service.
+
+This is definitely a framework issue, but not all developers facing this issue are doing their best:
+
+startForeground a notification must be in both onCreate and onStartCommand, because if your service is already created and somehow your activity is trying to start it again, onCreate won't be called.
+
+notification ID must not be 0 otherwise same crash will happen even it's not same reason.
+
+stopSelf must not be called before startForeground.
+
+With all above 3 this issue can be reduced a bit but still not a fix, the real fix or let's say workaround is to downgrade your target sdk version to 25.
+
+And note that most likely Android P will still carry this issue because Google refuses to even understand what is going on and does not believe this is their fault, read #36 in here: https
+
+
+
 ### 推送通知  需要channal 否则弹不出来
 
 ###  Fresco跟weex的冲突，so没有 从apk解压拷出来  缺少就考呗到主工程，反正要合并
@@ -216,11 +250,7 @@ Fresco需要armv7的so，而weex只有v5，拷贝一份，否则需要双份so�
 
 可以适当将Bitmap缓存调整大
 
-
-
-
-
-
+ 
 
 
 

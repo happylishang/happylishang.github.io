@@ -15,10 +15,83 @@ Canvas：默认是不支持硬件上加速 如果Activity禁止硬件加速得�
 	static jlong initRaster(JNIEnv* env, jobject, jobject jbitmap) {
 	    SkBitmap bitmap;
 	    if (jbitmap != NULL) {
+	    <!--获取一块bitmap-->
 	        GraphicsJNI::getSkBitmap(env, jbitmap, &bitmap);
 	    }
+	    <!--基于bitmap构建一块SkiaCanvas-->
 	    return reinterpret_cast<jlong>(Canvas::create_canvas(bitmap));
 	}
+	
+		Canvas* Canvas::create_canvas(const SkBitmap& bitmap) {
+	    return new SkiaCanvas(bitmap);
+	}
+	
+		 Canvas* Canvas::create_canvas(SkCanvas* skiaCanvas) {
+		    return new SkiaCanvas(skiaCanvas);
+		}
+		
+		SkiaCanvas::SkiaCanvas(const SkBitmap& bitmap) {
+		    // 同一块bitmap
+		    mCanvas.reset(new SkCanvas(bitmap));
+		}
+    // SkAutoTUnref是自解引用
+    SkAutoTUnref<SkCanvas> mCanvas;
+
+注意最后实现的具体是SkCanvas(bitmap)，不是SkiaCanvas ，SkiaCanvas只是个代理，
+	
+	SkCanvas::SkCanvas(const SkBitmap& bitmap, std::unique_ptr<SkRasterHandleAllocator> alloc,
+	                   SkRasterHandleAllocator::Handle hndl)
+	    : fMCStack(sizeof(MCRec), fMCRecStorage, sizeof(fMCRecStorage))
+	    , fProps(SkSurfaceProps::kLegacyFontHost_InitType)
+	    , fAllocator(std::move(alloc))
+	{
+	    inc_canvas();
+	
+	    sk_sp<SkBaseDevice> device(new SkBitmapDevice(bitmap, fProps, hndl));
+	    this->init(device.get(), kDefault_InitFlags);
+	}
+	
+	SkCanvas::SkCanvas(const SkBitmap& bitmap) : SkCanvas(bitmap, nullptr, nullptr) {}
+
+观摩下skia的drawPoint
+
+	
+	void SkCanvas::onDrawPoints(PointMode mode, size_t count, const SkPoint pts[],
+	                            const SkPaint& paint) {
+	    if ((long)count <= 0) {
+	        return;
+	    }
+	
+	    SkRect r;
+	    const SkRect* bounds = nullptr;
+	    if (paint.canComputeFastBounds()) {
+	        // special-case 2 points (common for drawing a single line)
+	        if (2 == count) {
+	            r.set(pts[0], pts[1]);
+	        } else {
+	            r.set(pts, SkToInt(count));
+	        }
+	        if (!r.isFinite()) {
+	            return;
+	        }
+	        SkRect storage;
+	        if (this->quickReject(paint.computeFastStrokeBounds(r, &storage))) {
+	            return;
+	        }
+	        bounds = &r;
+	    }
+	
+	    SkASSERT(pts != nullptr);
+	
+	    LOOPER_BEGIN(paint, SkDrawFilter::kPoint_Type, bounds)
+	
+	    while (iter.next()) {
+	        iter.fDevice->drawPoints(mode, count, pts, looper.paint());
+	    }
+	
+	    LOOPER_END
+	}
+
 
 >  何为硬件加速：不是一帧，而是一个图层的绘制是CPU还是GPU来实现
 
