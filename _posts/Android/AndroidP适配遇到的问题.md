@@ -239,6 +239,11 @@ With all above 3 this issue can be reduced a bit but still not a fix, the real f
 And note that most likely Android P will still carry this issue because Google refuses to even understand what is going on and does not believe this is their fault, read #36 in here: https
 
 
+Android 8.0 还对特定函数做出了以下变更：
+
+如果针对 Android 8.0 的应用尝试在不允许其创建后台服务的情况下使用 startService() 函数，则该函数将引发一个 IllegalStateException。
+新的 Context.startForegroundService() 函数将启动一个前台服务。现在，即使应用在后台运行，系统也允许其调用 Context.startForegroundService()。不过，应用必须在创建服务后的五秒内调用该服务的 startForeground() 函数。
+
 
 ### 推送通知  需要channal 否则弹不出来
 
