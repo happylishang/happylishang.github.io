@@ -180,3 +180,5 @@
         return uidRecord != null && !uidRecord.setIdle;
     }
         
+        
+#    Application里面不要启动Service，否则恢复的时候可能有问题     
