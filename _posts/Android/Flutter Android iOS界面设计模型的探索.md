@@ -17,7 +17,13 @@ iOS早起的自己计算高度的能力不错，但是硬件性能上来之后�
 
 # ios View模型 路由 等
 
-# JetPacket中的Navigation与Fragment的配合就更像iOS的navigationcontoler+VC的配合，可以看到Google似乎正在放弃对Activity、Service等自大组件的支持，Flutter基本是摒弃了这一切，Fuscasa系统也许更彻底的没有Activity这样的概念，Android中国AMS WMS的分工跟配合感觉是比价混乱的。
+# JetPacket中的Navigation与Fragment的配合参考ios单window
+
+就更像iOS的navigationcontoler+VC的配合，可以看到Google似乎正在放弃对Activity、Service等自大组件的支持，Flutter基本是摒弃了这一切，Fuscasa系统也许更彻底的没有Activity这样的概念，Android中国AMS WMS的分工跟配合感觉是比价混乱的。
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-16c559bae4417725.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+Android的navigation很大程度上借鉴（抄袭）了ios的故事版，不过这个总觉得有些鸡肋，不过xml绝对是Android相对于ios开发的一大优势，尤其其中的wrap_content match_parent等属性，以前测量布局可能是Android性能浪费，卡顿的源头，但是硬件性能的提升填补了这一缺点，而开发的简便性反而成全了Android开发的优势，ios代码要敲很久，而Android的xml很容易就实现，而且效果也基本能直接看到。
 
 #  Flutter渲染Skia OpenGl
 
