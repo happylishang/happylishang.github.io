@@ -124,13 +124,7 @@ matrix帧率检测关键代码如下：其实并非完全的帧率检测，而�
 	            AnimationUtils.unlockAnimationClock();
 	            Trace.traceEnd(Trace.TRACE_TAG_VIEW);
 	        }
-	
-	        if (DEBUG_FRAMES) {
-	            final long endNanos = System.nanoTime();
-	            Log.d(TAG, "Frame " + frame + ": Finished, took "
-	                    + (endNanos - startNanos) * 0.000001f + " ms, latency "
-	                    + (startNanos - frameTimeNanos) * 0.000001f + " ms.");
-	        }
+
 	    }
 	
 	    
