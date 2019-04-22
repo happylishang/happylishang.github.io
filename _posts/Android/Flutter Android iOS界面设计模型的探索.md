@@ -20,7 +20,7 @@ Google推出的Jetpack开发工具包，里面的Navigation组件就很像ios �
 虽然说ios采用的MVC，但iOS的M同V似乎很少直接通信，其实跟Android的MVP没什么区别，这点两端似乎是一致的。ios比较省事的地方是APP基本都是单Window，其他全是View，View之间的切换或者说VC之间的切换都在单个Window内部，很少有多个Window的概念，这点跟Android的多Acitivity差别很大，不过，在这点设计上似乎ios更清晰跟高明。不过Android的xml布局相比之下是Android开发者的福音，很多ios开发者用代码写布局，虽然性能上有提升，但是在硬件资源过剩的时代，Android xml 瑕不掩瑜，开发真的很方便。
  
  
-## FlutterUI开发模型 
+## Flutter UI开发模型 跟趋势
 
 Chrome是Google最厉害的工具。Flutter由Chrome团队孵化，因此带着浏览器的影子，不过期开发模型更偏向于ios的开发模型，单个window中各个view跳过来，跳过去。就单纯的界面显示而言，Activity完全是一个辅助工具，但是它参与了太多界面显示的东西，承担了太多非View界面的责任，导致WMS跟View自身功能的萎缩，AMS管理Activity，WMS管理窗口，但是WMS管理窗口的能力太低了，都被AMS占用了，并且就Activity而言，各种栈、恢复就比较麻烦，目前Google似乎有意弱化四大组件，转而推行自己的jetpack。
   
