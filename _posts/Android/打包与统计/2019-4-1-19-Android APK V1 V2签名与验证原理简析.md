@@ -1,3 +1,11 @@
+---
+
+layout: post
+title: Android APK V1 V2签名与验证原理简析
+category: Android
+
+---
+
 Android为了保证系统及应用的安全性，在安装APK的时候需要校验包的完整性，同时，对于覆盖安装的场景还要校验新旧是否匹配，这两者都是通过Android签名机制来进行保证的，本文就简单看下Android的签名与校验原理，分一下几个部分分析下：
 
 * APK签名是什么
@@ -51,7 +59,7 @@ CERT.RSA与CERT.SF是相互对应的，两者名字前缀必须一致，不知�
 
 CERT.RSA文件里面存储了证书公钥、过期日期、发行人、加密算法等信息，根据公钥及加密算法，Android系统就能计算出CERT.SF的摘要信息，其严格的格式如下：
 
-![X.509证书格式](https://img-blog.csdn.net/20140603223556046?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvWERfbGl4aW4=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast)
+![X.509证书格式](https://upload-images.jianshu.io/upload_images/1460468-bec878a4c3bf6049.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 从CERT.RSA中，我们能获的证书的指纹信息，在微信分享、第三方SDK申请的时候经常用到，其实就是公钥+开发者信息的一个签名：
 
@@ -68,17 +76,17 @@ CERT.RSA文件里面存储了证书公钥、过期日期、发行人、加密算
 
 也就是说，V2摘要签名分两级，第一级是对APK文件的1、3 、4 部分进行摘要，第二级是对第一级的摘要集合进行摘要，然后利用秘钥进行签名。安装的时候，块摘要可以并行处理，这样可以提高校验速度。
 
-## 怎么为APK签名（签名原理）
+## 简单的APK签名流程（签名原理）
 
 APK是先摘要，再签名，先看下摘要的定义：Message Digest：摘要是对消息数据执行一个单向Hash，从而生成一个固定长度的Hash值，这个值就是消息摘要，至于常听到的MD5、SHA1都是摘要算法的一种。理论上说，摘要一定会有碰撞，但只要保证有限长度内碰撞率很低就可以，这样就能利用摘要来保证消息的完整性，只要消息被篡改，摘要一定会发生改变。但是，如果消息跟摘要同时被修改，那就无从得知了。
 
 而数字签名是什么呢（公钥数字签名），利用非对称加密技术，通过私钥对摘要进行加密，产生一个字符串，这个字符串+公钥证书就可以看做消息的数字签名，如RSA就是常用的非对称加密算法。在没有私钥的前提下，非对称加密算法能确保别人无法伪造签名，因此数字签名也是对发送者信息真实性的一个有效证明。不过由于Android的keystore证书是自签名的，没有第三方权威机构认证，用户可以自行生成keystore，Android签名方案无法保证APK不被二次签名。 
 
-Android的签名文件怎么来的？如何影响原来APK包？我们可以通过sdk中的apksign来对一个APK进行签名：
+知道了摘要跟签名的概念后，再来看看Android的签名文件怎么来的？如何影响原来APK包？通过sdk中的apksign来对一个APK进行签名的命令如下：
 
 	 ./apksigner sign  --ks   keystore.jks  --ks-key-alias keystore  --ks-pass pass:XXX  --key-pass pass:XXX  --out output.apk input.apk
 
-无论APK是否签名，都没问题，**重复签名也不会有什么问题**。因为之前的签名无论是否存在，都不会被计算到本次签名中，apksigner的原理是什么呢？主要实现在 android/platform/tools/apksig 文件夹中，主题是ApkSignerTool.java的sign函数：
+其主要实现在 android/platform/tools/apksig 文件夹中，主体是ApkSigner.java的sign函数，函数比较长，分几步分析
 
     private void sign(
             DataSource inputApk,
@@ -88,30 +96,60 @@ Android的签名文件怎么来的？如何影响原来APK包？我们可以通�
                             InvalidKeyException, SignatureException {
         // Step 1. Find input APK's main ZIP sections
         ApkUtils.ZipSections inputZipSections;
+        <!--根据zip包的结构，找到APK中包内容Object-->
         try {
             inputZipSections = ApkUtils.findZipSections(inputApk);
-        } catch (ZipFormatException e) {
-            throw new ApkFormatException("Malformed APK: not a ZIP archive", e);
-        }
+        ...
+
+先来看这一步，ApkUtils.findZipSections，这个函数主要是解析APK文件，获得ZIP格式的一些简单信息，并返回一个ZipSections，
+
+	 public static ZipSections findZipSections(DataSource apk)
+	            throws IOException, ZipFormatException {
+	        Pair<ByteBuffer, Long> eocdAndOffsetInFile =
+	                ZipUtils.findZipEndOfCentralDirectoryRecord(apk);
+	        ByteBuffer eocdBuf = eocdAndOffsetInFile.getFirst();
+	        long eocdOffset = eocdAndOffsetInFile.getSecond();
+	        eocdBuf.order(ByteOrder.LITTLE_ENDIAN);
+	        long cdStartOffset = ZipUtils.getZipEocdCentralDirectoryOffset(eocdBuf);
+	        ...
+	        long cdSizeBytes = ZipUtils.getZipEocdCentralDirectorySizeBytes(eocdBuf);
+	        long cdEndOffset = cdStartOffset + cdSizeBytes;
+	        int cdRecordCount = ZipUtils.getZipEocdCentralDirectoryTotalRecordCount(eocdBuf);
+	        return new ZipSections(
+	                cdStartOffset,
+	                cdSizeBytes,
+	                cdRecordCount,
+	                eocdOffset,
+	                eocdBuf);
+	    }
+
+ZipSections包含了ZIP文件格式的一些信息，比如中央目录信息、中央目录结尾信息等，对比到zip文件格式如下：
+  
+  ![image.png](https://upload-images.jianshu.io/upload_images/1460468-d7a88a4842691598.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)      
+        
+获取到 ZipSections之后，就可以进一步解析APK这个ZIP包，继续走后面的签名流程，
+        
         long inputApkSigningBlockOffset = -1;
         DataSource inputApkSigningBlock = null;
+        <!--检查V2签名是否存在-->
         try {
             Pair<DataSource, Long> apkSigningBlockAndOffset =
                     V2SchemeVerifier.findApkSigningBlock(inputApk, inputZipSections);
             inputApkSigningBlock = apkSigningBlockAndOffset.getFirst();
             inputApkSigningBlockOffset = apkSigningBlockAndOffset.getSecond();
         } catch (V2SchemeVerifier.SignatureNotFoundException e) {
-            // Input APK does not contain an APK Signing Block. That's OK. APKs are not required to
-            // contain this block. It's only needed if the APK is signed using APK Signature Scheme
-            // v2.
-        }
-        DataSource inputApkLfhSection =
+        <!--V2签名不存在也没什么问题，非必须-->
+    }
+     <!--获取V2签名以外的信息区域-->
+     DataSource inputApkLfhSection =
                 inputApk.slice(
                         0,
                         (inputApkSigningBlockOffset != -1)
                                 ? inputApkSigningBlockOffset
                                 : inputZipSections.getZipCentralDirectoryOffset());
-
+可以看到先进行了一个V2签名的检验，这里是用来签名，为什么先检验了一次？第一次签名的时候会直接走这个异常逻辑分支，重复签名的时候才能获到取之前的V2签名，怀疑这里获取V2签名的目的应该是为了排除V2签名，并获取V2签名以外的数据块，因为签名本身不能被算入到签名中，之后会解析中央目录区，构建一个DefaultApkSignerEngine用于签名
+      
+          <!--解析中央目录区，目的是为了解析AndroidManifest-->
         // Step 2. Parse the input APK's ZIP Central Directory
         ByteBuffer inputCd = getZipCentralDirectory(inputApk, inputZipSections);
         List<CentralDirectoryRecord> inputCdRecords =
@@ -120,20 +158,13 @@ Android的签名文件怎么来的？如何影响原来APK包？我们可以通�
         // Step 3. Obtain a signer engine instance
         ApkSignerEngine signerEngine;
         if (mSignerEngine != null) {
-            // Use the provided signer engine
             signerEngine = mSignerEngine;
         } else {
             // Construct a signer engine from the provided parameters
-            int minSdkVersion;
-            if (mMinSdkVersion != null) {
-                // No need to extract minSdkVersion from the APK's AndroidManifest.xml
-                minSdkVersion = mMinSdkVersion;
-            } else {
-                // Need to extract minSdkVersion from the APK's AndroidManifest.xml
-                minSdkVersion = getMinSdkVersionFromApk(inputCdRecords, inputApkLfhSection);
-            }
+            ...
             List<DefaultApkSignerEngine.SignerConfig> engineSignerConfigs =
                     new ArrayList<>(mSignerConfigs.size());
+            <!--一般就一个-->
             for (SignerConfig signerConfig : mSignerConfigs) {
                 engineSignerConfigs.add(
                         new DefaultApkSignerEngine.SignerConfig.Builder(
@@ -142,6 +173,7 @@ Android的签名文件怎么来的？如何影响原来APK包？我们可以通�
                                 signerConfig.getCertificates())
                                 .build());
             }
+            <!--默认V1 V2都启用-->
             DefaultApkSignerEngine.Builder signerEngineBuilder =
                     new DefaultApkSignerEngine.Builder(engineSignerConfigs, minSdkVersion)
                             .setV1SigningEnabled(mV1SigningEnabled)
@@ -153,7 +185,11 @@ Android的签名文件怎么来的？如何影响原来APK包？我们可以通�
             signerEngine = signerEngineBuilder.build();
         }
 
+先解析中央目录区，获取AndroidManifest文件，获取minSdkVersion(影响签名算法)，并构建DefaultApkSignerEngine，默认情况下V1 V2签名都是打开的。
+
+
         // Step 4. Provide the signer engine with the input APK's APK Signing Block (if any)
+        <!--忽略这一步-->
         if (inputApkSigningBlock != null) {
             signerEngine.inputApkSigningBlock(inputApkSigningBlock);
         }
@@ -173,102 +209,7 @@ Android的签名文件怎么来的？如何影响原来APK包？我们可以通�
         long outputOffset = 0;
         Map<String, CentralDirectoryRecord> outputCdRecordsByName =
                 new HashMap<>(inputCdRecords.size());
-        for (final CentralDirectoryRecord inputCdRecord : inputCdRecordsSortedByLfhOffset) {
-            String entryName = inputCdRecord.getName();
-            ApkSignerEngine.InputJarEntryInstructions entryInstructions =
-                    signerEngine.inputJarEntry(entryName);
-            boolean shouldOutput;
-            switch (entryInstructions.getOutputPolicy()) {
-                case OUTPUT:
-                    shouldOutput = true;
-                    break;
-                case OUTPUT_BY_ENGINE:
-                case SKIP:
-                    shouldOutput = false;
-                    break;
-                default:
-                    throw new RuntimeException(
-                            "Unknown output policy: " + entryInstructions.getOutputPolicy());
-            }
-
-            long inputLocalFileHeaderStartOffset = inputCdRecord.getLocalFileHeaderOffset();
-            if (inputLocalFileHeaderStartOffset > inputOffset) {
-                // Unprocessed data in input starting at inputOffset and ending and the start of
-                // this record's LFH. We output this data verbatim because this signer is supposed
-                // to preserve as much of input as possible.
-                long chunkSize = inputLocalFileHeaderStartOffset - inputOffset;
-                inputApkLfhSection.feed(inputOffset, chunkSize, outputApkOut);
-                outputOffset += chunkSize;
-                inputOffset = inputLocalFileHeaderStartOffset;
-            }
-            LocalFileRecord inputLocalFileRecord;
-            try {
-                inputLocalFileRecord =
-                        LocalFileRecord.getRecord(
-                                inputApkLfhSection, inputCdRecord, inputApkLfhSection.size());
-            } catch (ZipFormatException e) {
-                throw new ApkFormatException("Malformed ZIP entry: " + inputCdRecord.getName(), e);
-            }
-            inputOffset += inputLocalFileRecord.getSize();
-
-            ApkSignerEngine.InspectJarEntryRequest inspectEntryRequest =
-                    entryInstructions.getInspectJarEntryRequest();
-            if (inspectEntryRequest != null) {
-                fulfillInspectInputJarEntryRequest(
-                        inputApkLfhSection, inputLocalFileRecord, inspectEntryRequest);
-            }
-
-            if (shouldOutput) {
-                // Find the max value of last modified, to be used for new entries added by the
-                // signer.
-                int lastModifiedDate = inputCdRecord.getLastModificationDate();
-                int lastModifiedTime = inputCdRecord.getLastModificationTime();
-                if ((lastModifiedDateForNewEntries == -1)
-                        || (lastModifiedDate > lastModifiedDateForNewEntries)
-                        || ((lastModifiedDate == lastModifiedDateForNewEntries)
-                                && (lastModifiedTime > lastModifiedTimeForNewEntries))) {
-                    lastModifiedDateForNewEntries = lastModifiedDate;
-                    lastModifiedTimeForNewEntries = lastModifiedTime;
-                }
-
-                inspectEntryRequest = signerEngine.outputJarEntry(entryName);
-                if (inspectEntryRequest != null) {
-                    fulfillInspectInputJarEntryRequest(
-                            inputApkLfhSection, inputLocalFileRecord, inspectEntryRequest);
-                }
-
-                // Output entry's Local File Header + data
-                long outputLocalFileHeaderOffset = outputOffset;
-                long outputLocalFileRecordSize =
-                        outputInputJarEntryLfhRecordPreservingDataAlignment(
-                                inputApkLfhSection,
-                                inputLocalFileRecord,
-                                outputApkOut,
-                                outputLocalFileHeaderOffset);
-                outputOffset += outputLocalFileRecordSize;
-
-                // Enqueue entry's Central Directory record for output
-                CentralDirectoryRecord outputCdRecord;
-                if (outputLocalFileHeaderOffset == inputLocalFileRecord.getStartOffsetInArchive()) {
-                    outputCdRecord = inputCdRecord;
-                } else {
-                    outputCdRecord =
-                            inputCdRecord.createWithModifiedLocalFileHeaderOffset(
-                                    outputLocalFileHeaderOffset);
-                }
-                outputCdRecordsByName.put(entryName, outputCdRecord);
-            }
-        }
-        long inputLfhSectionSize = inputApkLfhSection.size();
-        if (inputOffset < inputLfhSectionSize) {
-            // Unprocessed data in input starting at inputOffset and ending and the end of the input
-            // APK's LFH section. We output this data verbatim because this signer is supposed
-            // to preserve as much of input as possible.
-            long chunkSize = inputLfhSectionSize - inputOffset;
-            inputApkLfhSection.feed(inputOffset, chunkSize, outputApkOut);
-            outputOffset += chunkSize;
-            inputOffset = inputLfhSectionSize;
-        }
+        ...
 
         // Step 6. Sort output APK's Central Directory records in the order in which they should
         // appear in the output
@@ -280,6 +221,8 @@ Android的签名文件怎么来的？如何影响原来APK包？我们可以通�
                 outputCdRecords.add(outputCdRecord);
             }
         }
+        
+第五步与第六步的主要工作是：apk的预处理，包括目录的一些排序之类的工作，应该是为了更高效处理签名，预处理结束后，就开始签名流程，首先做的是V1签名（默认存在，除非主动关闭）：
 
         // Step 7. Generate and output JAR signatures, if necessary. This may output more Local File
         // Header + data entries and add to the list of output Central Directory records.
@@ -359,6 +302,52 @@ Android的签名文件怎么来的？如何影响原来APK包？我们可以通�
                         outputCentralDirDataSource.size(),
                         outputCentralDirStartOffset);
 
+
+步骤7、8、9都可以看做是V1签名的处理逻辑，主要在V1SchemeSigner中处理，其中包括创建META-INFO文件夹下的一些签名文件，更新中央目录、更新中央目录结尾等，流程不复杂，不在赘述，简单流程就是：
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-fe38ec5e1979d120.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+这里特殊提一下重复签名的问题：**对一个已经V1签名的APK再次V1签名不会有任何问题**，原理就是：再次签名的时候，会排除之前的签名文件。
+
+	  public static boolean isJarEntryDigestNeededInManifest(String entryName) {
+	        // See https://docs.oracle.com/javase/8/docs/technotes/guides/jar/jar.html#Signed_JAR_File
+	
+	        // Entries which represent directories sould not be listed in the manifest.
+	        if (entryName.endsWith("/")) {
+	            return false;
+	        }
+	
+	        // Entries outside of META-INF must be listed in the manifest.
+	        if (!entryName.startsWith("META-INF/")) {
+	            return true;
+	        }
+	        // Entries in subdirectories of META-INF must be listed in the manifest.
+	        if (entryName.indexOf('/', "META-INF/".length()) != -1) {
+	            return true;
+	        }
+	
+	        // Ignored file names (case-insensitive) in META-INF directory:
+	        //   MANIFEST.MF
+	        //   *.SF
+	        //   *.RSA
+	        //   *.DSA
+	        //   *.EC
+	        //   SIG-*
+	        String fileNameLowerCase =
+	                entryName.substring("META-INF/".length()).toLowerCase(Locale.US);
+	        if (("manifest.mf".equals(fileNameLowerCase))
+	                || (fileNameLowerCase.endsWith(".sf"))
+	                || (fileNameLowerCase.endsWith(".rsa"))
+	                || (fileNameLowerCase.endsWith(".dsa"))
+	                || (fileNameLowerCase.endsWith(".ec"))
+	                || (fileNameLowerCase.startsWith("sig-"))) {
+	            return false;
+	        }
+	        return true;
+	    }
+	    
+可以看到目录、META-INF文件夹下的文件、sf、rsa等结尾的文件都不会被V1签名进行处理，所以这里不用担心多次签名的问题。接下来就是处理V2签名。
+
         // Step 10. Generate and output APK Signature Scheme v2 signatures, if necessary. This may
         // insert an APK Signing Block just before the output's ZIP Central Directory
         ApkSignerEngine.OutputApkSigningBlockRequest outputApkSigingBlockRequest =
@@ -379,30 +368,55 @@ Android的签名文件怎么来的？如何影响原来APK包？我们可以通�
         outputApkOut.consume(outputEocd);
         signerEngine.outputDone();
     }
- 
- 
-所有有关apk文件的签名验证工作都是在JarVerifier里面做的，一共分成三步；
-JarVeirifer.verifyCertificate主要做了两步。首先，使用证书文件（在META-INF目录下，以.DSA、.RSA或者.EC结尾的文件）检验签名文件（在META-INF目录下，和证书文件同名，但扩展名为.SF的文件）是没有被修改过的。然后，使用签名文件，检验MANIFEST.MF文件中的内容也没有被篡改过；
-JarVerifier.VerifierEntry.verify做了最后一步验证，即保证apk文件中包含的所有文件，对应的摘要值与MANIFEST.MF文件中记录的一致。
- 
+    
+V2SchemeSigner处理V2签名，逻辑比较清晰，直接对V1签名过的APK进行分块摘要，再集合签名，V2签名不会改变之前V1签名后的任何信息，签名后，在中央目录前添加V2签名块，并更新中央目录结尾信息，因为V2签名后，中央目录的偏移会再次改变：
 
-# 覆盖安装校验(没有私钥就很难获得与公钥想对应的正确签名)
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-f9b4c4d44ab1e29a.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-覆盖安装同全新安装相比较多了两个校验
+# APK签名怎么校验
+
+签名校验的过程可以看做签名的逆向，只不过覆盖安装可能还要校验公钥及证书信息一致，否则覆盖安装会失败。签名校验的入口在PackageManagerService的install里，安装官方文档，7.0以上的手机优先检测V2签名，如果V2签名不存在，再校验V1签名，对于7.0以下的手机，不存在V2签名校验机制，只会校验V1，所以，如果你的App的miniSdkVersion<24(N)，那么你的签名方式必须内含V1签名：
+
+![签名校验流程](https://upload-images.jianshu.io/upload_images/1460468-061357d5da6b5daa.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+校验流程就是签名的逆向，了解签名流程即可，本文不求甚解，有兴趣自己去分析，只是额外提下覆盖安装，覆盖安装除了检验APK自己的完整性以外，还要校验证书是否一致只有证书一致（同一个keystore签名），才有可能覆盖升级。覆盖安装同全新安装相比较多了几个校验
 
 * 包名一致
-* 签名一致：实际说的就是公钥需要一致
+* 证书一致
+* versioncode不能降低
 
-也就是说必须使用同一个keystore签名，否则APK无法覆盖安装，当然也要满足versioncode不能降低。
+这里只关心证书部分：
 
-假如我们是一个非法者，想要篡改apk内容，我们怎么做呢？如果我们只把原文件改动了（比如加入了自己的病毒代码），那么重新打包后系统就会认为文件的SHA1-Base64值和MF的不一致导致安装失败，既然这样，那我们就改一下MF让他们一致呗？如果只是这样那么系统就会发现MF文件的内容的SHA1-Base64与SF不一致，还是会安装失败，既然这样，那我们就改一下SF和MF一致呗？如果这么做了，系统就会发现RSA解密后的值和SF的SHA1不一致，安装失败。那么我们让加密后的值和SF的SHA1一致就好了呗，但是呢，这个用来签名加密的是私钥，公钥随便玩，但是私钥我们却没有，所以没法做到一致。所以说上面的过程环环相扣，最后指向了RSA非对称加密的保证。有人说，那我可以直接重签名啊，这样所有的信息就一致了啊，是的，没错，重签名后就可以安装了，这就是说签名机制只是保证了apk的完整性，具体是不是自己的apk包，系统并不知道，那我们上面说的安全性是怎么保证的呢？那就是我们可以随便签名，随便安装，但是在覆盖安装的时候由于我们的签名和作者的签名不一致，导致我们重签名后的apk无法覆盖掉原作者的。这就保证了已经安装的apk的接下来的安全链的正确性。当然了，如果你的手机上来就直接安装了一个第三方的非法签名的apk，那么原作者的官方apk也不能再安装了，因为系统认为他是非法的。
+        // Verify: if target already has an installer package, it must
+        // be signed with the same cert as the caller.
+        if (targetPackageSetting.installerPackageName != null) {
+            PackageSetting setting = mSettings.mPackages.get(
+                    targetPackageSetting.installerPackageName);
+            // If the currently set package isn't valid, then it's always
+            // okay to change it.
+            if (setting != null) {
+                if (compareSignatures(callerSignature,
+                        setting.signatures.mSignatures)
+                        != PackageManager.SIGNATURE_MATCH) {
+                    throw new SecurityException(
+                            "Caller does not have same cert as old installer package "
+                            + targetPackageSetting.installerPackageName);
+                }
+            }
+        }
 
-说明：在这一步，即使开发者修改了程序内容，并生成了新的摘要文件，MANIFEST.MF能与内容对应起来，CERT.SF也能与内容对应起来，但是攻击者没有开发者的私钥，所以不能生成正确的签名文件（CERT.RSA）。系统在对程序进行验证的时候，用开发者公钥对不正确的签名文件进行解密，得到的结果对应不起来，所以不能通过检验，不能成功安装文件（覆盖安装），如果完全用新的签名自己签名一遍，全新安装时没问题的。 
+# V1、V2签名下美团多渠道打包的切入点
 
-## 美团Walle多渠道打包支持V2的原理
+* V1签名：META_INFO文件夹下增加文件不会对校验有任何影响，则是美团V1多渠道打包方案的切入点
+* V2签名：V2签名块中可以添加一些附属信息，不会对签名又任何影响，这是V2多渠道打包的切入点。
+ 
+# 总结
 
-不修改APK的内容，但是修改偏移，不修改META内容，不更改zip的内容目录只是修改了签名块，第一代打包则要全部修改。
-
+* V1签名靠META_INFO文件夹下的签名文件
+* V2签名依靠中央目录前的V2签名快，ZIP的目录结构不会改变，当然结尾偏移要改。
+* V1 V2签名可以同时存在（7.0以下如果没有V1签名是不可以的）
+* 多去到打包的切入点原则：附加信息不影响签名验证
+ 
 # 参考文档
 
 [Android签名与认证详细分析之一（CERT.RSA剖析）     
