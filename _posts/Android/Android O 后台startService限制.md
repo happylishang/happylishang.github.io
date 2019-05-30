@@ -1,14 +1,15 @@
+不准后台应用startService
+
 * 后台启动Service的场景
 * 后台启动Service的问题及原因
 * 如何修改达到兼容
 
-几种场景：
 
-*  其他应用启动service，service进程未启动
-* 其他应用启动service，service进程启动，并激活
-* 其他应用启动service，service进程未启动，但是属于后台进程idle
-* 其他应用启动service，位于后台
-* Application启动
+
+对于普通APP而言，启动服务分下面两种，每一种有分别有几种情况
+
+*  通过其他应用startService
+* 通过自己应用startService
 
 
 # Application杀死恢复
@@ -101,8 +102,106 @@ clean的时候会清理UidRecord
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-6847eaadff8c26e7.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 
-现在的APP必须有启动Activity，否则无法安装，正常启动是启动Activity，那么会更新idle，如果不启动则idle就是true，必然失败。
+现在的APP必须有启动Activity，否则无法安装，正常启动是启动Activity，那么会更新idle，如果不启动则idle就是true，必然失败。 伴随Activity启动的进程都会被设置成优先级高度active进程，被杀死后启动的进程是被Service唤醒的进程，仍然idle未激活
 
+
+
+
+    @GuardedBy("this")
+    private final boolean attachApplicationLocked(IApplicationThread thread,
+            int pid, int callingUid, long startSeq) {
+
+    ...
+                thread.bindApplication(processName, appInfo, providers,
+                        app.instr.mClass,
+                        profilerInfo, app.instr.mArguments,
+                        app.instr.mWatcher,
+                        app.instr.mUiAutomationConnection, testMode,
+                        mBinderTransactionTrackingEnabled, enableTrackAllocation,
+                        isRestrictedBackupMode || !normalMode, app.persistent,
+                        new Configuration(getGlobalConfiguration()), app.compat,
+                        getCommonServicesLocked(app.isolated),
+                        mCoreSettingsObserver.getCoreSettingsLocked(),
+                        buildSerial, isAutofillCompatEnabled);
+            ...
+        boolean badApp = false;
+        boolean didSomething = false;
+
+        // See if the top visible activity is waiting to run in this process...
+        if (normalMode) {
+            try {
+            	// 需要启动的Activity
+                if (mStackSupervisor.attachApplicationLocked(app)) {
+                    didSomething = true;
+                }
+            } catch (Exception e) {
+                Slog.wtf(TAG, "Exception thrown launching activities in " + app, e);
+                badApp = true;
+            }
+        }
+
+        // Find any services that should be running in this process...
+        if (!badApp) {
+            try {
+            	// 需要恢复的Service
+                didSomething |= mServices.attachApplicationLocked(app, processName);
+                checkTime(startTime, "attachApplicationLocked: after mServices.attachApplicationLocked");
+            } catch (Exception e) {
+                Slog.wtf(TAG, "Exception thrown starting services in " + app, e);
+                badApp = true;
+            }
+        }
+
+
+	 boolean attachApplicationLocked(ProcessRecord app) throws RemoteException {
+	        final String processName = app.processName;
+	        boolean didSomething = false;
+	        for (int displayNdx = mActivityDisplays.size() - 1; displayNdx >= 0; --displayNdx) {
+	            final ActivityDisplay display = mActivityDisplays.valueAt(displayNdx);
+	            for (int stackNdx = display.getChildCount() - 1; stackNdx >= 0; --stackNdx) {
+	                final ActivityStack stack = display.getChildAt(stackNdx);
+	                if (!isFocusedStack(stack)) {
+	                    continue;
+	                }
+	                stack.getAllRunningVisibleActivitiesLocked(mTmpActivityList);
+	                final ActivityRecord top = stack.topRunningActivityLocked();
+	                final int size = mTmpActivityList.size();
+	                for (int i = 0; i < size; i++) {
+	                    final ActivityRecord activity = mTmpActivityList.get(i);
+	                    if (activity.app == null && app.uid == activity.info.applicationInfo.uid
+	                            && processName.equals(activity.processName)) {
+	                        try {
+	                            if (realStartActivityLocked(activity, app,
+	                                    top == activity /* andResume */, true /* checkConfig */))  
+	                               ...
+	        return didSomething;
+	    }
+  
+ realStartActivityLocked会更新oom，更新oom的时候会设置idle为false，因为有要启动的Activity就不在是后台进程，而对于杀死并通过Service恢复的进程，没有明确的Activity，所以不会立刻归为前台进程。
+    
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-88d3dbe1a8fd4c94.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+ 
+ 启动新的Activity老的将要走stop逻辑，先加到要走stop的列表中：
+    
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-5d14d164161c6a0f.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-03f878f808b954d8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+scheduleIdleLocked会被调用：
+  
+    final void scheduleIdleLocked() {
+        mHandler.sendEmptyMessage(IDLE_NOW_MSG);
+    }
+
+接着会调用scheduleResumeTopActivities启动Activity
+
+    final void scheduleResumeTopActivities() {
+        if (!mHandler.hasMessages(RESUME_TOP_ACTIVITY_MSG)) {
+            mHandler.sendEmptyMessage(RESUME_TOP_ACTIVITY_MSG);
+        }
+    }   
+    
 # 场景：探究下什么是后台启动Service
 
 	public class LabApplication extends Application {
@@ -491,7 +590,7 @@ App退到后台，或者不可见的时候
 * 调用startForegroundService后，如果5s内没有在Service中调用startForeground，那么就会发生ANR； “Context.startForegroundService() did not then call Service.startForeground()”
 * 调用startForegroundService后，直到将Service停止之前都没有在Service中调用startForeground，那么就会发生FC
 	 
-# 开发中如何解决这个问题        
+# 如何解决这个问题        
  
  
 如果已经是前台，不需要关心timeout，如果不是前台，需要关心timeout
