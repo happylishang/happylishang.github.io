@@ -12,6 +12,8 @@
 * 通过自己应用startService
 
 
+startService不是看调用的APP处于何种状态，而是看Servic所在App其状态
+
 # Application杀死恢复
 
 第一次启动 UidRecord: UidRecord中默认 idle = true
