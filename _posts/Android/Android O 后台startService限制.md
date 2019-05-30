@@ -12,7 +12,7 @@
 * 通过自己应用startService
 
 
-startService不是看调用的APP处于何种状态，而是看Servic所在App其状态
+startService不是看调用的APP处于何种状态，而是看Servic所在App的状态，注意不是进程是APP，跟随UID的那个，不是pid
 
 # Application杀死恢复
 
