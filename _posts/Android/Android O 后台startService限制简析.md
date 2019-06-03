@@ -13,7 +13,7 @@ Android O 推出出了Background Execution Limits，减少后台应用内存使�
 
 > **本文基于Android P源码**
 
-# 通过自己应用在后台startService
+# 通过自己应用在后台startService限制
  
 可以通过一个简单的实验观察什么情况属于后台startService，**注意：如果是自己APP启动Service，那么自身应用必定已经起来了**。通过延迟执行就复现该场景。比如：通过click事件，延迟执行一个startService操作，延迟时间是65s（**要超过一分钟，后面会看到这是个阈值**），然后点击Home键，回到桌面，之后等待一分钟就可复现Crash：
 
@@ -324,40 +324,44 @@ appServicesRestrictedInBackgroundLocked仅仅是根据是否是O以后，返回A
         }
     }   
   
-之前是前台，现在变后台，那么uidRec.lastBackgroundTime = nowElapsed赋值，如果再次切前台，要清零
+之前是前台，现在变后台，那么uidRec.lastBackgroundTime = nowElapsed赋值，再次切前台，uidRec.lastBackgroundTime清零，简而言之， 应用变为前台，UID状态马上变更为active状态，应用变为后台，即procState大于等于PROCESS_STATE_TRANSIENT_BACKGROUND时，如果持续在后台60s后，UID状态会变更为idle=true状态,不能startService；
 
+# 通过其他应用startService的情况
+
+
+跨应用startService已经不被推荐了，不过也容易模拟，在A应用中通过setAction+setPackage就可以startService：
+
+            var intent = Intent();
+            intent.setAction("com.snail.BackGroundService");
+            intent.setPackage("com.snail.labaffinity");
+            startService(intent)
+            
+当然在B应用中AndroidManifest要暴露出来：
+
+        <service
+            android:name=".service.BackGroundService"
+            <!--是否独立进程，无关紧要-->
+            android:process=":service"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.snail.BackGroundService" />
+            </intent-filter>
+        </service>
+
+这样A中startService同样要遵守不准后台启动的条件。比如如果B没启动过，直接在A中startService，则会Crash，如果B启动了，还没变成后台应用（退到后台没超过60S），则不会Crash。个人觉得通过adb命令startService也属于这种范畴，通过如下命令可以达到相同的效果。
  
-                
-![image.png](https://upload-images.jianshu.io/upload_images/1460468-88d3dbe1a8fd4c94.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-    
-转变为idle，trimeApplication
+	am startservice -n com.snail.labaffinity/com.snail.labaffinity.service.BackGroundService 
 
- ![image.png](https://upload-images.jianshu.io/upload_images/1460468-845e10c8558c8569.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
- 
-     
-当App退到后台，或者不可见的时候
+如果APP没有启动就会看到如下日志：
 
-![image.png](https://upload-images.jianshu.io/upload_images/1460468-25d3b59ce9d85e4c.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+	app is in background uid null
 
-
-    
-进而trime，重新计算进程优先级，同时60后设置后台进程，限制活动性，最终通过idleUids更新  uidRec.idle，如果设置true，就是后台进程，标准就是后台存活时间是否大于
-
-
-
-
-> active与idle的变换规则
-
-* 如果应用变为前台，即procState小于PROCESS_STATE_TRANSIENT_BACKGROUND(8)时，UID状态马上变更为active状态
-* 如果应用变为后台，即procState大于等于PROCESS_STATE_TRANSIENT_BACKGROUND(8)时，应用持续在后台60s后，UID状态会变更为idle状态
-
-> startForegroundService的ANR与FC：
- 
-* 调用startForegroundService后，如果5s内没有在Service中调用startForeground，那么就会发生ANR； “Context.startForegroundService() did not then call Service.startForeground()”
-* 调用startForegroundService后，直到将Service停止之前都没有在Service中调用startForeground，那么就会发生FC
-
-
-
+如果启动了，但是属于后台应用，就会看到如下日志，跟自己APP后台启动Service类似：
+	 
+	  Not allowed to start service Intent { cmp=com.snail.labaffinity/.service.BackGroundService }: app is in background uid UidRecord{72bb30d u0a238 SVC  idle change:idle|uncached procs:1 seq(0,0,0)}
+	  
+	 
+其实，**startService不是看调用的APP处于何种状态，而是看Servic所在APP处于何种状态，因为看的是Servic所处的UidRecord的状态，UidRecord仅仅跟APP安装有关系，跟进程pid没关系。**  
 
 
 	public class LabApplication extends Application {
@@ -384,9 +388,7 @@ appServicesRestrictedInBackgroundLocked仅仅是根据是否是O以后，返回A
 	}
 
 
-# Application杀死恢复
-
-
+# Application杀死通过Service恢复的场景
 
 	
 第一次通过Launcher冷启动没问题，如果我们杀死APP后，应用再回复的时候就会出现如下Crash（禁止后台启动Service的Crash Log）：
@@ -527,45 +529,6 @@ scheduleIdleLocked会被调用：
         }
     }   
     
-
-
-
-# 通过其他应用startService的情况
-
-
-跨应用startService已经不被推荐了，不过也容易模拟，在A应用中通过setAction+setPackage就可以startService：
-
-            var intent = Intent();
-            intent.setAction("com.snail.BackGroundService");
-            intent.setPackage("com.snail.labaffinity");
-            startService(intent)
-            
-当然在B应用中AndroidManifest要暴露出来：
-
-        <service
-            android:name=".service.BackGroundService"
-            <!--是否独立进程，无关紧要-->
-            android:process=":service"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.snail.BackGroundService" />
-            </intent-filter>
-        </service>
-
-这样A中startService同样要遵守不准后台启动的条件。比如如果B没启动过，直接在A中startService，则会Crash，如果B启动了，还没变成后台应用（退到后台没超过60S），则不会Crash。个人觉得通过adb命令startService也属于这种范畴，通过如下命令可以达到相同的效果。
- 
-	am startservice -n com.snail.labaffinity/com.snail.labaffinity.service.BackGroundService 
-
-如果APP没有启动就会看到如下日志：
-
-	app is in background uid null
-
-如果启动了，但是属于后台应用，就会看到如下日志，跟自己APP后台启动Service类似：
-	 
-	  Not allowed to start service Intent { cmp=com.snail.labaffinity/.service.BackGroundService }: app is in background uid UidRecord{72bb30d u0a238 SVC  idle change:idle|uncached procs:1 seq(0,0,0)}
-	  
-	 
-其实，**startService不是看调用的APP处于何种状态，而是看Servic所在APP处于何种状态，因为看的是Servic所处的UidRecord的状态，UidRecord仅仅跟APP安装有关系，跟进程pid没关系。**  
 
 # 如何解决这个问题        
  
