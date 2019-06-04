@@ -461,7 +461,7 @@ realStartActivityLocked会更新oom，并设置idle为false，因为有Activity�
 
 # 如何解决这个问题        
 
-既然不能再后台偷偷启动，那只能显示启动，Google提供的方案是：startForegroundService()。并且在系统创建Service后，需要在五秒内调用该 Service的startForeground()，让Service为用户可见通知，否则则系统将停止此Service，抛出ANR，如果不像让用户可见可以参考JobScheduler。不过本篇只看startForegroundService：
+既然不能再后台偷偷启动，那只能显示启动，Google提供的方案是：startForegroundService()。并且在系统创建Service后，需要在一定时间内调用startForeground()让Service为用户可见通知，否则则系统将停止此Service，抛出ANR，如果不像让用户可见可以参考JobScheduler。不过本篇只看startForegroundService：
 
 
     @Override
@@ -497,9 +497,7 @@ realStartActivityLocked会更新oom，并设置idle为false，因为有Activity�
         r.pendingStarts.add(new ServiceRecord.StartItem(r, false, r.makeNextStartId(),
                 service, neededGrants, callingUid));
 
-在AMS端startForegroundService跟普通startService区别， ServiceRecord的fgRequired被设置为true，同时也不会走后台检测的逻辑。
- 
-如果已经是前台，不需要关心timeout，如果不是前台，需要关心timeout
+在AMS端startForegroundService跟普通startService区别， ServiceRecord的fgRequired被设置为true，然后走后续流程bringUpServiceLocked->realStartServiceLocked-> sendServiceArgsLocked，在sendServiceArgsLocked的时候，Service其实已经创建并启动（可以看Service启动流程），
  
     private final void sendServiceArgsLocked(ServiceRecord r, boolean execInFg,
             boolean oomAdjusted) throws TransactionTooLargeException {
@@ -516,8 +514,45 @@ realStartActivityLocked会更新oom，并设置idle为false，因为有Activity�
            try {
             r.app.thread.scheduleServiceArgs(r, slice);
         }
+可以看到对于要求前台启动的Service fgRequired = true，并且第一次r.fgWaiting=false，所以会走scheduleServiceForegroundTransitionTimeoutLocked，
 
-如果5S内没有调用startForeground，APP会抛出如下Crash异常
+    void scheduleServiceForegroundTransitionTimeoutLocked(ServiceRecord r) {
+        if (r.app.executingServices.size() == 0 || r.app.thread == null) {
+            return;
+        }
+        Message msg = mAm.mHandler.obtainMessage(
+                ActivityManagerService.SERVICE_FOREGROUND_TIMEOUT_MSG);
+        msg.obj = r;
+        r.fgWaiting = true;
+        mAm.mHandler.sendMessageDelayed(msg, SERVICE_START_FOREGROUND_TIMEOUT);
+    }
+
+r.fgWaiting会被设置为true，scheduleServiceForegroundTransitionTimeoutLocked过一次后，就不会再次走。
+
+    static final int SERVICE_START_FOREGROUND_TIMEOUT = 10*1000;
+
+看9.0代码，是10s完成调用startForeground，否则在10s后Handler处理这一消息的时候，会停止该服务，并抛出Service的ANR异常。
+
+	  void serviceForegroundTimeout(ServiceRecord r) {
+	        ProcessRecord app;
+	        synchronized (mAm) {
+	            if (!r.fgRequired || r.destroying) {
+	                return;
+	            }
+	
+	            app = r.app;
+	            r.fgWaiting = false;
+	            stopServiceLocked(r);
+	        }
+	
+	        if (app != null) {
+	            mAm.mAppErrors.appNotResponding(app, null, null, false,
+	                    "Context.startForegroundService() did not then call Service.startForeground(): "
+	                        + r);
+	        }
+	    }
+ 
+抛出异常栈如下
 
 	--------- beginning of crash
 	E/AndroidRuntime: FATAL EXCEPTION: main
@@ -531,63 +566,54 @@ realStartActivityLocked会更新oom，并设置idle为false，因为有Activity�
 	        at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:438)
 	        at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:807)
 	        
-
+解决方案就是及时调用startForeground，对于O以后的还要注意Notification需要一个ChannelID
  
-
-
-
-
-    void scheduleServiceForegroundTransitionTimeoutLocked(ServiceRecord r) {
-        if (r.app.executingServices.size() == 0 || r.app.thread == null) {
-            return;
-        }
-        Message msg = mAm.mHandler.obtainMessage(
-                ActivityManagerService.SERVICE_FOREGROUND_TIMEOUT_MSG);
-        msg.obj = r;
-        r.fgWaiting = true;
-        mAm.mHandler.sendMessageDelayed(msg, SERVICE_START_FOREGROUND_TIMEOUT);
-    }
-
-    final class MainHandler extends Handler {
-        public MainHandler(Looper looper) {
-            super(looper, null, true);
-        }
-
-        @Override
-        public void handleMessage(Message msg) {
-            switch (msg.what) {
-            ...
-            case SERVICE_FOREGROUND_TIMEOUT_MSG: {
-                mServices.serviceForegroundTimeout((ServiceRecord)msg.obj);
-            } break;
-
-
-	   void serviceForegroundTimeout(ServiceRecord r) {
-	        ProcessRecord app;
-	        synchronized (mAm) {
-	            if (!r.fgRequired || r.destroying) {
-	                return;
-	            }
+	 public class BackGroundService extends Service {
+	 
+	    @Override
+	    public void onCreate() {
+	        super.onCreate();
+	        startForeground();
+	    }
 	
-	            app = r.app;
-	            if (app != null && app.debugging) {
-	                // The app's being debugged; let it ride
-	                return;
-	            }
-	
-	            if (DEBUG_BACKGROUND_CHECK) {
-	                Slog.i(TAG, "Service foreground-required timeout for " + r);
-	            }
-	            r.fgWaiting = false;
-	            stopServiceLocked(r);
-	        }
-	
-	        if (app != null) {
-	            mAm.mAppErrors.appNotResponding(app, null, null, false,
-	                    "Context.startForegroundService() did not then call Service.startForeground(): "
-	                        + r);
+	    private void startForeground() {
+	        String CHANNEL_ONE_ID = "com.snail.labaffinity";
+	        String CHANNEL_ONE_NAME = "Channel One";
+	        NotificationChannel notificationChannel = null;
+	        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+	            notificationChannel = new NotificationChannel(CHANNEL_ONE_ID,
+	                    CHANNEL_ONE_NAME, NotificationManager.IMPORTANCE_DEFAULT);
+	            NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+	            assert manager != null;
+	            manager.createNotificationChannel(notificationChannel);
+	            startForeground(1, new NotificationCompat.Builder(this, CHANNEL_ONE_ID).build());
 	        }
 	    }
+
+    }
+
+startForeground主要就是讲Service至于前台可见，同时取消掉刚才的那个延时Message，这样就不会检测并抛出异常了。
+	
+	 private void setServiceForegroundInnerLocked(final ServiceRecord r, int id,
+	            Notification notification, int flags) {
+	            
+	            <!--id不能为0-->
+	        if (id != 0) {
+	           ...
+	            if (r.fgRequired) {
+	                r.fgRequired = false;
+	                r.fgWaiting = false;
+	                alreadyStartedOp = true;
+	                <!--移除ActivityManagerService.SERVICE_FOREGROUND_TIMEOUT_MSG消息-->
+	                mAm.mHandler.removeMessages(
+	                        ActivityManagerService.SERVICE_FOREGROUND_TIMEOUT_MSG, r);
+	            }
+            
+
+不过不过这样的话，状态栏会有一个xxx正在运行的通知，体验不太好，如果是要完成某项任务完成后，最好主动stop掉。
+
+
+ 
 	
  另外，如果再调用startForGround前调用了stop 会Crash
 	
