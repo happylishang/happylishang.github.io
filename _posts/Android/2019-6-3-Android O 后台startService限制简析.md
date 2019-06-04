@@ -1,3 +1,11 @@
+---
+layout: post
+title: "SAndroid O 后台startService限制简析"
+description: "Android"
+categories: [Android]
+
+---
+
 Android O 推出出了Background Execution Limits，减少后台应用内存使用及耗电，一个很明显的应用就是不准后台应用通过startService启动服务，这里有两个问题需要弄清楚，第一：什么状态下startService的属于后台启动service；第二：如果想要在后台startService，如何兼容，因此分如下几个问题分析下
 
 * 后台startService的场景
@@ -539,7 +547,6 @@ r.fgWaiting会被设置为true，scheduleServiceForegroundTransitionTimeoutLocke
 	            if (!r.fgRequired || r.destroying) {
 	                return;
 	            }
-	
 	            app = r.app;
 	            r.fgWaiting = false;
 	            stopServiceLocked(r);
@@ -601,7 +608,9 @@ startForeground主要就是讲Service至于前台可见，同时取消掉刚才�
 	        if (id != 0) {
 	           ...
 	            if (r.fgRequired) {
+	            <!--设置fgRequired = false-->
 	                r.fgRequired = false;
+	                <!--设置 fgWaiting = false-->
 	                r.fgWaiting = false;
 	                alreadyStartedOp = true;
 	                <!--移除ActivityManagerService.SERVICE_FOREGROUND_TIMEOUT_MSG消息-->
@@ -610,24 +619,11 @@ startForeground主要就是讲Service至于前台可见，同时取消掉刚才�
 	            }
             
 
-不过不过这样的话，状态栏会有一个xxx正在运行的通知，体验不太好，如果是要完成某项任务完成后，最好主动stop掉。
+不过不过这样的话，状态栏会有一个xxx正在运行的通知，体验不太好，如果是要完成某项任务完成后，最好主动stop掉。还有一个要注意的问题：在调用startForGround前不准调stop，否则也会抛出异常：
 
-
- 
-	
- 另外，如果再调用startForGround前调用了stop 会Crash
-	
-	
-	
     private final void bringDownServiceLocked(ServiceRecord r) {
-        //Slog.i(TAG, "Bring down service:");
-        //r.dump("  ");
- 
-
-        // Check to see if the service had been started as foreground, but being
-        // brought down before actually showing a notification.  That is not allowed.
-        
-        if (r.fgRequired) {
+            ...
+            if (r.fgRequired) {
             r.fgRequired = false;
             r.fgWaiting = false;
             mAm.mAppOpsService.finishOperation(AppOpsManager.getToken(mAm.mAppOpsService),
@@ -643,72 +639,13 @@ startForeground主要就是讲Service至于前台可见，同时取消掉刚才�
                 mAm.mHandler.sendMessage(msg);
             }
         }
- 
 
-    final class MainHandler extends Handler {
-        public MainHandler(Looper looper) {
-            super(looper, null, true);
-        }
-
-        @Override
-        public void handleMessage(Message msg) {
-            switch (msg.what) {
-            case UPDATE_CONFIGURATION_MSG: {
-                final ContentResolver resolver = mContext.getContentResolver();
-                Settings.System.putConfigurationForUser(resolver, (Configuration) msg.obj,
-                        msg.arg1);
-            } break;
-            case GC_BACKGROUND_PROCESSES_MSG: {
-                synchronized (ActivityManagerService.this) {
-                    performAppGcsIfAppropriateLocked();
-                }
-            } break;
-            case SERVICE_TIMEOUT_MSG: {
-                mServices.serviceTimeout((ProcessRecord)msg.obj);
-            } break;
-            case SERVICE_FOREGROUND_TIMEOUT_MSG: {
-                mServices.serviceForegroundTimeout((ServiceRecord)msg.obj);
-            } break;
-            case SERVICE_FOREGROUND_CRASH_MSG: {
-                mServices.serviceForegroundCrash(
-                    (ProcessRecord) msg.obj, msg.getData().getCharSequence(SERVICE_RECORD_KEY));
-            }
-            
-调用startForeground后
-    
-    
-    public final void startForeground(int id, Notification notification) {
-        try {
-            mActivityManager.setServiceForeground(
-                    new ComponentName(this, mClassName), mToken, id,
-                    notification, 0);
-        } catch (RemoteException ex) {
-        }
-}
- 
- 会调用mActivityManager.setServiceForeground 将r.fgRequired = false
- 
-	 private void setServiceForegroundInnerLocked(ServiceRecord r, int id,
-	            Notification notification, int flags) {
-	        if (r.fgRequired) {
-	                r.fgRequired = false;
-	                r.fgWaiting = false;
-	                mAm.mHandler.removeMessages(
-	                        ActivityManagerService.SERVICE_FOREGROUND_TIMEOUT_MSG, r);
-	        }
-	}
-
-
-正确做法，onCreate中startForeground     
-
-也就是 当Service被启动后，客户端需要调用Service.startForeground才能同时解除ANR和FC  
-
-
+如果调用了startForegroundService，但是没有调用startForGround，此时调用stopService时，r.fgRequired = true，那么bringDownServiceLocked就会直接移除ActivityManagerService.SERVICE_FOREGROUND_TIMEOUT_MSG消息，并抛出ActivityManagerService.SERVICE_FOREGROUND_CRASH_MSG异常，其实只要在onCreate中startForeground就行了。
 
 #    总结
 
-*  startService不是看调用的APP处于何种状态，而是看Servic所在APP处于何种状态，因为看的是UID的状态，所以这里重要的是APP而不仅仅是进程状态
-*  不要通过Handler延迟太久再startService，否则也会有问题
-*  startForegroundService 60s原则要遵守
-*  尽量不要Handler延迟startService
+*  **startService抛异常不是看调用的APP处于何种状态，而是看Servic所在APP处于何种状态，因为看的是UID的状态，所以这里重要的是APP而不仅仅是进程状态**
+*  不要通过Handler延迟太久再startService，否则可能会有问题
+*  应用进入后台，60s之后就会变成idle状态，无法start其中的Service，但是可以通过startForegroundService来启动 
 *  Application里面不要startService，否则恢复的时候可能有问题     
+*  startForGround 要及时配合startForegroundService，否则会有各种异常。
