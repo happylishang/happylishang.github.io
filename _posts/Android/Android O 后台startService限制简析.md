@@ -362,7 +362,11 @@ appServicesRestrictedInBackgroundLocked仅仅是根据是否是O以后，返回A
 	  
 	 
 其实，**startService不是看调用的APP处于何种状态，而是看Servic所在APP处于何种状态，因为看的是Servic所处的UidRecord的状态，UidRecord仅仅跟APP安装有关系，跟进程pid没关系。**  
+ 
+ 
+# 特殊场景：进程通过Service恢复的场景
 
+先看下如下代码，APP在启动的时候，在Application的onCreate中通过startService启动了一个服务，并且没有stop，这种场景下第一次通过Launcher冷启动没问题，如果我们在后台杀死APP，由于存在一个未stop的服务，系统会重新拉起该服务，也就是会重启一个进程，然后启动服务。
 
 	public class LabApplication extends Application {
 	    @Override
@@ -383,17 +387,10 @@ appServicesRestrictedInBackgroundLocked仅仅是根据是否是O以后，返回A
 	    @Override
 	    public int onStartCommand(Intent intent, int flags, int startId) {
 	        LogUtils.v("onStartCommand");
-	        return START_STICKY;
 	    }
 	}
-
-
-# Application杀死通过Service恢复的场景
-
 	
-第一次通过Launcher冷启动没问题，如果我们杀死APP后，应用再回复的时候就会出现如下Crash（禁止后台启动Service的Crash Log）：
-  
-![image.png](https://upload-images.jianshu.io/upload_images/1460468-c5c9ad3821e02d49.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+在这个过程中，应用重启会复现如下Crash（禁止后台启动Service的Crash Log）：
 
     java.lang.RuntimeException: Unable to create application com.snail.labaffinity.app.LabApplication: java.lang.IllegalStateException: Not allowed to start service Intent { cmp=com.snail.labaffinity/.service.BackGroundService }: app is in background uid UidRecord{72bb30d u0a238 SVC  idle change:idle|uncached procs:1 seq(0,0,0)}
         at android.app.ActivityThread.handleBindApplication(ActivityThread.java:5925)
@@ -406,50 +403,19 @@ appServicesRestrictedInBackgroundLocked仅仅是根据是否是O以后，返回A
         at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:493)
         at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:858)
 
-这个是为什么呢？为什么冷启动没问题，后台杀死自启动恢复就有问题，看日志是因为当app is in background，Not allowed to start service，也就是后台进程不能通过startService启动服务，在LabApplication的onCreate中我们确实主动startService(intent)，这个就是crash的原因，具体为啥呢？什么样的进程才算后台进程呢？
+Why？为什么冷启动没问题，后台杀死自启动恢复就有问题，看日志是因为当app is in background，Not allowed to start service，也就是后台进程不能通过startService启动服务，在LabApplication的onCreate中我们确实主动startService(intent)，这个就是crash的原因，那为什么第一次没问题？在前文我们知道，通过Laucher启动应用是通过startActivity启动的，也就是存在一个resumeTopActivity的时机，在这个时机，APP的idle会被设置为false，也就是非后台应用，但是对于后台杀死又恢复的场景，他不是通过startActivity启动的，所以APP就算重启了，APP的idle还是true，是非激活的状态，也就是属于后台应用，不准通过startService启动服务（假设单进程）。
 
-  
-
-如果应用变为前台，即procState小于PROCESS_STATE_TRANSIENT_BACKGROUND(8)时，UID状态马上变更为active状态
-如果应用变为后台，即procState大于等于PROCESS_STATE_TRANSIENT_BACKGROUND(8)时，应用持续在后台60s后，UID状态会变更为idle状态
-调试方法：
-
-idle为false，激活 
-
-
-
-
-
-![image.png](https://upload-images.jianshu.io/upload_images/1460468-fe2213350e0b0324.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-
-
-启动的Application如果有Activity会先启动Activity，如果是恢复，则会因为Service的恢复启动App，走Application的onCreate，如果这个时候在Application的onCreate中startService则必定Crash，因为这种情况下的恢复不会走realStartActivityLocked启动Activity，仅仅是唤起进程，
-
-
-clean的时候会清理UidRecord
-
-![image.png](https://upload-images.jianshu.io/upload_images/1460468-6847eaadff8c26e7.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-
-现在的APP必须有启动Activity，否则无法安装，正常启动是启动Activity，那么会更新idle，如果不启动则idle就是true，必然失败。 伴随Activity启动的进程都会被设置成优先级高度active进程，被杀死后启动的进程是被Service唤醒的进程，仍然idle未激活
+因为第一次冷启动时候，走正常启动Activity流程，新建进程，然后去AMS attachApplication，
 
     @GuardedBy("this")
     private final boolean attachApplicationLocked(IApplicationThread thread,
             int pid, int callingUid, long startSeq) {
 
-			   ...
+		  ...
+		  <!--   通知APP端创建Application-->
                 thread.bindApplication(processName, appInfo, providers,
                         app.instr.mClass,
-                        profilerInfo, app.instr.mArguments,
-                        app.instr.mWatcher,
-                        app.instr.mUiAutomationConnection, testMode,
-                        mBinderTransactionTrackingEnabled, enableTrackAllocation,
-                        isRestrictedBackupMode || !normalMode, app.persistent,
-                        new Configuration(getGlobalConfiguration()), app.compat,
-                        getCommonServicesLocked(app.isolated),
-                        mCoreSettingsObserver.getCoreSettingsLocked(),
-                        buildSerial, isAutofillCompatEnabled);
+                        profilerInfo, app.instr.mArguments,...);
             ...
         boolean badApp = false;
         boolean didSomething = false;
@@ -457,97 +423,103 @@ clean的时候会清理UidRecord
         // See if the top visible activity is waiting to run in this process...
         if (normalMode) {
             try {
-            	// 需要启动的Activity
+             <!-- 需要启动的Activity 关键点 -->
                 if (mStackSupervisor.attachApplicationLocked(app)) {
                     didSomething = true;
                 }
-            } catch (Exception e) {
-                Slog.wtf(TAG, "Exception thrown launching activities in " + app, e);
-                badApp = true;
-            }
-        }
 
-        // Find any services that should be running in this process...
         if (!badApp) {
             try {
-            	// 需要恢复的Service
+        <!--  需要恢复的Service-->
                 didSomething |= mServices.attachApplicationLocked(app, processName);
                 checkTime(startTime, "attachApplicationLocked: after mServices.attachApplicationLocked");
-            } catch (Exception e) {
-                Slog.wtf(TAG, "Exception thrown starting services in " + app, e);
-                badApp = true;
-            }
-        }
+            }  
+
+第一次启动APP的时候，thread.bindApplication首先通知APP端启动Application，并执行onCreate，不过onCreate中的startService要等待AMS端上一个消息执行完毕（Handler保证），这个过程中mStackSupervisor.attachApplicationLocked(app)中会调用realStartActivityLocked启动Activity，先将UidRecord的idle给更新为false，attachApplicationLocked执行之后，才有可能轮到下一个消息startService执行，这个时候APP已经不是后台应用了，所以不会Crash。
 
 
 	 boolean attachApplicationLocked(ProcessRecord app) throws RemoteException {
 	        final String processName = app.processName;
 	        boolean didSomething = false;
-	        for (int displayNdx = mActivityDisplays.size() - 1; displayNdx >= 0; --displayNdx) {
-	            final ActivityDisplay display = mActivityDisplays.valueAt(displayNdx);
-	            for (int stackNdx = display.getChildCount() - 1; stackNdx >= 0; --stackNdx) {
-	                final ActivityStack stack = display.getChildAt(stackNdx);
-	                if (!isFocusedStack(stack)) {
-	                    continue;
-	                }
-	                stack.getAllRunningVisibleActivitiesLocked(mTmpActivityList);
-	                final ActivityRecord top = stack.topRunningActivityLocked();
+	        ...
 	                final int size = mTmpActivityList.size();
+	                <!--存在要启动的Activity-->
 	                for (int i = 0; i < size; i++) {
 	                    final ActivityRecord activity = mTmpActivityList.get(i);
 	                    if (activity.app == null && app.uid == activity.info.applicationInfo.uid
 	                            && processName.equals(activity.processName)) {
 	                        try {
+	                        <!--走realStartActivityLocked-->
 	                            if (realStartActivityLocked(activity, app,
 	                                    top == activity /* andResume */, true /* checkConfig */))  
-	                               ...
-	        return didSomething;
-	    }
-  
-realStartActivityLocked会更新oom，更新oom的时候会设置idle为false，因为有要启动的Activity就不在是后台进程，而对于杀死并通过Service恢复的进程，没有明确的Activity，所以不会立刻归为前台进程。
+	                                    
+realStartActivityLocked会更新oom，并设置idle为false，因为有Activity要启动，就不在是后台进程，调用流程如下：
     
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-88d3dbe1a8fd4c94.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
- 
-启动新的Activity老的将要走stop逻辑，先加到要走stop的列表中：
-    
-![image.png](https://upload-images.jianshu.io/upload_images/1460468-5d14d164161c6a0f.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-
-![image.png](https://upload-images.jianshu.io/upload_images/1460468-03f878f808b954d8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-scheduleIdleLocked会被调用：
-  
-    final void scheduleIdleLocked() {
-        mHandler.sendEmptyMessage(IDLE_NOW_MSG);
-    }
-
-接着会调用scheduleResumeTopActivities启动Activity
-
-    final void scheduleResumeTopActivities() {
-        if (!mHandler.hasMessages(RESUME_TOP_ACTIVITY_MSG)) {
-            mHandler.sendEmptyMessage(RESUME_TOP_ACTIVITY_MSG);
-        }
-    }   
-    
+但是对于而对于杀死并通过Service恢复的进程，没有明确的startActivity，所以size = mTmpActivityList.size()这里size是0，不会走realStartActivityLocked，也就在进程恢复阶段，不会将APP归为前台应用，这个时候再AMS执行下一个消息启动Service的时候，就会告诉APP端，不能在后台启动应用。
 
 # 如何解决这个问题        
- 
- 
+
+既然不能再后台偷偷启动，那只能显示启动，Google提供的方案是：startForegroundService()。并且在系统创建Service后，需要在五秒内调用该 Service的startForeground()，让Service为用户可见通知，否则则系统将停止此Service，抛出ANR，如果不像让用户可见可以参考JobScheduler。不过本篇只看startForegroundService：
+
+
+    @Override
+    public ComponentName startService(Intent service) {
+        warnIfCallingFromSystemProcess();
+        return startServiceCommon(service, false, mUser);
+    }
+
+    @Override
+    public ComponentName startForegroundService(Intent service) {
+        warnIfCallingFromSystemProcess();
+        return startServiceCommon(service, true, mUser);
+    }
+
+同普通startService的区别那就是startServiceCommon的第二参数是true：
+
+    private ComponentName startServiceCommon(Intent service, boolean requireForeground,
+            UserHandle user) {
+        try {
+            validateServiceIntent(service);
+            service.prepareToLeaveProcess(this);
+            ComponentName cn = ActivityManager.getService().startService(
+                mMainThread.getApplicationThread(), service, service.resolveTypeIfNeeded(
+                            getContentResolver()), requireForeground,
+                            getOpPackageName(), user.getIdentifier());
+            ...
+    }
+    
+
 如果已经是前台，不需要关心timeout，如果不是前台，需要关心timeout
  
              if (r.fgRequired && !r.fgWaiting) {
                 if (!r.isForeground) {
-                    if (DEBUG_BACKGROUND_CHECK) {
-                        Slog.i(TAG, "Launched service must call startForeground() within timeout: " + r);
-                    }
                     scheduleServiceForegroundTransitionTimeoutLocked(r);
                 } else {
-                    if (DEBUG_BACKGROUND_CHECK) {
-                        Slog.i(TAG, "Service already foreground; no new timeout: " + r);
-                    }
                     r.fgRequired = false;
                 }
             }
+
+
+如果5S内没有调用startForeground，APP会抛出如下Crash异常
+
+	    --------- beginning of crash
+	E/AndroidRuntime: FATAL EXCEPTION: main
+	    Process: com.snail.labaffinity, PID: 21513
+	    android.app.RemoteServiceException: Context.startForegroundService() did not then call Service.startForeground()
+	        at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1768)
+	        at android.os.Handler.dispatchMessage(Handler.java:106)
+	        at android.os.Looper.loop(Looper.java:164)
+	        at android.app.ActivityThread.main(ActivityThread.java:6494)
+	        at java.lang.reflect.Method.invoke(Native Method)
+	        at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:438)
+	        at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:807)
+	        
+
+ 
+
+
 
 
     void scheduleServiceForegroundTransitionTimeoutLocked(ServiceRecord r) {
@@ -695,6 +667,7 @@ scheduleIdleLocked会被调用：
 #    总结
 
 *  startService不是看调用的APP处于何种状态，而是看Servic所在APP处于何种状态，因为看的是UID的状态，所以这里重要的是APP而不仅仅是进程状态
-*  Application里面不要startService，否则恢复的时候可能有问题     
 *  不要通过Handler延迟太久再startService，否则也会有问题
 *  startForegroundService 60s原则要遵守
+*  尽量不要Handler延迟startService
+*  Application里面不要startService，否则恢复的时候可能有问题     
