@@ -476,35 +476,50 @@ realStartActivityLocked会更新oom，并设置idle为false，因为有Activity�
         return startServiceCommon(service, true, mUser);
     }
 
-同普通startService的区别那就是startServiceCommon的第二参数是true：
+同普通startService的区别那就是startServiceCommon的第二参数boolean  requireForeground 是true：
 
-    private ComponentName startServiceCommon(Intent service, boolean requireForeground,
-            UserHandle user) {
-        try {
-            validateServiceIntent(service);
-            service.prepareToLeaveProcess(this);
-            ComponentName cn = ActivityManager.getService().startService(
-                mMainThread.getApplicationThread(), service, service.resolveTypeIfNeeded(
-                            getContentResolver()), requireForeground,
-                            getOpPackageName(), user.getIdentifier());
-            ...
-    }
+    ComponentName startServiceLocked(IApplicationThread caller, Intent service ...}
     
+       <!--fgRequired为true，不会检测启动后台限制-->
+        if (forcedStandby || (!r.startRequested && !fgRequired)) {
+            
+            final int allowed = mAm.getAppStartModeLocked(r.appInfo.uid, r.packageName,
+                    r.appInfo.targetSdkVersion, callingPid, false, false, forcedStandby);
+            if (allowed != ActivityManager.APP_START_MODE_NORMAL) {
+               
+                return new ComponentName("?", "app is in background uid " + uidRec);
+            }
+        }
+        ...   
+        <!--ServiceRecord赋值r.fgRequired 后面会用到-->
+        r.fgRequired = fgRequired;
+        <!--添加后面回调StartItem-->
+        r.pendingStarts.add(new ServiceRecord.StartItem(r, false, r.makeNextStartId(),
+                service, neededGrants, callingUid));
 
+在AMS端startForegroundService跟普通startService区别， ServiceRecord的fgRequired被设置为true，同时也不会走后台检测的逻辑。
+ 
 如果已经是前台，不需要关心timeout，如果不是前台，需要关心timeout
  
-             if (r.fgRequired && !r.fgWaiting) {
+    private final void sendServiceArgsLocked(ServiceRecord r, boolean execInFg,
+            boolean oomAdjusted) throws TransactionTooLargeException {
+        ...
+        ArrayList<ServiceStartArgs> args = new ArrayList<>();
+        while (r.pendingStarts.size() > 0) {
+            ServiceRecord.StartItem si = r.pendingStarts.remove(0);
+            ...
+            if (r.fgRequired && !r.fgWaiting) {
                 if (!r.isForeground) {
+                <!--监听是否5S内startForeground-->
                     scheduleServiceForegroundTransitionTimeoutLocked(r);
-                } else {
-                    r.fgRequired = false;
-                }
-            }
-
+                } ...
+           try {
+            r.app.thread.scheduleServiceArgs(r, slice);
+        }
 
 如果5S内没有调用startForeground，APP会抛出如下Crash异常
 
-	    --------- beginning of crash
+	--------- beginning of crash
 	E/AndroidRuntime: FATAL EXCEPTION: main
 	    Process: com.snail.labaffinity, PID: 21513
 	    android.app.RemoteServiceException: Context.startForegroundService() did not then call Service.startForeground()
