@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "SAndroid O 后台startService限制简析"
+title: "Android O 后台startService限制简析"
 description: "Android"
 categories: [Android]
 
