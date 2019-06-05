@@ -1,0 +1,4 @@
+跨进程通信一般要自定义AIDL文件，然后通过Binder进行通信，稍微有些复杂，不过Android提供了一种Messenger可以不用定义AIDL
+
+
+原理：Messenger内部已经通过AIDL实现了
