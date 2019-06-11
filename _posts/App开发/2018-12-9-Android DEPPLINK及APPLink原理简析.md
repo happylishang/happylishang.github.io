@@ -535,9 +535,9 @@ AndroidAppAsset好像是Google的另一套assetlink类的东西，好像用在AP
 # 国内乱七八糟的浏览器（观察日期2019-6-11）
 
 
-* 360浏览器，可以通过iframe、<a>、<ref> 方式调用scheme，除了不支持https，其他都支持
-* UC浏览器可以通过iframe、<a>、<ref> 方式调用scheme（即便如此，也可能被屏蔽（域名）） ，无法通过https/intent 
-* QQ浏览器可以通过iframe、<a>、<ref> 、intent 方式调用scheme，（也可能被屏蔽（域名），目前看没屏蔽） ，但是无法通过https
+* 360浏览器，可以通过iframe、<a>、<ref> 方式调用scheme，除了不支持https/http，其他都支持
+* UC浏览器可以通过iframe、<a>、<ref> 方式调用scheme（即便如此，也可能被屏蔽（域名）） ，无法通过https/http/intent 
+* QQ浏览器可以通过iframe、<a>、<ref> 、intent 方式调用scheme，（也可能被屏蔽（域名），目前看没屏蔽） ，但是无法通过https/http
 
 # 总结
 
