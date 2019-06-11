@@ -507,7 +507,36 @@ AndroidAppAsset好像是Google的另一套assetlink类的东西，好像用在AP
     
 验证后再通过PackageManagerService持久化到设置信息，如此就完成了Applink验证流程。    
     
+# Chrome浏览器对于自定义scheme的拦截
 
+> A little known feature in Android lets you launch apps directly from a web page via an Android Intent. One scenario is launching an app when the user lands on a page, which you can achieve by embedding an iframe in the page with a custom URI-scheme set as the src, as follows:   <  iframe src="paulsawesomeapp://page1"> </iframe>. This works in the Chrome for Android browser, version 18 and earlier. It also works in the Android browser, of course.
+  
+> The functionality has changed slightly in Chrome for Android, versions 25 and later. It is no longer possible to launch an Android app by setting an iframe's src attribute. For example, navigating an iframe to a URI with a custom scheme such as paulsawesomeapp:// will not work even if the user has the appropriate app installed. Instead, you should implement a user gesture to launch the app via a custom scheme, or use the “intent:” syntax described in this article.
+
+
+也就是在chrome中不能通过iframe跳转自定义scheme唤起APP了，直接被block，如下图：
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-c83e86daeb44c505.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+但是通过window的ref仍然可以：
+
+
+	function clickAndroid1(){
+	       window.location.href="yaxxxuan://lab/u.xx.com";
+	}
+
+或者通过<a>
+
+	<a href="yanxuan://lab/u.you.com">测试</a>
+
+当然，如果自定义了https/http的也是可以的。总的来说Chrome除了Iframe，其他的好像都没问题。
+
+# 国内乱七八糟的浏览器（观察日期2019-6-11）
+
+
+* 360浏览器，可以通过iframe、<a>、<ref> 方式调用scheme，除了不支持https，其他都支持
+* UC浏览器可以通过iframe、<a>、<ref> 方式调用scheme（即便如此，也可能被屏蔽（域名）） ，无法通过https/intent 
+* QQ浏览器可以通过iframe、<a>、<ref> 、intent 方式调用scheme，（也可能被屏蔽（域名），目前看没屏蔽） ，但是无法通过https
 
 # 总结
 
