@@ -518,18 +518,19 @@ AndroidAppAsset好像是Google的另一套assetlink类的东西，好像用在AP
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-c83e86daeb44c505.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-但是通过window的ref仍然可以：
-
+但是仍然可以通过window.location.href唤起：
 
 	function clickAndroid1(){
 	       window.location.href="yaxxxuan://lab/u.xx.com";
 	}
 
-或者通过<a>
+或者通过<a>跳转标签唤起
 
 	<a href="yanxuan://lab/u.you.com">测试</a>
 
 当然，如果自定义了https/http的也是可以的。总的来说Chrome除了Iframe，其他的好像都没问题。
+
+	<a href="https://xxx.com/a/g">  https 跳转</a>
 
 # 国内乱七八糟的浏览器（观察日期2019-6-11）
 
