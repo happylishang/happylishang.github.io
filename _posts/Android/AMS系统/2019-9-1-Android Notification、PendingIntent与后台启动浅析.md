@@ -1,9 +1,4 @@
----
-layout: post
-title: "Android Notification、PendingIntent与后台启动浅析"
-description: "Android"
 
----
 
 
 Android O之后，很多后台启动的行为都开始受限，比如O的时候，不能后台启动Service，而在Android10之后，连Activity也加到了后台限制中。在[Android O 后台startService限制简析](https://www.jianshu.com/p/f2db0f58d47f)中，层分析Android O之后，后台限制启动Service的场景，一般而言，APP退到后台（比如按Home键），1分钟之后变为后台APP，虽然进程存活，但是已经不能通过startService启动服务，但是发送通知并不受限制，可以通过通知启动Service，这个时候，Service不会被当做后台启动，同样通过通知栏打开Activity也不受限制？ 为什么，直观来讲，通知已经属于用户感知的交互，本就不应该算到后台启动。本文先发对比之前的[Android O 后台startService限制简析](https://www.jianshu.com/p/f2db0f58d47f)，分析下Service，之后再看Activity在Android10中的限制
