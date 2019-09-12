@@ -411,6 +411,45 @@ hasActivityInVisibleTask 判断前台TASK栈是否有CallAPP的Activity
     
 只要是Task中的TOPActivity在展示，就判断CallAPP可见或者即将可见，TOPActivity不一定是CallAPP的，比如APP打开微信分享，如果直接上看APP是在后台，但是微信分享Activity没有单独开一Activity Task，那么CallAPP还是被看做前台，也就是他还可以启动Activity，在前后台的判断上，更像下沉到Task维度，而不是Activity维度。同Service不同，Activity严重依赖CallAPP的状态，而Service更关心被启动APP的状态。
 
+# Android10后台限制启动Activity的系统bug
+
+> 连续两次启动Activity，后台启动的限制会被打破
+
+    private boolean hasActivityInVisibleTask() {
+        for (int i = mActivities.size() - 1; i >= 0; --i) {
+            TaskRecord task = mActivities.get(i).getTaskRecord();
+            if (task == null) {
+                continue;
+            }
+            ActivityRecord topActivity = task.getTopActivity();
+            if (topActivity == null) {
+                continue;
+            }
+            <!--bug起源-->
+            // If an activity has just been started it will not yet be visible, but
+            // is expected to be soon. We treat this as if it were already visible.
+            // This ensures a subsequent activity can be started even before this one
+            // becomes visible.
+            if (topActivity.visible || topActivity.isState(INITIALIZING)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+
+如果应用位于后台，第一次启动Activity会被当做后台启动，但是ActiivityRecord仍然会被创建，同时State会被设置成INITIALIZING，并且位于当前将要启动Task的栈顶，
+
+	  ActivityRecord(ActivityTaskManagerService _service, WindowProcessController _caller,
+	            int _launchedFromPid, int _launchedFromUid, String _launchedFromPackage, Intent _intent,
+	           ...
+	        setState(INITIALIZING, "ActivityRecord ctor");
+	        
+
+那么如果在后台，再次通过startActivity启动，当前进程就会被认为是在前台，应用就会被拉起，**真是个奇葩bug**。因为满足如下条件。
+
+	 topActivity.isState(INITIALIZING)
+
 
 # PendingIntent启动Activity不受限制原理
 
@@ -425,3 +464,4 @@ hasActivityInVisibleTask 判断前台TASK栈是否有CallAPP的Activity
 
 * 通过通知启动Service不受后台限制的原因是存在可更新PendingTempWhitelist白名单
 * 后台启动Activity严重依赖CallAPP的状态，而Service更关心被启动APP的状态
+* 位于后台，连续多次startActivity就可以启动Activity，目前看是个系统bug
