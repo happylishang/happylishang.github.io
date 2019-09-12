@@ -452,6 +452,9 @@ hasActivityInVisibleTask 判断前台TASK栈是否有CallAPP的Activity
 
 这个时候，Activity就可以在后台被启动。
 
+# Android10后台限制启动Activity的并非完全不让启动，只是延迟，再次APP可见的时候，依旧可以把之前未启动的Activity唤起。
+
+
 # PendingIntent启动Activity不受限制原理
 
 
@@ -466,3 +469,4 @@ hasActivityInVisibleTask 判断前台TASK栈是否有CallAPP的Activity
 * 通过通知启动Service不受后台限制的原因是存在可更新PendingTempWhitelist白名单
 * 后台启动Activity严重依赖CallAPP的状态，而Service更关心被启动APP的状态
 * 位于后台，连续多次startActivity就可以启动Activity，目前看是个系统bug
+* Android10后台限制启动Activity的并非完全不让启动，只是延迟，再次APP可见的时候，依旧可以把之前未启动的Activity唤起。
