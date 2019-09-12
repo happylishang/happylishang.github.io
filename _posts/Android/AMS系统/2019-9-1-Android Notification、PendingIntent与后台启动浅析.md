@@ -450,6 +450,7 @@ hasActivityInVisibleTask 判断前台TASK栈是否有CallAPP的Activity
 
 	 topActivity.isState(INITIALIZING)
 
+这个时候，Activity就可以在后台被启动。
 
 # PendingIntent启动Activity不受限制原理
 
