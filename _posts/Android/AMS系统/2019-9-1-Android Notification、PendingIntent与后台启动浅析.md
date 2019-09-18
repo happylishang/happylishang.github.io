@@ -464,9 +464,108 @@ hasActivityInVisibleTask 判断前台TASK栈是否有CallAPP的Activity
 	
 系统进程不受限制，就是这么流弊。	
 
+
+# 通知启动Service，然后在Service中是允许启动Activity不受后台限制（奇葩）
+
+对于通过PendingIntent通知启动的APP，短时间内不算后台启动Activity
+
+![](https://user-gold-cdn.xitu.io/2019/9/17/16d3e7c1930e6546?w=1698&h=844&f=png&s=197928)
+
+从上面的注释就能看出来，如果是通过通知启动的，或者说如果是前台应用触发的sendInner，那么短时间内允许启动Activity，虽然是通过Service启动，但是如果是通知启动的Service，那么暂且算是看做应用位于前台，如下：
+
+
+![](https://user-gold-cdn.xitu.io/2019/9/18/16d444d966f4cacf?w=2558&h=1156&f=png&s=395624)
+
+先更新一个标识mHasStartedWhitelistingBgActivityStarts，就是是否允许Service后台启动Activity的标识，这里是设置为true，此刻进程可能还未启动，
+
+    // is this service currently whitelisted to start activities from background by providing
+    // allowBackgroundActivityStarts=true to startServiceLocked()?
+    private boolean mHasStartedWhitelistingBgActivityStarts;
+
+等到后面进程启动了在attach的时候会继续走Service的启动流程
+
+
+![](https://user-gold-cdn.xitu.io/2019/9/18/16d4452266656667?w=2326&h=1008&f=png&s=373821)
+
+这里因为mHasStartedWhitelistingBgActivityStarts被设置为true，
+
+
+![](https://user-gold-cdn.xitu.io/2019/9/18/16d4453bc9d37c75?w=2330&h=1022&f=png&s=439420)
+
+就会走setAllowBackgroundActivityStarts 将mAllowBackgroundActivityStarts设置为true
+
+    public void setAllowBackgroundActivityStarts(boolean allowBackgroundActivityStarts) {
+        mAllowBackgroundActivityStarts = allowBackgroundActivityStarts;
+    }
+
+这样在启动Activity时候，判断是否允许后台启动就直接返回true
+
+    boolean areBackgroundActivityStartsAllowed() {
+        // allow if the whitelisting flag was explicitly set
+        if (mAllowBackgroundActivityStarts) {
+            return true;
+        }
+
+这样就构建了允许后台启动Activity的场景，这个时限是10秒，10秒内启动Activity保证没问题。
+
+    // For how long after a whitelisted service's start its process can start a background activity
+    public long SERVICE_BG_ACTIVITY_START_TIMEOUT = DEFAULT_SERVICE_BG_ACTIVITY_START_TIMEOUT;
+    
+因为之前启动的时候，加了一个10s清理的监听回调
+
+       ams.mHandler.postDelayed(mStartedWhitelistingBgActivityStartsCleanUp,
+                ams.mConstants.SERVICE_BG_ACTIVITY_START_TIMEOUT);
+                
+ 到10s的时候回再次检查一下是否需要清理掉，但是并非一定清理掉。
+
+ 
+    /**
+     * Called when the service is started with allowBackgroundActivityStarts set. We whitelist
+     * it for background activity starts, setting up a callback to remove the whitelisting after a
+     * timeout. Note that the whitelisting persists for the process even if the service is
+     * subsequently stopped.
+     */
+    void whitelistBgActivityStartsOnServiceStart() {
+        setHasStartedWhitelistingBgActivityStarts(true);
+        if (app != null) {
+            mAppForStartedWhitelistingBgActivityStarts = app;
+        }
+
+        // This callback is stateless, so we create it once when we first need it.
+        if (mStartedWhitelistingBgActivityStartsCleanUp == null) {
+            mStartedWhitelistingBgActivityStartsCleanUp = () -> {
+                synchronized (ams) {
+                <!--如果Service进程存活，直接将start部分清理，但是bind部分需要再确认-->
+                    if (app == mAppForStartedWhitelistingBgActivityStarts) {
+                        // The process we whitelisted is still running the service. We remove
+                        // the started whitelisting, but it may still be whitelisted via bound
+                        // connections.
+                        setHasStartedWhitelistingBgActivityStarts(false);
+                    } else  if (mAppForStartedWhitelistingBgActivityStarts != null) {
+                    <!--如果进程死了，10s还没到，进程就挂了，那么直接全部干掉，不考虑ind-->
+                        // The process we whitelisted is not running the service. It therefore
+                        // can't be bound so we can unconditionally remove the whitelist.
+                        mAppForStartedWhitelistingBgActivityStarts
+                                .removeAllowBackgroundActivityStartsToken(ServiceRecord.this);
+                    }
+                    mAppForStartedWhitelistingBgActivityStarts = null;
+                }
+            };
+        }
+
+        // if there's a request pending from the past, drop it before scheduling a new one
+        ams.mHandler.removeCallbacks(mStartedWhitelistingBgActivityStartsCleanUp);
+        ams.mHandler.postDelayed(mStartedWhitelistingBgActivityStartsCleanUp,
+                ams.mConstants.SERVICE_BG_ACTIVITY_START_TIMEOUT);
+    }
+    
+ 
+    
+
 ## 总结
 
 * 通过通知启动Service不受后台限制的原因是存在可更新PendingTempWhitelist白名单
 * 后台启动Activity严重依赖CallAPP的状态，而Service更关心被启动APP的状态
 * 位于后台，连续多次startActivity就可以启动Activity，目前看是个系统bug
 * Android10后台限制启动Activity的并非完全不让启动，只是延迟，再次APP可见的时候，依旧可以把之前未启动的Activity唤起。
+* 通过通知启动Service，Service内部不10s内是允许后台启动Activity的，超过十秒就可能挂了
