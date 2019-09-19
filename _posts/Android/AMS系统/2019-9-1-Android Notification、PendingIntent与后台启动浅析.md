@@ -560,6 +560,45 @@ hasActivityInVisibleTask 判断前台TASK栈是否有CallAPP的Activity
     }
     
  
+不信可以再Service启动后，延迟10s再启动Activity，一定启动不起来。
+  
+  
+	public class BackGroundServiceStartActivity extends Service {
+	    @Nullable
+	    @Override
+	    public IBinder onBind(Intent intent) {
+	        return null;
+	    }
+	
+	    @Override
+	    public int onStartCommand(Intent intent, int flags, int startId) {
+	        return START_NOT_STICKY ;
+	    }
+	
+	    @Override
+	    public void onCreate() {
+	        super.onCreate();
+	        LogUtils.v("BackGroundService onCreate");
+	        new Handler().postDelayed(() -> {
+	            Intent intent=  new Intent( BackGroundServiceStartActivity.this, MainActivity.class) ;
+	            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+	            startActivity(intent);
+	        },11*1000);
+	
+	    }
+	    }
+	    
+  
+  以上代码再所属场景执行的话就会抛出如下异常
+  
+  
+	  2019-09-19 09:49:39.480 1944-29704/system_process W/ActivityTaskManager: Background activity start [callingPackage: 
+	  com.snail.labaffinity; callingUid: 10113; isCallingUidForeground: false; 
+	  isCallingUidPersistentSystemProcess: false; realCallingUid: 10113; 
+	  isRealCallingUidForeground: false; isRealCallingUidPersistentSystemProcess: false; 
+	  originatingPendingIntent: null; isBgStartWhitelisted: false; intent: Intent { flg=0x10000000 cmp=com.snail.labaffinity/.activity.MainActivity }; 
+	  callerApp: ProcessRecord{455b1f0 23493:com.snail.labaffinity/u0a113}]
+  
     
 
 ## 总结
