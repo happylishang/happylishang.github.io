@@ -124,3 +124,23 @@ SharePreference是Android中的一种数据存储方式，请问SharePreference�
 * binder优点：一次拷贝，快， 实现原理map，让内核空间与用户空间通过一个偏移直接映射到同一内存
 * 限制：传输数据量不能太大，太大会造成crash，减少数据传输大小就可以
 
+
+
+# 高级面试
+
+
+* Android OOM  
+* 内存泄露 结合场景分析  追踪用到的常用工具 ，最好结合实例
+* binder一次拷贝原理
+* 自己用过的性能分析工具，怎么用的
+* 后台杀死问题，Activity恢复顺序 考察AMS
+* 
+* BitMap导致OOM原理，JVM堆还是native堆，8.0之后的系统有什么改进
+* sleep() 和 wait()  Java中的锁：同步（获取锁，这个锁加在哪，归谁管理）
+* 
+* Handler、Looper、MessegeQueue消息模型
+* 如何获取APP的TopActivity
+* View Touch事件的分发
+* Crash的监测与捕获
+* 线程跟进程的区别
+* Java的强引用、软引用、弱引用 （LeakCary用那种实现的内存泄露检测）
