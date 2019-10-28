@@ -4,8 +4,6 @@
 
  
 
-
-
 SurfaceTexture 类是在 Android 3.0 中推出的。就像 SurfaceView 是 Surface 和 View 的组合一样，SurfaceTexture 是 Surface 和 GLES 纹理的粗略组合（包含几个注意事项）。
 
 当您创建 SurfaceTexture 时，会创建一个应用是其消耗方的 BufferQueue。如果生产方将新的缓冲区加入队列，您的应用便会通过回调 (onFrameAvailable()) 获得通知。应用调用 updateTexImage()（这会释放先前保留的缓冲区），从队列中获取新的缓冲区，然后发出一些 EGL 调用，让缓冲区可作为外部纹理供 GLES 使用。
@@ -39,9 +37,9 @@ SurfaceView 和 TextureView 扮演的角色类似，但是拥有截然不同的�
 案例研究：Grafika 的视频播放 (TextureView)
 Grafika 包括一对视频播放器，一个用 TextureView 实现，另一个用 SurfaceView 实现。对于这两个视频播放器来说，仅将帧从 MediaCodec 发送到 Surface 的视频解码部分是一样的。这两种实现之间最有趣的区别是呈现正确宽高比所需的步骤。
 
-SurfaceView 需要 FrameLayout 的自定义实现，而要重新调整 SurfaceTexture 的大小，只需使用 TextureView#setTransform() 配置转换矩阵即可。对于前者，您会通过 WindowManager 向 SurfaceFlinger 发送新的窗口位置和大小值；对于后者，您仅仅是在以不同的方式呈现它。
+SurfaceView 需要 FrameLayout 的自定义实现; 而要重新调整 SurfaceTexture 的大小，只需使用 TextureView#setTransform() 配置转换矩阵即可。对于前者，您会通过 WindowManager 向 SurfaceFlinger 发送新的窗口位置和大小值；对于后者，您仅仅是在以不同的方式呈现它。
 
-否则，两种实现均遵循相同的模式。创建 Surface 后，系统会启用播放。点击“播放”时，系统会启动视频解码线程，并将 Surface 作为输出目标。之后，应用代码不需要执行任何操作，SurfaceFlinger（适用于 SurfaceView）或 TextureView 会处理合成和显示。
+否则，两种实现均遵循相同的模式。创建Surface后，系统会启用播放。点击“播放”时，系统会启动视频解码线程，并将 Surface 作为输出目标。之后，应用代码不需要执行任何操作，SurfaceFlinger（适用于SurfaceView）或 TextureView 会处理合成和显示。
 
 案例研究：Grafika 的双重解码
 此操作组件演示了在 TextureView 中对 SurfaceTexture 的操控。
@@ -96,7 +94,7 @@ SurfaceTexture 最核心的是它有一个HardwareLayer，这个HardwareLayer到
 	    }
 	}
 
-如何通过SurfaceTure实现数据的流动
+如何通过SurfaceTexture实现数据的流动
 
 	static void android_hardware_Camera_setPreviewTexture(JNIEnv *env,
 	        jobject thiz, jobject jSurfaceTexture)
