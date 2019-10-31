@@ -420,12 +420,39 @@ pollInner	函数比较长，主要是通过利用epoll_wait监听上面的管道
 
 ![Looper Java层与native层关系4.3.jpg](http://upload-images.jianshu.io/upload_images/1460468-d0dffe1f772d3513.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
+## Android异步消息与栅栏 
+
+为了保证某些消息优先执行Android采用了一个栅栏机制。大概流程是，先发一个栅栏消息到消息队列，这个消息仅仅是为了占位，为队列后面的异步消息做哨兵，发送栅栏消息后，一般还会发送一个异步消息到消息队列，这个异步消息跟栅栏消息之间可能会有很多同步消息，如果按照正常的执行流程，一定是中间的同步消息先执行，但是如果存在栅栏，那就会先找到异步消息执行。
+
+![消息栅栏.jpg](https://upload-images.jianshu.io/upload_images/1460468-9126f81df30c593c.jpg?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+
+    Message next() {
+
+        for (;;) {
+            
+            synchronized (this) {
+                // Try to retrieve the next message.  Return if found.
+                final long now = SystemClock.uptimeMillis();
+                Message prevMsg = null;
+                Message msg = mMessages;
+                if (msg != null && msg.target == null) {
+                <!--关键点 如果存在栅栏，则找到第一个异步消息执行-->
+                    // Stalled by a barrier.  Find the next asynchronous message in the queue.
+                    do {
+                        prevMsg = msg;
+                        msg = msg.next;
+                    } while (msg != null && !msg.isAsynchronous());
+                }
+
+如上面代码所示，如果找到一个barrier，则找到一个异步消息执行，一般这个异步消息执行时会将这个同步栅栏移除，这样就能接着执行其他消息了。
 
 # 小结
 
 * loop线程睡眠的原理 ：在MessageQueue中找到下一个需要执行的消息，没有消息的话，需要无限睡眠等待其他线程插入消息唤醒，如果有消息，计算出执行下一个消息需要等待的时间，阻塞等待，直到超时。
 * Java层与Native层两份消息队列：Java层的主要是为了业务逻辑，native层，主要为了睡眠与唤醒
 * 睡眠与唤醒的实现手段：早期版本通过管道，后来如6.0、7.0的版本，是通过eventfd来实现，思想一致。
+* 存在一个栅栏机制，保证栅栏后第一个异步消息有限执行，但是对于栅栏之前的消息没影响。
 
 作者：看书的小蜗牛
 原文链接:
