@@ -1,3 +1,11 @@
+---
+layout: post
+title: "Android  混合开发之JsBridge"
+description: "Android"
+categories: [Android]
+
+---
+
 电商或者内容类APP中，H5通常都会占据一席之地,Native跟H5通信会必不可少，比如某些场景H5通知native去分享，native通知H5局部刷新等，Android本身也提供这样的接口，比如addJavascriptInterface、loadUrl("javascript:..."），而需要支持的能力也要是双工的。
 
 * 1：H5通知Native(**可能需要处理回调**)，
