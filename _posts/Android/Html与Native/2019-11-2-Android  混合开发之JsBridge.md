@@ -104,5 +104,5 @@ WebView的addJavascriptInterface方法允许Natvive向Web页面注入Java对象�
 
 * 最好通过前端注入，这样就可以避免注入失败与注入时机不好把握的问题
 * 建议采用WebView.addJavascriptInterface实现，可以避免prompt挂掉js环境的问题
-* 通过@JavascriptInterface的方法尽量不要同步处理耗时操作
+* 通过@JavascriptInterface的方法中不要同步处理耗时操作，可能有些返回值的需要阻塞调用（尽量减少）
 * 如果非要用prompt，尽量不要自己destroy webview，很容导致js环境挂了，所有webview打不开网页
