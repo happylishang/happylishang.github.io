@@ -34,7 +34,7 @@
 * libentryexpro.so  60k
 * libgifimage.so  48k 
 * lib37CF018B.so   41k
-* libmmkv.so        30k
+* libmmkv.so        30k
 
 > assets资源（已经是压缩后）5.2M
 
@@ -66,10 +66,9 @@ raw文件是一些原始的 如推送声音等文件，除非压缩原资源，�
 
 > 代码：9.5
  
-也是伴随第三方sdk及业务增加而增加。
+ 伴随业务及第三方sdk增加而增加。
 
  ![image.png](https://upload-images.jianshu.io/upload_images/1460468-881f4fad351b6cd2.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
 
 
 ## 优化手段
@@ -81,4 +80,5 @@ raw文件是一些原始的 如推送声音等文件，除非压缩原资源，�
 *  so库 v7 +压缩  已经是这么处理的
 *  图片压缩 已经做了处理
  
-**优化后缩减 1.1M**
+**优化后缩减 1.1M**，以后导入新图的时候放弃2X图，也可以减小包增长速度。
+
