@@ -7,6 +7,12 @@
 	Warning: com.cmic.sso.sdk.d.b: can't find referenced method 'int startUsingNetworkFeature(int,java.lang.String)' in library class android.net.ConnectivityManager
 	Warning: com.netease.nis.quick_pass_libary.utils.HttpUtil: can't find referenced method 'boolean requestRouteToHost(int,int)' in library class android.net.ConnectivityManager
 
+
+### 解决方案
+
+	-dontwarn okhttp3.internal.platform.ConscryptPlatform
+
+
 全屏幕 Translucent类的Activity不要设置方向
 
 targetsdk 之前是22 ，
