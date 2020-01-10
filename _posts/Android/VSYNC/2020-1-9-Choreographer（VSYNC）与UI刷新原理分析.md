@@ -1,8 +1,18 @@
-一般来说动画至少要24FPS，才能保证画面的流畅性，太低，肉眼就能明显感觉到卡顿。在手机上，这个值被调整到60FPS，增加丝滑度，这也是为什么有个（1000/60）16ms的指标，一般而言目前的Android系统最高FPS也就是60，这是因为Android采用了一个VSYNC来保证没16ms最多绘制一帧，简而言之：UI必须至少等待16ms的间隔才会绘制下一帧。先看一下UI数据改变与重绘流程。
+---
+layout: post
+title: "Choreographer（VSYNC）与UI刷新原理分析"
+category: Android
+
+
+---
+
+从UI控件内容更改到被重新绘制到屏幕上，这中间到底经历了什么？另外，连续两次setTextView到底会触发几次UI重绘呢？为什么Android APP的帧率最高是60FPS呢，这就是本文要讨论的内容。
+
+以电影为例，动画至少要达到24FPS，才能保证画面的流畅性，低于这个值，肉眼会感觉到卡顿。在手机上，这个值被调整到60FPS，增加丝滑度，这也是为什么有个（1000/60）16ms的指标，一般而言目前的Android系统最高FPS也就是60，它是通过了一个VSYNC来保证每16ms最多绘制一帧。简而言之：**UI必须至少等待16ms的间隔才会绘制下一帧**，所以连续两次setTextView只会触发一次重绘。下面来具体看一下UI的重绘流程。
 
 ### UI刷新流程示意
 
-以Textview ，当我们通过setText改变TextView内容后，UI界面不会立刻改变，APP端会先向VSYNC服务请求，等到下一次VSYNC信号触发后，APP端的UI才真的开始刷新，基本流程如下
+以Textview为例 ，当我们通过setText改变TextView内容后，UI界面不会立刻改变，APP端会先向VSYNC服务请求，等到下一次VSYNC信号触发后，APP端的UI才真的开始刷新，基本流程如下
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-311b22120397333b.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
@@ -237,57 +247,12 @@ doTraversal会先将栅栏移除，然后处理performTraversals，进行测量�
    
 **注： VSYNC同步信号需要用户主动去请求才会收到，并且是单次有效。**
 
-
-
-### 软件绘制
-
-设置了软件的话，就是软件绘制 Canvas是普通Canvas
-
-    @NonNull
-    public RenderNode updateDisplayListIfDirty() {
-    			<!--封装成硬件加速的drawBitmap-->
-            try {
-                if (layerType == LAYER_TYPE_SOFTWARE) {
-                    buildDrawingCache(true);
-                    Bitmap cache = getDrawingCache(true);
-                    if (cache != null) {
-                        canvas.drawBitmap(cache, 0, 0, mLayerPaint);
-                    }
-                } 
-                
- 构建普通Canvas
- 
-    private void buildDrawingCacheImpl(boolean autoScale) {       
-           。。。
-      Canvas canvas;
-        if (attachInfo != null) {
-            canvas = attachInfo.mCanvas;
-            if (canvas == null) {
-                canvas = new Canvas();
-            }
-            canvas.setBitmap(bitmap);
-        } else {
-            canvas = new Canvas(bitmap);
-        }
-
-       ...
-        } else {
-            draw(canvas);
-        }
-
-        canvas.restoreToCount(restoreCount);
-        canvas.setBitmap(null);
-
-        if (attachInfo != null) {
-            // Restore the cached Canvas for our siblings
-            attachInfo.mCanvas = canvas;
-        }
-    }
-    
     
 ### UI局部重绘
 
-某一个View重绘刷新，并不会导致所有View都进行一次measure、layout、draw，可能只是这个待刷新View链路需要调整，那么剩余的View就不需要浪费精力再来一遍，反应再APP侧就是：**不需要再次调用updateDisplayListIfDirty构建RenderNode渲染Op树**
+某一个View重绘刷新，并不会导致所有View都进行一次measure、layout、draw，只是这个待刷新View链路需要调整，剩余的View可能不需要浪费精力再来一遍，反应再APP侧就是：**不需要再次调用所有ViewupdateDisplayListIfDirty构建RenderNode渲染Op树**，如下
+
+> View.java
 
 	    public RenderNode updateDisplayListIfDirty() {
 	        final RenderNode renderNode = mRenderNode;
@@ -304,75 +269,11 @@ doTraversal会先将栅栏移除，然后处理performTraversals，进行测量�
 	        return renderNode;
 	    }
 
-    
-### Touch事件原理
+# 总结
 
-* Down事件 直接处理
-* Move事件 对于大多数Move事件，结合绘制过程处理，当应用收到Vsync时，处理一批Move事件（Move事件之间的间隔通常小于16ms）
-* Up事件 直接处理
+* android最高60FPS，是VSYNC及决定的，每16ms最多一帧
+* VSYNC要客户端主动申请，才会有
+* 有VSYNC到来才会刷新
+* UI没更改，不会请求VSYNC也就不会刷新
+* UI局部重绘其实只是省去了再次构建硬件加速用的DrawOp树（复用上衣帧的）
 
-
-有几个触发要区分清楚
-
-* Input输入
-* VSYNC输入
-* INVALID消息输入
-* Chorgrapher自己的几个MessageQueue
-
-流程：
-
-* 1 invalide需要重绘或者Input输入存在
-* 2 去异步（oneway）请求VSYNC同步信号
-* 3 VSYNC信号到来，重绘
-
-也就是说垂直同步信号 是需要Client主动去请求的，否则VSYNC不会被通知到Client
-
-垂直同步跟UI更新，跟消息处理、动画更新是两个完全不同的东西，前者属于引擎，后者属于业务
-
-# 对此requestLayout跟invalid都不会重复调用布局测绘
-
-    <ProgressBar
-        android:id="@+id/progress_bar"
-        android:layout_width="30dp"
-        android:layout_height="30dp"
-        android:layout_centerInParent="true"/>
-        
-输入DisplayEventReceiver   WindowInputEventReceiver    ConsumeBatchedInputRunnable 
-
-![image.png](https://upload-images.jianshu.io/upload_images/1460468-e6173e52c5e28102.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-![image.png](https://upload-images.jianshu.io/upload_images/1460468-59db43c5821639d6.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-https://digitalassetlinks.googleapis.com/v1/statements:list?
-   source.web.site=https://you.163.com
-   relation=delegate_permission/common.handle_all_urls
-
-
-	
-	status_t NativeDisplayEventReceiver::scheduleVsync() {
-	    if (!mWaitingForVsync) {
-	        ALOGV("receiver %p ~ Scheduling vsync.", this);
-	
-	        // Drain all pending events.
-	        nsecs_t vsyncTimestamp;
-	        int32_t vsyncDisplayId;
-	        uint32_t vsyncCount;
-	        processPendingEvents(&vsyncTimestamp, &vsyncDisplayId, &vsyncCount);
-	
-	        status_t status = mReceiver.requestNextVsync();
-	        if (status) {
-	            ALOGW("Failed to request next vsync, status=%d", status);
-	            return status;
-	        }
-	
-	        mWaitingForVsync = true;
-	    }
-	    return OK;
-	}
-	
-不会同时请求两个vsync信号
-
-
-#  参考文档
-
-[Android应用处理MotionEvent的过程](https://www.jianshu.com/p/c2e26c6d4ac1)  
