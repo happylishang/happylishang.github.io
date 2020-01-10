@@ -1,21 +1,32 @@
-### View invalidate重绘流程
+一般来说动画至少要24FPS，才能保证画面的流畅性，太低，肉眼就能明显感觉到卡顿。在手机上，这个值被调整到60FPS，增加丝滑度，这也是为什么有个（1000/60）16ms的指标，一般而言目前的Android系统最高FPS也就是60，这是因为Android采用了一个VSYNC来保证没16ms最多绘制一帧，简而言之：UI必须至少等待16ms的间隔才会绘制下一帧。先看一下UI数据改变与重绘流程。
+
+### UI刷新流程示意
+
+以Textview ，当我们通过setText改变TextView内容后，UI界面不会立刻改变，APP端会先向VSYNC服务请求，等到下一次VSYNC信号触发后，APP端的UI才真的开始刷新，基本流程如下
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-311b22120397333b.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+从我们的代码端来看如下：setText最终调用invalidate申请重绘，最后会通过ViewParent递归到ViewRootImpl的invalidate，请求VSYNC，在请求VSYNC的时候，会添加一个同步栅栏，防止UI线程中同步消息执行，这样做为了加快VSYNC的响应速度，如果不设置，VSYNC到来的时候，正在执行一个同步消息，那么UI更新的Task就会被延迟执行，这是Android的Looper跟MessageQueue决定的。
 
 > APP端触发重绘，申请VSYNC流程示意
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-f76ea4cbb9a990ba.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
+等到VSYNC到来后，会移除同步栅栏，并率先开始执行当前帧的处理，调用逻辑如下
+
 > VSYNC回来流程示意
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-050895f38f6527e3.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-> doFrame执行示意图
+> doFrame执行UI绘制的示意图
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-4aab950bb9d74094.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
+### UI刷新源码跟踪
 
+同TextView类似，View内容改变一般都会调用invalidate触发视图重绘，这中间经历了什么呢？View会递归的调用父容器的invalidateChild，逐级回溯，最终走到ViewRootImpl的invalidate，如下：
 
-View内容改变时一般会调用invalidate去触发视图的重绘，从invalidate到UI视图被重绘中间经历了什么呢？假如View调用了invalidate函数，View会递归的调用父容器的invalidateChild，逐级回溯
-
+> View.java
 	
 	 void invalidateInternal(int l, int t, int r, int b, boolean invalidateCache,
 	            boolean fullInvalidate) {
@@ -28,8 +39,7 @@ View内容改变时一般会调用invalidate去触发视图的重绘，从invali
 	                p.invalidateChild(this, damage);
 	            }
             
-
-scheduleTraversals是重绘的入口
+> ViewRootImpl.java
 
     void invalidate() {
         mDirty.set(0, 0, mWidth, mHeight);
@@ -37,11 +47,14 @@ scheduleTraversals是重绘的入口
             scheduleTraversals();
         }
     }
+
+
+ ViewRootImpl会调用scheduleTraversals准备重绘，但是，重绘一般不会立即执行，而是往Choreographer的Choreographer.CALLBACK_TRAVERSAL队列中添加了一个mTraversalRunnable，同时申请VSYNC，这个mTraversalRunnable要一直等到申请的VSYNC到来后才会被执行，如下：
  
-scheduleTraversals利用mTraversalScheduled保证，在当前的mTraversalRunnable未被执行前，不会再有新的mTraversalRunnable生效，也就是Choreographer.CALLBACK_TRAVERSAL只有一个mTraversalRunnable，
-    
-    // 这里是加入到下次垂直同步信号到来的等待callback中去，等待调用，然后遍历
-    // mTraversalScheduled用来保证本次Traversals未执行前，不会要求遍历两边，浪费16ms内，不需要绘制两次
+ > ViewRootImpl.java
+  
+     // 将UI绘制的mTraversalRunnable加入到下次垂直同步信号到来的等待callback中去
+     // mTraversalScheduled用来保证本次Traversals未执行前，不会要求遍历两边，浪费16ms内，不需要绘制两次
     void scheduleTraversals() {
         if (!mTraversalScheduled) {
             mTraversalScheduled = true;
@@ -50,7 +63,7 @@ scheduleTraversals利用mTraversalScheduled保证，在当前的mTraversalRunnab
             // postCallback的时候，顺便请求vnsc垂直同步信号scheduleVsyncLocked
             mChoreographer.postCallback(
                     Choreographer.CALLBACK_TRAVERSAL, mTraversalRunnable, null);
-             <!--为什么要添加一个处理触摸事件的回调呢-->
+             <!--添加一个处理触摸事件的回调，防止中间有Touch事件过来-->
             if (!mUnbufferedInputDispatch) {
                 scheduleConsumeBatchedInput();
             }
@@ -59,8 +72,24 @@ scheduleTraversals利用mTraversalScheduled保证，在当前的mTraversalRunnab
         }
     }
 
-mChoreographer.postCallback在插入CallBack的时候，一般会调用scheduleFrameLocked请求Vsync同步信号
- 
+> Choreographer.java
+
+    private void postCallbackDelayedInternal(int callbackType,
+            Object action, Object token, long delayMillis) {
+            
+        synchronized (mLock) {
+            final long now = SystemClock.uptimeMillis();
+            final long dueTime = now + delayMillis;
+            mCallbackQueues[callbackType].addCallbackLocked(dueTime, action, token);
+
+            if (dueTime <= now) {
+            <!--申请VSYNC同步信号-->
+                scheduleFrameLocked(now);
+            } 
+        }
+    }
+
+scheduleTraversals利用mTraversalScheduled保证，在当前的mTraversalRunnable未被执行前，scheduleTraversals不会再被有效调用，也就是Choreographer.CALLBACK_TRAVERSAL理论上应该只有一个mTraversalRunnable的Task。mChoreographer.postCallback将mTraversalRunnable插入到CallBack之后，会接着调用scheduleFrameLocked请求Vsync同步信号
  
     // mFrameScheduled保证16ms内，只会申请一次垂直同步信号
     // scheduleFrameLocked可以被调用多次，但是mFrameScheduled保证下一个vsync到来之前，不会有新的请求发出
@@ -69,13 +98,7 @@ mChoreographer.postCallback在插入CallBack的时候，一般会调用scheduleF
         if (!mFrameScheduled) {
             mFrameScheduled = true;
             if (USE_VSYNC) {
-                if (DEBUG_FRAMES) {
-                    Log.d(TAG, "Scheduling next frame on vsync.");
-                }
-
-                // If running on the Looper thread, then schedule the vsync immediately,
-                // otherwise post a message to schedule the vsync from the UI thread
-                // as soon as possible.
+            
                 if (isRunningOnLooperThreadLocked()) {
                     scheduleVsyncLocked();
                 } else {
@@ -87,8 +110,9 @@ mChoreographer.postCallback在插入CallBack的时候，一般会调用scheduleF
             }  
         }
     }
-利用mFrameScheduled保证，在一个VSYNC到来之前，不会再去请求新的VSYNC，因为没用。VSYNC到来之后，利用Handler将FrameDisplayEventReceiver封装成一个异步Message，发送到MessageQueue，	
-	
+    
+scheduleFrameLocked跟上一个scheduleTraversals类似，也采用了利用mFrameScheduled来保证：在当前申请的VSYNC到来之前，不会再去请求新的VSYNC，因为16ms内申请两个VSYNC没意义。再VSYNC到来之后，Choreographer利用Handler将FrameDisplayEventReceiver封装成一个**异步**Message，发送到UI线程的MessageQueue，
+
 	  private final class FrameDisplayEventReceiver extends DisplayEventReceiver
 	            implements Runnable {
 	        private boolean mHavePendingVsync;
@@ -130,8 +154,7 @@ mChoreographer.postCallback在插入CallBack的时候，一般会调用scheduleF
 	            doFrame(mTimestampNanos, mFrame);
 	        }
 	    }
-	    
-最终调用doFrame进行刷新
+之所以封装成**异步Message**，是因为前面添加了一个同步栅栏，同步消息不会被执行。UI线程被唤起，取出该消息，最终调用doFrame进行UI刷新重绘
 
     void doFrame(long frameTimeNanos, int frame) {
         final long startNanos;
@@ -189,7 +212,7 @@ mChoreographer.postCallback在插入CallBack的时候，一般会调用scheduleF
         }
     }
     
-doFrame利用mFrameScheduled保证，每次VSYNC中，只执行一次doFrame，为了16ms只执行一次重绘，加了好多次层保障，doFrame在处理Choreographer.CALLBACK_TRAVERSAL的回调时（mTraversalRunnable），会真正的开始View重绘：
+doFrame也采用了一个boolean遍历mFrameScheduled保证每次VSYNC中，只执行一次，可以看到，为了保证16ms只执行一次重绘，加了好多次层保障。doFrame里除了UI重绘，其实还处理了很多其他的事，比如检测VSYNC被延迟多久执行，掉了多少帧，处理Touch事件（一般是MOVE），处理动画，以及UI，当doFrame在处理Choreographer.CALLBACK_TRAVERSAL的回调时（mTraversalRunnable），才是真正的开始处理View重绘：
   
       final class TraversalRunnable implements Runnable {
         @Override
@@ -198,8 +221,8 @@ doFrame利用mFrameScheduled保证，每次VSYNC中，只执行一次doFrame，�
         }
     }
     
- 调用doTraversal进行遍历，
-  
+ 回到ViewRootImpl调用doTraversal进行View树遍历，
+ 
     // 这里是真正执行了，
     void doTraversal() {
         if (mTraversalScheduled) {
@@ -210,52 +233,78 @@ doFrame利用mFrameScheduled保证，每次VSYNC中，只执行一次doFrame，�
         }
     }
   
-doTraversal会先将栅栏移除，然后处理performTraversals，进行测量、布局、绘制，在这个期间，是可以再次触发invalidate，不过，那是下面一个信号要做的事情了，这样就完成一次重绘。
+doTraversal会先将栅栏移除，然后处理performTraversals，进行测量、布局、绘制，提交当前帧给SurfaceFlinger进行图层合成显示。以上多个boolean变量保证了每16ms最多执行一次UI重绘，这也是目前Android存在60FPS上限的原因。
+   
+**注： VSYNC同步信号需要用户主动去请求才会收到，并且是单次有效。**
 
-为什么在
-触发-等待VSYNC到来-重绘，每次重绘触发的时候，顺带处理下touch事件，touch跟view重绘可能是两个独立的线路，但是Touch的优先级更高
 
-    Runnable runnable = new Runnable() {
-        @Override
-        public void run() {
-            first.setText("" + System.currentTimeMillis());
-            handler.postDelayed(this, 1000 * 10);
 
+### 软件绘制
+
+设置了软件的话，就是软件绘制 Canvas是普通Canvas
+
+    @NonNull
+    public RenderNode updateDisplayListIfDirty() {
+    			<!--封装成硬件加速的drawBitmap-->
+            try {
+                if (layerType == LAYER_TYPE_SOFTWARE) {
+                    buildDrawingCache(true);
+                    Bitmap cache = getDrawingCache(true);
+                    if (cache != null) {
+                        canvas.drawBitmap(cache, 0, 0, mLayerPaint);
+                    }
+                } 
+                
+ 构建普通Canvas
+ 
+    private void buildDrawingCacheImpl(boolean autoScale) {       
+           。。。
+      Canvas canvas;
+        if (attachInfo != null) {
+            canvas = attachInfo.mCanvas;
+            if (canvas == null) {
+                canvas = new Canvas();
+            }
+            canvas.setBitmap(bitmap);
+        } else {
+            canvas = new Canvas(bitmap);
         }
-    };
+
+       ...
+        } else {
+            draw(canvas);
+        }
+
+        canvas.restoreToCount(restoreCount);
+        canvas.setBitmap(null);
+
+        if (attachInfo != null) {
+            // Restore the cached Canvas for our siblings
+            attachInfo.mCanvas = canvas;
+        }
+    }
     
- 另一边，有触摸事件
-  
-  
     
-**最主要的一点：VSYNC同步信号需要用户主动去请求才会接受到，并且是单次有效。**
+### UI局部重绘
 
-### 局部重绘原理
+某一个View重绘刷新，并不会导致所有View都进行一次measure、layout、draw，可能只是这个待刷新View链路需要调整，那么剩余的View就不需要浪费精力再来一遍，反应再APP侧就是：**不需要再次调用updateDisplayListIfDirty构建RenderNode渲染Op树**
 
-应该是UI线程有局部重绘的概念，但是Surface还是全局刷新？？？只是某些DrawOp复用原来的
-
-	 @NonNull
 	    public RenderNode updateDisplayListIfDirty() {
 	        final RenderNode renderNode = mRenderNode;
-	        if (!canHaveDisplayList()) {
-	            // can't populate RenderNode, don't try
-	            return renderNode;
-	        }
-	
+			  ...
 	        if ((mPrivateFlags & PFLAG_DRAWING_CACHE_VALID) == 0
 	                || !renderNode.isValid()
 	                || (mRecreateDisplayList)) {
-	            // Don't need to recreate the display list, just need to tell our
-	            // children to restore/recreate theirs
-	            if (renderNode.isValid()
-	                    && !mRecreateDisplayList) {
-	                mPrivateFlags |= PFLAG_DRAWN | PFLAG_DRAWING_CACHE_VALID;
-	                mPrivateFlags &= ~PFLAG_DIRTY_MASK;
-	                dispatchGetDisplayList();
-	                return renderNode; // no work needed
-	            }
-	            
+	           <!--失效了，需要重绘-->
+	        } else {
+	        <!--依旧有效，无需重绘-->
+	            mPrivateFlags |= PFLAG_DRAWN | PFLAG_DRAWING_CACHE_VALID;
+	            mPrivateFlags &= ~PFLAG_DIRTY_MASK;
+	        }
+	        return renderNode;
+	    }
 
+    
 ### Touch事件原理
 
 * Down事件 直接处理
@@ -288,7 +337,7 @@ doTraversal会先将栅栏移除，然后处理performTraversals，进行测量�
         android:layout_height="30dp"
         android:layout_centerInParent="true"/>
         
-输入DisplayEventReceiver       WindowInputEventReceiver    ConsumeBatchedInputRunnable 
+输入DisplayEventReceiver   WindowInputEventReceiver    ConsumeBatchedInputRunnable 
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-e6173e52c5e28102.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
