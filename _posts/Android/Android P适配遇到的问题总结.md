@@ -1,7 +1,7 @@
 # 升级targetAPI与minskd长遇到的问题，
 
-
-查找：Warning: okio.DeflaterSink: can't find referenced class  打包问题时候
+关键方法  查找log中 can't find referenced，看看那些低端API需要过滤 ignorWaring
+查找：Warning: okio.DeflaterSink: can't find referenced    打包问题时候
 
 	Warning: com.cmic.sso.sdk.d.b: can't find referenced method 'boolean requestRouteToHost(int,int)' in library class android.net.ConnectivityManager
 	Warning: com.cmic.sso.sdk.d.b: can't find referenced method 'int startUsingNetworkFeature(int,java.lang.String)' in library class android.net.ConnectivityManager
