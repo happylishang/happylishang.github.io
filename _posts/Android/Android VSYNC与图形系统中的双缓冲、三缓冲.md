@@ -29,7 +29,6 @@ acquireFence会释放之前的Buffer，但是同时会抓住当前buffer
 	    Mutex::Autolock lock(mMutex);
 	
 	    if (mAbandoned) {
-	        BLC_LOGE("updateTexImage: BufferLayerConsumer is abandoned!");
 	        return NO_INIT;
 	    }
 	
