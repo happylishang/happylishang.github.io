@@ -2,6 +2,7 @@
 
 VSYNC：刷新频率同步与不同步
 
+# GPU占用buffer
 
 ### 双缓冲显示
 
@@ -203,7 +204,6 @@ acquireFence会释放之前的Buffer，但是同时会抓住当前buffer
 	    BQ_LOGV("setDefaultMaxBufferCount: setting count to %d", count);
 	    mDefaultMaxBufferCount = count;
 	    mDequeueCondition.broadcast();
-	
 	    return NO_ERROR;
 	}
 
