@@ -1,26 +1,26 @@
 双缓冲是一条链路，不是某一个环节，是整个系统采用的一个机制，需要各个环节的支持，从APP到SurfaceFlinger、到图像显示都要参与协作。
 
-VSYNC：刷新频率同步与不同步
+* 为什么VSYNC：刷新频率同步与不同步
+* 为什么双缓冲
+* 为什么三缓冲
 
-# GPU占用buffer
+
+
 
 ### 双缓冲显示
 
-这里存疑？
-
-* 每次屏幕刷新，SurfaceFlinger都要重新合成，所以，无论何种时间，Surface必须要为SF保留一个用于显示的Buffer，
+ 
+* 每次屏幕刷新，SurfaceFlinger都要重新合成，所以，无论何种时间，Surface必须要为SF保留一个用于显示的Buffer 
 * 16ms根据内存内容刷新一次屏幕，点亮一屏幕led，等下一个vsync到来，再点亮一次，data与屏幕是分离的的
-* 使用双缓冲是因为：一个存储区不适合同时写跟读，可能出问题
+* 使用双缓冲是因为：一个存储区不适合同时写跟读，可能用更新一半的时候就被用了
+ 
+**updateAndReleaseLocked会释放之前的Buffer，但是同时会抓住当前buffer**
 
-releaseBuffer猜想，SF，只有存在一个备份buffer的时候，才会releaseBuffer????
 
-
-acquireFence会释放之前的Buffer，但是同时会抓住当前buffer
-
- mSurfaceFlingerConsumer->setReleaseFence(layer->getAndResetReleaseFence());
+mSurfaceFlingerConsumer->setReleaseFence(layer->getAndResetReleaseFence());
 上面主要是针对Overlay的层，那对于GPU绘制的层呢？在收到INVALIDATE消息时，SurfaceFlinger会依次调用handleMessageInvalidate()->handlePageFlip()->Layer::latchBuffer()->SurfaceFlingerConsumer::updateTexImage() ，其中会调用该层对应Consumer的GLConsumer::updateAndReleaseLocked() 函数。该函数会释放老的GraphicBuffer，释放前会通过syncForReleaseLocked()函数插入releaseFence，代表如果触发时该GraphicBuffer消费者已经使用完毕。然后调用releaseBufferLocked()还给BufferQueue
  
-#  这里才是双缓冲与三缓冲的关键
+# 采用双缓冲与三缓冲的关键
 	 
 	status_t BufferLayerConsumer::updateTexImage(BufferRejecter* rejecter, nsecs_t expectedPresentTime,
 	                                             bool* autoRefresh, bool* queuedBuffer,
@@ -38,6 +38,7 @@ acquireFence会释放之前的Buffer，但是同时会抓住当前buffer
 	    // Acquire the next buffer.
 	    // In asynchronous mode the list is guaranteed to be one buffer
 	    // deep, while in synchronous mode we use the oldest buffer.
+ 
 	    status_t err = acquireBufferLocked(&item, expectedPresentTime, maxFrameNumber);
 	    if (err != NO_ERROR) {
 	        if (err == BufferQueue::NO_BUFFER_AVAILABLE) {
@@ -87,7 +88,7 @@ acquireFence会释放之前的Buffer，但是同时会抓住当前buffer
 	    return err;
 	}
 
- mCurrentTextureBuffer = nextTextureBuffer
+ mCurrentTextureBuffer = nextTextureBuffer 更新机制
 
 	status_t BufferLayerConsumer::updateAndReleaseLocked(const BufferItem& item,
 	                                                     PendingRelease* pendingRelease) {
@@ -152,13 +153,65 @@ acquireFence会释放之前的Buffer，但是同时会抓住当前buffer
 	
 
 
+	status_t GLConsumer::bindTextureImageLocked() {
+	    if (mEglDisplay == EGL_NO_DISPLAY) {
+	        ALOGE("bindTextureImage: invalid display");
+	        return INVALID_OPERATION;
+	    }
+	
+	    GLenum error;
+	    while ((error = glGetError()) != GL_NO_ERROR) {
+	        GLC_LOGW("bindTextureImage: clearing GL error: %#04x", error);
+	    }
+	
+	    glBindTexture(mTexTarget, mTexName);
+	    if (mCurrentTexture == BufferQueue::INVALID_BUFFER_SLOT &&
+	            mCurrentTextureImage == nullptr) {
+	        GLC_LOGE("bindTextureImage: no currently-bound texture");
+	        return NO_INIT;
+	    }
+	
+	    status_t err = mCurrentTextureImage->createIfNeeded(mEglDisplay);
+	    if (err != NO_ERROR) {
+	        GLC_LOGW("bindTextureImage: can't create image on display=%p slot=%d",
+	                mEglDisplay, mCurrentTexture);
+	        return UNKNOWN_ERROR;
+	    }
+	    mCurrentTextureImage->bindToTextureTarget(mTexTarget);
+	
+	    // In the rare case that the display is terminated and then initialized
+	    // again, we can't detect that the display changed (it didn't), but the
+	    // image is invalid. In this case, repeat the exact same steps while
+	    // forcing the creation of a new image.
+	    if ((error = glGetError()) != GL_NO_ERROR) {
+	        glBindTexture(mTexTarget, mTexName);
+	        status_t result = mCurrentTextureImage->createIfNeeded(mEglDisplay, true);
+	        if (result != NO_ERROR) {
+	            GLC_LOGW("bindTextureImage: can't create image on display=%p slot=%d",
+	                    mEglDisplay, mCurrentTexture);
+	            return UNKNOWN_ERROR;
+	        }
+	        mCurrentTextureImage->bindToTextureTarget(mTexTarget);
+	        if ((error = glGetError()) != GL_NO_ERROR) {
+	            GLC_LOGE("bindTextureImage: error binding external image: %#04x", error);
+	            return UNKNOWN_ERROR;
+	        }
+	    }
+	
+	    // Wait for the new buffer to be ready.
+	    return doGLFenceWaitLocked();
+	}
+	
+	
+
+
 
 注意，注意只有swapBuffer触发后，SF去acquireBuffer会用，使用的时候通过acquireFence的时候发现用不了，就不能release
 
 才会让前一个Buffer被释放，如果不存在swapBuffer，那么前一个Buffer就会被SF一直占用着？？？
 
 
-### Android图形系统中的双缓冲与三缓冲
+#  Android图形系统中的双缓冲与三缓冲配置
 
 ### 双缓冲与三缓冲是可以配置的TARGET_DISABLE_TRIPLE_BUFFERING
 	
@@ -204,12 +257,11 @@ acquireFence会释放之前的Buffer，但是同时会抓住当前buffer
 	    BQ_LOGV("setDefaultMaxBufferCount: setting count to %d", count);
 	    mDefaultMaxBufferCount = count;
 	    mDequeueCondition.broadcast();
+	
 	    return NO_ERROR;
 	}
 
 虽然理论上能达到64，但是一般就设置2或者3，多了资源浪费。
-
-
 
 	void BufferQueueProducer::allocateBuffers(bool async, uint32_t width,
 	        uint32_t height, PixelFormat format, uint32_t usage) {
@@ -236,4 +288,4 @@ acquireFence会释放之前的Buffer，但是同时会抓住当前buffer
 	              if (maxBufferCount <= currentBufferCount)
                 return;
 	            ...
-	            }
+	          }
