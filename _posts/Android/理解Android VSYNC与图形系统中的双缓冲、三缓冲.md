@@ -1,5 +1,6 @@
 先接触两个图形概念： 帧率（Frame Rate，单位FPS）--GPU显卡生成帧的速率，也可以认为是数据处理的速度）， 屏幕刷新频率 （Refresh Rate单位赫兹/HZ）：是指硬件设备刷新屏幕的频率。屏幕刷新率一般是固定的，比如60Hz的每16ms就刷一次屏幕，可以类比一下黑白电视的电子扫描枪，每16ms电子枪从上到下从左到右一行一行逐渐把图片绘制出来，如果GPU显卡性能非常强悍，帧率可以非常高，甚至会高于屏幕刷新频率。
 
+[本文参考视频 Google IO](https://www.youtube.com/watch?v=Q8m9sHdyXnE)
 # 单缓存画面撕裂与（垂直同步+双缓冲）
 
 什么是画面撕裂？如下：用两帧的部分数据合成一帧。
@@ -24,75 +25,40 @@ The display (LCD, AMOLED, whatever) gets each frame from the graphics chip, and 
 
 再来看下VSYNC，屏幕刷新从左到右水平扫描（Horizontal Scanning），从上到下垂直扫描Vertical Scanning，**垂直扫描完成则整个屏幕刷新完毕，这便是告诉外界可以绘制下一帧的时机**，在这里发出VSync信号，通知GPU给FrameBuffer传数据，完成后，屏幕便可以开始刷新，所以或许称之为**帧同步**更合适。VSYNC**强制帧率和显示器刷新频率同步**，如果当前帧没绘制完，即使下一帧准备好了，也禁止使用下一帧，直到显示器绘制完当前帧，等下次刷新的时候，才会用下一帧。比如：如果显示器的刷新频率是60HZ显示器，开了垂直同步后，显示帧率就会被锁60，即使显卡输出高，也没用。对Android系统而言，垂直同步信号除了强制帧率和显示器刷新频率同步外，还有其他很多作用，VSYNC是APP端重绘、SurfaceFlinger图层合成的触发点，只有收到VSYNC信号，它们才会工作，以上便是个人对引入VSYNC与双缓冲的见解。
 
-# 双缓冲与三缓冲
+# 双缓冲的进阶：三缓冲
 
-既然有了双缓冲，为什么还要引入三缓冲呢？这里跟Android自身的用法有关系，在 Jelly Bean Android扩大了VSYNC使用场景与效果，不仅仅用在屏幕刷新那防撕裂，同时也用在APP端绘制及SurfaceFlinger合成那，这个时候它对VSYNC利用有点像Pipeline流水线，贯穿整个绘制流程。如果想要达到60FPS的流畅度，那么每16毫秒必须刷新一帧，否则动画或者视频就没那么丝滑，先对比下APP端是否采用VSYNC的对比
+#### 双缓冲保证低延时，三缓冲保证稳定性，双缓冲不在16ms中间开始，有足够时间绘制 三缓冲增加其韧性。
+
+
+在Android系统里，除了双缓冲，还有个三缓冲，不过这个三缓冲是对于**屏幕硬件刷新**之外而言，它关注的是整个Android图形系统的消费者模型，跟Android自身的VSYNC用法有关系，在 Jelly Bean 中Android扩大了VSYNC使用场景与效果，不仅用在屏幕刷新防撕裂，同时也用在APP端绘制及SurfaceFlinger合成那，此时对VSYNC利用有点像Pipeline流水线，贯穿整个绘制流程，对比下VSYNC扩展使用的区别：
 
 ![没有垂直同步](https://www.androidpolice.com/wp-content/uploads/2012/07/Untitled-11.png)
 
+如果想要达到60FPS的流畅度，每16毫秒必须刷新一帧，否则动画、视频就没那么丝滑，扩展后：
 
 ![有垂直同步](https://www.androidpolice.com/wp-content/uploads/2012/07/0003_Layer-51.png)
 
-对于没采用VSYNC做调度的系统来说，比如Project Butter之前的系统（4.1以下），
+对于没采用VSYNC做调度的系统来说，比如Project Butter之前的系统（4.1以下），CPU的对于显示帧的处理是凌乱的，优先级也没有保障，处理完一帧后，CPU可能并不会及时处理下一帧，可能会优先处理其他消息，等到它开始处理UI生成帧的时候，可能已经处于VSYNC的中间，这样就很**容易跨两个VYSNC**信号，导致掉帧。在Jelly Bean中，下一帧的处理被限定在VSync信号到达时，并且看Android的处理UI重绘消息的优先级是比较高的，其他的同步消息均不会执行，从而保证每16ms处理一帧有序进行，同时由于是**在每个VSYNC信号到达时就处理帧，可以尽量避免跨越两帧的情况出现**。
 
-在Jelly Bean中，制作下一帧的整个过程在VSync脉冲开始时就在最后一帧结束后立即开始。
-换句话说，他们正在使用尽可能多的16ms。
-
-Most Android displays run at or around 60 frames per second (or 60 Hz, in display jargon). In order to have a smooth animation, you have to actually be able to process 60 frames per second - that means you've got 16ms to process each frame. If you take longer than 16ms, the animation will stutter, and that buttery smooth feeling we're aiming for melts away.
-
-16 milliseconds isn't a lot of time, so you're going to want to make the most of it. In Ice Cream Sandwich, processing for the next frame would just kind-of lazily start whenever the system got around to it. In Jelly Bean, the whole process of making the next frame starts as soon as the last frame is finished, at the beginning of the VSync pulse. In other words, they're using as much of the 16ms as they can. Here's an example:
-
-两个缓存区分别为 Back Buffer 和 Frame Buffer。GPU 向 Back Buffer 中写数据，屏幕从 Frame Buffer 中读数据。VSync 信号负责调度从 Back Buffer 到 Frame Buffer 的复制操作，可认为该复制操作在瞬间完成。其实，该复制操作是等价后的效果，实际上双缓冲的实现方式是交换 Back Buffer 和 Frame Buffer 的名字，更具体的说是交换内存地址（有没有联想到那道经典的笔试题目：“有两个整型数，如何用最优的方法交换二者的值？”），通过二位运算“与”即可完成，所以可认为是瞬间完成。
-双缓冲的模型下，工作流程这样的：
-在某个时间点，一个屏幕刷新周期完成，进入短暂的刷新空白期。此时，VSync 信号产生，先完成复制操作，然后通知 CPU/GPU 绘制下一帧图像。复制操作完成后屏幕开始下一个刷新周期，即将刚复制到 Frame Buffer 的数据显示到屏幕上。
-
-在这种模型下，只有当 VSync 信号产生时，CPU/GPU 才会开始绘制。这样，当帧率大于刷新频率时，帧率就会被迫跟刷新频率保持同步，从而避免“tearing”现象。
-
-注意，当 VSync 信号发出时，如果 GPU/CPU 正在生产帧数据，此时不会发生复制操作。屏幕进入下一个刷新周期时，从 Frame Buffer 中取出的是“老”数据，而非正在产生的帧数据，即两个刷新周期显示的是同一帧数据。这是我们称发生了“掉帧”（Dropped Frame，Skipped Frame，Jank）现象。
-
-
-
-
+上面的流程中，Android已经采用了双缓冲，**双缓冲不仅仅是两份存储，它是一个概念，双缓冲是一条链路，不是某一个环节，是整个系统采用的一个机制，需要各个环节的支持，从APP到SurfaceFlinger、到图像显示都要参与协作。**对于APP端而言，每个Window都是一个双缓冲的模型，一个Window对应一个Surface，而每个Surface里至少映射两个存储区，一个给图层合成显示用，一个给APP端图形处理，这便是应于上层的双缓冲。Android4.0之后基本都是默认硬件加速，CPU跟GPU都是并发处理任务的，CPU处理完之后就完工，等下一个VSYNC到来就可以进行下一轮操作。也就是CPU、GPU、显示都会用到Buffer，VSYNC+双缓冲在理想情况下是没有问题的，但如果某个环节出现问题，那就不一样了如下（帧耗时超过16ms）：
 
 ![双缓冲jank](https://www.androidpolice.com/wp-content/uploads/2012/07/0001_Layer-72.png)
 
-![三缓冲缓解](https://www.androidpolice.com/wp-content/uploads/2012/07/0000_Layer-82.png)
+可以看到在第二个阶段，存在CPU资源浪费，为什么呢？双缓冲Surface只会提供两个Buffer，一个Buffer被DisPlay占用（SurfaceFlinger用完后不会释放当前的Buffer，只会释放旧的Buffer,**直观的想一下，如果新Buffer生成受阻，那么肯定要保留一个备份给SF用，才能不阻碍合成显示，就必定要一直占用一个Buffer，新的Buffer来了才释放老的**），另一个被GPU处理占用，所以，CPU就无法获取到Buffer处理当前UI，在Jank的阶段空空等待。一般出现这种场景都是连续的：比如复杂视觉效果每一帧可能需要20ms（CPU 8ms +GPU 12ms），GPU可能会一直超负荷，CPU跟GPU一直抢Buffer，这样带来的问题就是滚雪球似的掉帧，一直浪费，**完全没有利用CPU与GPU并行处理的效率，成了串行处理**，如下所示
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-3de0622bf2e05a14.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+如何处理呢？让多增加一个Buffer给CPU用，让它提前忙起来，这样就能做到三方都有Buffer可用，CPU跟GPU不用争一个Buffer，真正实现并行处理。如下：
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-b88cf9b2eb3d6bb0.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+如上图所示，虽然即使每帧需要20ms（CPU 8ms +GPU 12ms），但是由于多加了一个Buffer，实现了CPU跟GPU并行，便可以做到了只在开始掉一帧，后续却不掉帧，双缓冲充分利用16ms做到低延时，三缓冲保障了其稳定性，为什么4缓冲没必要呢？因为三个既可保证并行，四个徒增资源浪费。
 
 
-## VSYNC（垂直同步）、Triple Buffer（三重缓存） 和 Choreographer三者配合 
-
-[参考](https://www.youtube.com/watch?annotation_id=annotation_1709176545&feature=iv&list=UU_x5XG1OV2P6uZZ5FSM9Ttw&src_vid=HXQhu6qfTVU&v=1iaHxmfZGGc)
-
-
-具体的是什么情况，一张gif就能很好的说明了。除了逐行扫描外还有隔行扫描，至于区别就是一个是一行一行画，一个是隔着一行画。目前大多数显示器采用的都是逐行扫描。老设备带宽不足只能隔行扫描，现在的新设备基本都是逐行扫描了。
-
-
-
-这样一方面可以解决画面撕裂现象，因为不会出现缓冲还没画完被覆写的情况了。
-
-另一方面也可以解决错帧现象。这里你可以做一个实验：
-
-不开垂直同步，锁定60帧，然后玩一分钟，再打开垂直同步，再玩一分钟，你会发现，同样是60帧，开了垂直同步会比不开画面流畅，因为不会发生错帧了。
-
-除此之外，由于垂直同步的开启，强制每帧间隔完全一样，这样因为帧生成时间不平滑导致的不流畅也会解决。
-
-
-
-### 双缓冲显示
-
-**双缓冲不仅仅是两份存储，它是一个概念，双缓冲是一条链路，不是某一个环节，是整个系统采用的一个机制，需要各个环节的支持，从APP到SurfaceFlinger、到图像显示都要参与协作。**
-
-* 为什么VSYNC：刷新频率同步与不同步
-* 为什么双缓冲
-* 为什么三缓冲
+## 源码中的三缓冲数据流向 
  
- 
-* 每次屏幕刷新，SurfaceFlinger都要重新合成，所以，无论何种时间，Surface必须要为SF保留一个用于显示的Buffer 
-* 16ms根据内存内容刷新一次屏幕，点亮一屏幕led，等下一个vsync到来，再点亮一次，data与屏幕是分离的的
-* 使用双缓冲是因为：一个存储区不适合同时写跟读，可能用更新一半的时候就被用了
  
 **updateAndReleaseLocked会释放之前的Buffer，但是同时会抓住当前buffer**
-
 
 mSurfaceFlingerConsumer->setReleaseFence(layer->getAndResetReleaseFence());
 上面主要是针对Overlay的层，那对于GPU绘制的层呢？在收到INVALIDATE消息时，SurfaceFlinger会依次调用handleMessageInvalidate()->handlePageFlip()->Layer::latchBuffer()->SurfaceFlingerConsumer::updateTexImage() ，其中会调用该层对应Consumer的GLConsumer::updateAndReleaseLocked() 函数。该函数会释放老的GraphicBuffer，释放前会通过syncForReleaseLocked()函数插入releaseFence，代表如果触发时该GraphicBuffer消费者已经使用完毕。然后调用releaseBufferLocked()还给BufferQueue
