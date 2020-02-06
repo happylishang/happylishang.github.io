@@ -5,7 +5,7 @@
 
 什么是画面撕裂？如下：用两帧的部分数据合成一帧。
 
-![画面撕裂](https://www.androidpolice.com/wp-content/uploads/2012/07/0006_Layer-2.png)
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-146aa2729f7542b2.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 The display (LCD, AMOLED, whatever) gets each frame from the graphics chip, and starts drawing it line by line. Ideally, you want the display to get a new frame from the graphics chip after it is finished drawing the previous frame. Tearing occurs when the graphics chip loads a new frame in the middle of the LCD draw, so you get half of one frame and half of another.
 
@@ -27,16 +27,18 @@ The display (LCD, AMOLED, whatever) gets each frame from the graphics chip, and 
 
 # 双缓冲的进阶：三缓冲
 
-#### 双缓冲保证低延时，三缓冲保证稳定性，双缓冲不在16ms中间开始，有足够时间绘制 三缓冲增加其韧性。
+>  双缓冲保证低延时，三缓冲保证稳定性，双缓冲不在16ms中间开始，有足够时间绘制 三缓冲增加其韧性。
 
 
 在Android系统里，除了双缓冲，还有个三缓冲，不过这个三缓冲是对于**屏幕硬件刷新**之外而言，它关注的是整个Android图形系统的消费者模型，跟Android自身的VSYNC用法有关系，在 Jelly Bean 中Android扩大了VSYNC使用场景与效果，不仅用在屏幕刷新防撕裂，同时也用在APP端绘制及SurfaceFlinger合成那，此时对VSYNC利用有点像Pipeline流水线，贯穿整个绘制流程，对比下VSYNC扩展使用的区别：
 
-![没有垂直同步](https://www.androidpolice.com/wp-content/uploads/2012/07/Untitled-11.png)
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-966ca5f42592eeff.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 如果想要达到60FPS的流畅度，每16毫秒必须刷新一帧，否则动画、视频就没那么丝滑，扩展后：
 
-![有垂直同步](https://www.androidpolice.com/wp-content/uploads/2012/07/0003_Layer-51.png)
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-f61ba65d9e250aca.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
 
 对于没采用VSYNC做调度的系统来说，比如Project Butter之前的系统（4.1以下），CPU的对于显示帧的处理是凌乱的，优先级也没有保障，处理完一帧后，CPU可能并不会及时处理下一帧，可能会优先处理其他消息，等到它开始处理UI生成帧的时候，可能已经处于VSYNC的中间，这样就很**容易跨两个VYSNC**信号，导致掉帧。在Jelly Bean中，下一帧的处理被限定在VSync信号到达时，并且看Android的处理UI重绘消息的优先级是比较高的，其他的同步消息均不会执行，从而保证每16ms处理一帧有序进行，同时由于是**在每个VSYNC信号到达时就处理帧，可以尽量避免跨越两帧的情况出现**。
 
@@ -52,8 +54,8 @@ The display (LCD, AMOLED, whatever) gets each frame from the graphics chip, and 
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-b88cf9b2eb3d6bb0.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-如上图所示，虽然即使每帧需要20ms（CPU 8ms +GPU 12ms），但是由于多加了一个Buffer，实现了CPU跟GPU并行，便可以做到了只在开始掉一帧，后续却不掉帧，双缓冲充分利用16ms做到低延时，三缓冲保障了其稳定性，为什么4缓冲没必要呢？因为三个既可保证并行，四个徒增资源浪费。
-
+如上图所示，虽然即使每帧需要20ms（CPU 8ms +GPU 12ms），但是由于多加了一个Buffer，实现了CPU跟GPU并行，便可以做到了只在开始掉一帧，后续却不掉帧，双缓冲充分利用16ms做到低延时，三缓冲保障了其稳定性，为什么4缓冲没必要呢？因为三个既可保证并行，四个徒增资源浪费。  
+ 
 
 ## 源码中的三缓冲数据流向 
  
@@ -63,6 +65,89 @@ The display (LCD, AMOLED, whatever) gets each frame from the graphics chip, and 
 mSurfaceFlingerConsumer->setReleaseFence(layer->getAndResetReleaseFence());
 上面主要是针对Overlay的层，那对于GPU绘制的层呢？在收到INVALIDATE消息时，SurfaceFlinger会依次调用handleMessageInvalidate()->handlePageFlip()->Layer::latchBuffer()->SurfaceFlingerConsumer::updateTexImage() ，其中会调用该层对应Consumer的GLConsumer::updateAndReleaseLocked() 函数。该函数会释放老的GraphicBuffer，释放前会通过syncForReleaseLocked()函数插入releaseFence，代表如果触发时该GraphicBuffer消费者已经使用完毕。然后调用releaseBufferLocked()还给BufferQueue
  
+ 
+ 
+#  Android图形系统中的双缓冲与三缓冲配置
+
+### 双缓冲与三缓冲是可以配置的TARGET_DISABLE_TRIPLE_BUFFERING
+	
+		void Layer::onFirstRef() {
+		    // Creates a custom BufferQueue for SurfaceFlingerConsumer to use
+		    sp<IGraphicBufferProducer> producer;
+		    sp<IGraphicBufferConsumer> consumer;
+		    BufferQueue::createBufferQueue(&producer, &consumer);
+		      <!--创建producer与consumer-->
+		    mProducer = new MonitoredProducer(producer, mFlinger);
+		    mSurfaceFlingerConsumer = new SurfaceFlingerConsumer(consumer, mTextureName);
+		    mSurfaceFlingerConsumer->setConsumerUsageBits(getEffectiveUsage(0));
+		    mSurfaceFlingerConsumer->setContentsChangedListener(this);
+		    mSurfaceFlingerConsumer->setName(mName);
+		
+		<!--三缓冲还是双缓冲-->
+		#ifdef TARGET_DISABLE_TRIPLE_BUFFERING
+		#warning "disabling triple buffering"
+		    mSurfaceFlingerConsumer->setDefaultMaxBufferCount(2);
+		#else
+		    mSurfaceFlingerConsumer->setDefaultMaxBufferCount(3);
+		#endif
+		
+		    const sp<const DisplayDevice> hw(mFlinger->getDefaultDisplayDevice());
+		    updateTransformHint(hw);
+		}
+		
+调用其实是BufferQueueCore的setDefaultMaxBufferCountLocked
+		
+		 // setDefaultMaxBufferCountLocked sets the maximum number of buffer slots
+	    // that will be used if the producer does not override the buffer slot
+	    // count. The count must be between 2 and NUM_BUFFER_SLOTS, inclusive. The
+	    // initial default is 2.
+	    
+	    <!--   enum { NUM_BUFFER_SLOTS = 64 };-->
+	    
+	    status_t BufferQueueCore::setDefaultMaxBufferCountLocked(int count) {
+	    const int minBufferCount = mUseAsyncBuffer ? 2 : 1;
+	    if (count < minBufferCount || count > BufferQueueDefs::NUM_BUFFER_SLOTS) {
+	        return BAD_VALUE;
+	    }
+	
+	    BQ_LOGV("setDefaultMaxBufferCount: setting count to %d", count);
+	    mDefaultMaxBufferCount = count;
+	    mDequeueCondition.broadcast();
+	
+	    return NO_ERROR;
+	}
+
+虽然理论上能达到64，但是一般就设置2或者3，多了资源浪费。
+
+	void BufferQueueProducer::allocateBuffers(bool async, uint32_t width,
+	        uint32_t height, PixelFormat format, uint32_t usage) {
+	    while (true) {
+	       		...
+		 
+	            int currentBufferCount = 0;
+	            for (int slot = 0; slot < BufferQueueDefs::NUM_BUFFER_SLOTS; ++slot) {
+	                if (mSlots[slot].mGraphicBuffer != NULL) {
+	                <!--计算用了几个buffer了-->
+	                    ++currentBufferCount;
+	                } else {
+	                    if (mSlots[slot].mBufferState != BufferSlot::FREE) {
+	                        continue;
+	                    }
+	                    freeSlots.push_back(slot);
+	                }
+	            }
+
+	            int maxBufferCount = mCore->getMaxBufferCountLocked(async);
+	            BQ_LOGV("allocateBuffers: allocating from %d buffers up to %d buffers",
+	                    currentBufferCount, maxBufferCount);
+	               <!--如果超过限制，不分配，直接return-->
+	              if (maxBufferCount <= currentBufferCount)
+                return;
+	            ...
+	          }
+	          
+	          
+	          
 # 采用双缓冲与三缓冲的关键
 	 
 	status_t BufferLayerConsumer::updateTexImage(BufferRejecter* rejecter, nsecs_t expectedPresentTime,
@@ -253,82 +338,9 @@ mSurfaceFlingerConsumer->setReleaseFence(layer->getAndResetReleaseFence());
 
 才会让前一个Buffer被释放，如果不存在swapBuffer，那么前一个Buffer就会被SF一直占用着？？？
 
+# 总结
 
-#  Android图形系统中的双缓冲与三缓冲配置
-
-### 双缓冲与三缓冲是可以配置的TARGET_DISABLE_TRIPLE_BUFFERING
-	
-		void Layer::onFirstRef() {
-		    // Creates a custom BufferQueue for SurfaceFlingerConsumer to use
-		    sp<IGraphicBufferProducer> producer;
-		    sp<IGraphicBufferConsumer> consumer;
-		    BufferQueue::createBufferQueue(&producer, &consumer);
-		      <!--创建producer与consumer-->
-		    mProducer = new MonitoredProducer(producer, mFlinger);
-		    mSurfaceFlingerConsumer = new SurfaceFlingerConsumer(consumer, mTextureName);
-		    mSurfaceFlingerConsumer->setConsumerUsageBits(getEffectiveUsage(0));
-		    mSurfaceFlingerConsumer->setContentsChangedListener(this);
-		    mSurfaceFlingerConsumer->setName(mName);
-		
-		<!--三缓冲还是双缓冲-->
-		#ifdef TARGET_DISABLE_TRIPLE_BUFFERING
-		#warning "disabling triple buffering"
-		    mSurfaceFlingerConsumer->setDefaultMaxBufferCount(2);
-		#else
-		    mSurfaceFlingerConsumer->setDefaultMaxBufferCount(3);
-		#endif
-		
-		    const sp<const DisplayDevice> hw(mFlinger->getDefaultDisplayDevice());
-		    updateTransformHint(hw);
-		}
-		
-调用其实是BufferQueueCore的setDefaultMaxBufferCountLocked
-		
-		 // setDefaultMaxBufferCountLocked sets the maximum number of buffer slots
-	    // that will be used if the producer does not override the buffer slot
-	    // count. The count must be between 2 and NUM_BUFFER_SLOTS, inclusive. The
-	    // initial default is 2.
-	    
-	    <!--   enum { NUM_BUFFER_SLOTS = 64 };-->
-	    
-	    status_t BufferQueueCore::setDefaultMaxBufferCountLocked(int count) {
-	    const int minBufferCount = mUseAsyncBuffer ? 2 : 1;
-	    if (count < minBufferCount || count > BufferQueueDefs::NUM_BUFFER_SLOTS) {
-	        return BAD_VALUE;
-	    }
-	
-	    BQ_LOGV("setDefaultMaxBufferCount: setting count to %d", count);
-	    mDefaultMaxBufferCount = count;
-	    mDequeueCondition.broadcast();
-	
-	    return NO_ERROR;
-	}
-
-虽然理论上能达到64，但是一般就设置2或者3，多了资源浪费。
-
-	void BufferQueueProducer::allocateBuffers(bool async, uint32_t width,
-	        uint32_t height, PixelFormat format, uint32_t usage) {
-	    while (true) {
-	       		...
-		 
-	            int currentBufferCount = 0;
-	            for (int slot = 0; slot < BufferQueueDefs::NUM_BUFFER_SLOTS; ++slot) {
-	                if (mSlots[slot].mGraphicBuffer != NULL) {
-	                <!--计算用了几个buffer了-->
-	                    ++currentBufferCount;
-	                } else {
-	                    if (mSlots[slot].mBufferState != BufferSlot::FREE) {
-	                        continue;
-	                    }
-	                    freeSlots.push_back(slot);
-	                }
-	            }
-
-	            int maxBufferCount = mCore->getMaxBufferCountLocked(async);
-	            BQ_LOGV("allocateBuffers: allocating from %d buffers up to %d buffers",
-	                    currentBufferCount, maxBufferCount);
-	               <!--如果超过限制，不分配，直接return-->
-	              if (maxBufferCount <= currentBufferCount)
-                return;
-	            ...
-	          }
+* 同步是防止画面撕裂的关键，VSYNC同步能防止画面撕裂
+* VSYNC+双缓冲在Android中能有序规划渲染流程，降低延时
+* Android已经采用了双缓冲，双缓冲不仅仅是两份存储，它是一个概念，双缓冲是一条链路，不是某一个环节，是整个系统采用的一个机制，需要各个环节的支持，从APP到SurfaceFlinger、到图像显示都要参与协作
+* 三缓冲在UI复杂情况下能保证画面的连续性，提高柔韧性
