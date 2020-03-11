@@ -1,3 +1,11 @@
+---
+layout: post
+title: "理解Android VSYNC与图形系统中的双缓冲、三缓冲"
+category: Android
+
+
+---
+
 先接触两个图形概念： 帧率（Frame Rate，单位FPS）--GPU显卡生成帧的速率，也可以认为是数据处理的速度）， 屏幕刷新频率 （Refresh Rate单位赫兹/HZ）：是指硬件设备刷新屏幕的频率。屏幕刷新率一般是固定的，比如60Hz的每16ms就刷一次屏幕，可以类比一下黑白电视的电子扫描枪，每16ms电子枪从上到下从左到右一行一行逐渐把图片绘制出来，如果GPU显卡性能非常强悍，帧率可以非常高，甚至会高于屏幕刷新频率。
 
 [本文参考视频 Google IO](https://www.youtube.com/watch?v=Q8m9sHdyXnE)
