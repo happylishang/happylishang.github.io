@@ -135,7 +135,7 @@ SurfaceFlingerConsumer的setDefaultMaxBufferCount可以认为是设支持的最�
         // The slot is "owned" by BufferQueue.  It transitions to DEQUEUED
         // when dequeueBuffer is called.
        
-        <!--Free不代表没数据，BufferQueue拥有，但是没使用权，但是可以DEQUEUED，有可能正在被consumer拿着Fence，等着用呢，但是用完了就可以被DEQUEUED的一方用，可以先让他DEQUEUED-->
+        <!--Free不代表没数据，BufferQueue拥有，但是没使用权，但是可以DEQUEUED，有可能正在被consumer拿着Fence，等着用，但是用完了就可以被DEQUEUED的一方用，可以先让他DEQUEUED-->
         FREE = 0,  
 
         // DEQUEUED indicates that the buffer has been dequeued by the
@@ -193,7 +193,16 @@ SurfaceFlingerConsumer的setDefaultMaxBufferCount可以认为是设支持的最�
 
 生产者利用opengl绘图，不用等绘图完成，直接queue buffer，在queue buffer的同时，需要传递给BufferQueue一个fence，而消费者acquire这个buffer后同时也会获取到这个fence，这个fence在GPU绘图完成后signal。这就是所谓的“acquireFence”，用于生产者通知消费者生产已完成。
 
-当消费者对acquire到的buffer做完自己要做的事情后（例如把buffer交给surfaceflinger去合成），就要把buffer release到BufferQueue的free list，由于该buffer的内容可能正在被surfaceflinger使用，所以release时也需要传递一个fence，用来指示该buffer的内容是否依然在被使用，接下来生产者在继续dequeue buffer时，如果dequeue到了这个buffer，在使用前先要等待该fence signal。这就是所谓的“releaseFence”，后者用于消费者通知生产者消费已完成。
+当消费者对acquire到的buffer做完自己要做的事情后（例如把buffer交给surfaceflinger去合成），就要把buffer release到BufferQueue的free list，由于该buffer的内容可能正在被surfaceflinger使用，所以release时也需要传递一个fence，用来指示该buffer的内容是否依然在被使用，接下来生产者在继续dequeue buffer时，如果dequeue到了这个buffer，在使用前先要等待该fence signal。这就是所谓的“releaseFence”，后者用于消费者通知生产者消费已完成。SF 
+
+## HWC（hwcomposer）是Android中进行窗口（Layer）合成和显示的HAL层模块，其实现是特定于设备的，而且通常由显示设备制造商 (OEM 原始设备制造商Original Equipment Manufacturer)完成，为SurfaceFlinger服务提供硬件支持。
+
+SurfaceFlinger可以使用OpenGL ES合成Layer，这需要占用并消耗GPU资源。大多数GPU都没有针对图层合成进行优化，当SurfaceFlinger通过GPU合成图层时，应用程序无法使用GPU进行自己的渲染。而HWC通过硬件设备进行图层合成，可以减轻GPU的合成压力。
+ 
+ 
+*  SurfaceFlinger向HWC提供所有Layer的完整列表，让HWC根据其硬件能力，决定如何处理这些Layer。
+* HWC会为每个Layer标注合成方式，是通过GPU还是通过HWC合成。
+* SurfaceFlinger负责先把所有注明GPU合成的Layer合成到一个输出Buffer，然后把这个输出Buffer和其他Layer（注明HWC合成的Layer）一起交给HWC，让HWC完成剩余Layer的合成和显示
  
 
          
