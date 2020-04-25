@@ -1,3 +1,12 @@
+# 同步栅栏
+
+
+同步栅栏是 Android 图形系统的关键部分。栅栏允许 CPU 工作与并行的 GPU 工作相互独立进行，仅在存在真正的依赖关系时才会阻塞。
+
+例如，当应用提交在 GPU 上生成的缓冲区时，它还将提交一个同步栅栏对象。当 GPU 完成写入缓冲区的操作时，该栅栏会变为有信号状态。
+
+HWC 要求 GPU 在显示缓冲区之前完成写入缓冲区的操作。同步栅栏通过包含缓冲区的图形管道传递，并在缓冲区写入完成时发出信号。在显示缓冲区之前，HWC 会检查同步栅栏是否已发出信号，如果有，则显示缓冲区
+
 
 
 ## 源码中的三缓冲数据流向 
@@ -204,8 +213,16 @@ SurfaceFlinger可以使用OpenGL ES合成Layer，这需要占用并消耗GPU资�
 * HWC会为每个Layer标注合成方式，是通过GPU还是通过HWC合成。
 * SurfaceFlinger负责先把所有注明GPU合成的Layer合成到一个输出Buffer，然后把这个输出Buffer和其他Layer（注明HWC合成的Layer）一起交给HWC，让HWC完成剩余Layer的合成和显示
  
+虽然每个显示设备的能力不同，但是官方要求每个HWC硬件模块都应该支持以下能力：
 
-         
+* 至少支持4个叠加层：状态栏、系统栏、应用本身和壁纸或者背景。
+* 叠加层可以大于显示屏，例如：壁纸
+* 同时支持预乘每像素（per-pixel）Alpha混合和每平面（per-plane）Alpha混合。
+* 为了支持受保护的内容，必须提供受保护视频播放的硬件路径。
+* RGBA packing order, YUV formats, and tiling, swizzling, and stride properties
+
+ 
+#          参考文档  https://source.android.google.cn/devices/graphics/hwc?hl=zh-cn
 	          
 # 采用双缓冲与三缓冲的关键
 	 
