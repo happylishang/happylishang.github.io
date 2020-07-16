@@ -1,8 +1,10 @@
 ### 背景
 
-JsBridge是H5与Native进行通信的一种实现方式，目前线上jsBridge经过两轮重构后，大问题基本没了，一期兼容，二期重构，基本解决了白屏导致的问题。目前Android端唯一的问题就是：**JsBridge创建的时机 **。目前的实现是native将js代码注入H5，对于Android而言，这个注入时机比较靠后（提前的话，注入会失败），导致前端使用JsBridge比较滞后，如下
+JsBridge是H5与Native进行通信的一种实现方式，目前线上jsBridge经过两轮重构后，大问题基本没了，一期兼容，二期重构，基本解决了Android白屏问题。
 
-![image.png](https://upload-images.jianshu.io/upload_images/1460468-64018113df4223a0.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+目前Android端唯一的问题就是：**JsBridge可用的时机**。目前Android的实现是加载完网页后，native将js代码注入H5，对于前端而言，这个注入时机比较靠后，导致前端使用JsBridge比较滞后，如下
+
+![image.png](https://user-gold-cdn.xitu.io/2020/7/7/1732851a8bd6afc4?w=454&h=403&f=png&s=18712)
 
 为了让H5侧能够提前调用JsBridge，则必须将注入时机提前，其实完全可以放到H5 head里。自己加载就好了。
 
@@ -20,14 +22,17 @@ JsBridge时机提前，方法在任何时机都可用，可以用来提升用户
 	<html>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 	<head>
+        //判断是android就加载
 	    <script src="jsbridgeandroid.js"></script>
 	    ...
 	</head>
 	 ...
 
-jsbridgeandroid.js更新频率降低，可以采用适当的缓存策略，避免H5每次都加载，更新后，时机如下
+时机如下
 
-![image.png](https://upload-images.jianshu.io/upload_images/1460468-6564832970b120f8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+![image.png](https://user-gold-cdn.xitu.io/2020/7/7/1732851a8eae2329?w=454&h=326&f=png&s=17586)
+
+jsbridgeandroid.js更新频率降低，可以采用适当的缓存策略，避免H5每次都加载，更新后，
 
 ### 改造及上线方案
 
@@ -37,7 +42,7 @@ jsbridgeandroid.js更新频率降低，可以采用适当的缓存策略，避�
 
 > 对于客户端
 
-* 旧版不许考虑
+* 旧版不需要考虑
 * 新版APP：需要 监听jsonRPC.notify("markNewJsBridge","") 回调，用来区分新老页面
 
         jsonRPC.notify("markNewJsBridge","")
@@ -52,11 +57,22 @@ jsbridgeandroid.js更新频率降低，可以采用适当的缓存策略，避�
 
 > 上线
 
-* APP 跟H5无需同步
+* APP 跟H5无需同步,单独上线即可
+* 开发完成7月，上线8月
 
 ### 人力
 
-* 客户端：李尚  7d
-* 前端：汪邵云 
-* QA：
+* 客户端：李尚   
+* 前端：汪邵云
+* QA：暂无
 
+### ios端可以提前注入，不需重构（@王亮）
+
+此次修改对ios透明，前端注入的js只会android生效
+
+
+    var isAndroid = /android/i.test(navigator.userAgent);
+
+    if (!isAndroid || window.NEJsbridge) {
+        return;
+    }
