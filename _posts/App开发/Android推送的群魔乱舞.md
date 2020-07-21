@@ -1,9 +1,10 @@
 # 前言
 
+
 #### 国内的Android推送就是个悲剧
 
-国内的Android缺少Google 的生态，如Google的Paly Store，Google Mobile Services（GSM）等，导致衍生出很多畸形的产业，比如五花八门的APP市场，光怪陆离的推送平台，这里要说的是推送平台。Google本身的GSM服务是包含一套推送在里面的，跟iOS系统的推送类似，它保证每台手机维护一个推送通道就能收到各方推送，但由于Google没法进入中国市场，国产Android基本上算被阉割了一个核心部件，由此衍生的种种弊端数不胜数，首当其冲的就是推送。
-
+国内Android缺少Google的生态，如Google的Paly Store，Google Mobile Services（GSM）等，导致衍生出很多畸形的产业，比如五花八门的APP市场，光怪陆离的推送平台，这里要说的是推送平台。Google本身的GSM服务是包含一套推送在里面的，跟iOS系统的推送类似，它保证每台手机维护一个推送通道就能收到各方推送，但由于Google没法进入中国市场，国产Android基本上算被阉割了一个核心部件，由此衍生的种种弊端数不胜数，首当其冲的就是推送。
+  
 国内的手机厂商基本都有自家的推送服务，来替代GSM的缺失，性能、用法参差不齐。**在离线场景**下（APP死亡），如果想要收到推送，就必须接入对应厂家的推送服务，否则压根收不到。所以Android APP在诞生之初基本就要集成华为push、小米push、魅族push、oppo push、Vivo push等，相对GSM，复杂且没有增益，就好比用江南七怪代替了黄老邪，难用的一B。然而，你别无选择。不过国内各种厂商倒是乐此不疲，他们多了一个触达用户及统计的渠道，并且还能不受Google挟制，对于开发者而言，就要麻烦很多，工作量平白翻了很多倍；有的聊天APP为了走自家的推送SDK，还要琢磨各种黑科技：包活，APP相互唤起等，恶之花，开的漫山遍野。更有意思的是，为了解决这种问题，制定出规范，还促生个各种机构，像推送联盟，绿色联盟等，但并没什么卵用，成立3年，乱象依旧，很多说Android很垃圾，那推送的这个问题要负一大半责任。
 
 吐槽完，你仍然要接。
@@ -73,55 +74,74 @@ App是否可以统计到离线点击事件 | 是 | 否 |  是|否|是
 
 下面简单看下各ROM计入注意事项，先只看离线能力，不考虑透传：
 
-## 小米接入注意事项 
+## 小米
 
-关于MIPUSH的接入，直接看官方文档即可，没太多问题，需要注意的是，小米有个奇葩的权限设置：**后台弹出界面权限**  ，该权限默认是关闭，这个选项可能会影响推送通知的打开。
+关于MIPUSH的接入，直接看官方文档即可，没太多问题，需要注意的是，小米有个奇葩的权限设置：**后台弹出界面权限** ，该权限默认是关闭，这个选项可能会影响推送通知的点击行为，小米有两大中点击行为需要考虑，第一种，
+
+### 完全自定义点击行为
+
+在这种行为下，开发者可以拦截默认点击行为，自定义如何处理后续事件，点击通知后，封装消息MiPushMessage通过PushMessageReceiver继承类的onNotificationMessageClicked方法传到APP进程，开发者可自行处理，如果想要启动界面，只需要在其中调用context.startActivity方法即可，**但是**，这种自定义的行为会受到**后台弹出界面权限**的影响，尤其是高版本的MIUI ROM中。
 
 ![](https://user-gold-cdn.xitu.io/2020/7/21/173712a7a3ac2fdf?w=642&h=320&f=png&s=95442)
 
+你会发现，在这些手机上，此方式压根没法拉起APP，除非通过先启动一个Service，然后在Service中拉起，非常像小米的一个BUG，即使通过此下策能拉起，你会发现，拉起速度非常慢，所以这种策略其实可以毙了。
 
+###  预定义点击行为
 
-	    @Override
-	    public void onNotificationMessageClicked(final Context context, final MiPushMessage message) {
-    
-消息格式			 
-				 
-		{
-		    "ack":"true",
-		    "alert":"店庆爆款返场！乳胶床垫直降500，拉杆箱仅7折！😱每满150减25消费券全品类通用，最后1天>>",
-		    "alert2":"{\"subtitle\":\"\",\"title\":\"明天之后⏰恢复原价\",\"body\":\"店庆爆款返场！乳胶床垫直降500，拉杆箱仅7折！😱每满150减25消费券全品类通用，最后1天>>\"}",
-		    "appid":"12",
-		    "badge":0,
-		    "badgeMode":0,
-		    "batch":"crm_task_20200414160053263_1",
-		    "broadcast":false,
-		    "mkCPayload":false,
-		    "mutableContent":"1",
-		    "now":0,
-		    "payload":"{\"id\":0,\"imageUrls\":[],\"schemeUrl\":\"yanxuan://yxwebview?url=https%3A%2F%2Fact.you.163.com%2Fact%2Fpub%2FDisjY2u1n9p4SB3.html%3Fanchor%3DSeen3xcj%26opOrderId%3Dcrm_task_20200414160053263_1\",\"title\":\"明天之后⏰恢复原价\",\"type\":8}",
-		    "sound":"default",
-		    "subtype":"yanxuan",
-		    "total":1000,
-		    "uid":"12#hbyxtest52@163.com",
-		"pushChannel":"mi",
-		    "uid_type":"0"
-		}
-				 
-				 
-*  在线消息 通过一个Service通知可以统一处理
-*  离线，就用schemeUrl这种
+预定义点击行为不用用户在onNotificationMessageClicked中处理，系统会直接拉起目标页面，小米支持三种预定义点击行为：
 
+* (1) 打开当前的Launcher Activity 
+* (2) 打开当前app内的任意一个Activity 
+* (3) 打开网页。 
 
+APP一般会采用第二种行为，打开APP任意一个Activity，其实最终会选择一个DeepLink Activity，由其路由到其他界面。服务端调用Message.Builder类的extra(String key, String value)方法，将key设置为Constants.EXTRA_PARAM_NOTIFY_EFFECT，value设置为Constants.NOTIFY_ACTIVITY便可以达到该效果，用户点击了客户端弹出的通知消息后，封装消息的MiPushMessage对象通过Intent传到客户端，客户端可在Activity中解析，并自行处理后续流程。离线推送情况下，推送服务端核心字段如下：
 
-Android 9之后禁止后台启动，并且想小米之类的ROM是禁止后台启动的，因此离线推送尽量采用，打开应用内特定页面的方式来实现，一般可以理解为Scheme URL，或者说Intent URi，已避免受到通知，但是无法唤起界面的尴尬。
+![](https://user-gold-cdn.xitu.io/2020/7/21/17371a4f67c2a118?w=1570&h=388&f=png&s=324407)
 
+采用离线非透传消息，并利用extra自定义Click行为，最后推送给小米的消息格式简化如下：	 
+	
+	{
+		title=通知标题, 
+		description=通知内容, 
+		restrictedPackageNames=[com.test.example], 
+		notifyType=1, 
+		notifyId=1249808047, 
+		extra.callback=https://test4push.xxx.163.com/push/receipt/third/12/xiaomi,
+		<!--打开任意Activity配置-->
+		extra.intent_uri=yanxuan://re?opOrderId=crm_a1d05c1d3d1743e192a08b461a376785_20200715,
+		extra.notify_effect=2
+	}
 
-## 华为推送
+extra.intent_uri的值就是APP端定义的私有scheme，点击通知会直接拉起相应的DeepLink Activity，从而唤起应用，至于DeepLink Activity最终路由到哪个界面，可以从extra.intent_uri中解析出来。对于上文层说过的click事件不易统计的问题，可以通过在scheme家参数的方式解决，如下：
 
+	extra.intent_uri= yanxuan://re?opOrderId=0200715, 
 
-* 推送数据格式：
+转为
 
-华为离线推送无法感知click，所有数据通过intent uri传输给APP，因此其唤起类型是
+	extra.intent_uri= yanxuan://re?opOrderId=0200715&platform=xiaomi 
+
+之后在路由Activity中可以解析出platform参数，从而标记click事件及来源平台。预定义行为系统会帮我们处理好唤起，在APP中，不需要在onNotificationMessageClicked再次响应click事件了，避免重复处理。
+
+## 华为
+
+接入流程同小米类似，按文档即可，华为的预定义行为有如下四种:
+
+* 1：用户定义Uri点击行为，打开目标界面
+* 2：点击后打开特定网页
+* 3：点击后打开应用
+* 4：点击后打开富媒体信息
+
+华为无法感知离线推送click，一般选择用户自定义Uri点击行为，所有数据必须通过intent uri传输给APP，对应参数意义如下：
+
+![](https://user-gold-cdn.xitu.io/2020/7/21/17371e1f83b68861?w=1648&h=796&f=png&s=144132)
+
+选择type=1 跟 intent uri配合，intent生成格式如下：
+
+	Intent intent = new Intent(Intent.ACTION_VIEW);
+	intent.setData(Uri.parse("pushscheme://com.huawei.codelabpush/deeplink?name=abc&age=180"));
+	String intentUri = intent.toUri(Intent.URI_INTENT_SCHEME);
+
+最终通过API发送给华为push平台数据格式简化如下：
 	
 		{
 		    "hps":{
@@ -141,41 +161,45 @@ Android 9之后禁止后台启动，并且想小米之类的ROM是禁止后台�
 		    }
 		}
 
-
-
+跟小米类似，可以将推送平台的参数塞入到scheme，不再敖述。
 
 # 魅族
 
-推送不要夹杂太多用户信息，只保留必要字段即可
+魅族推送类似，也支持四种预定义行为：
 
-魅族uri定义更像是schema
+* 打开应用主页
+* 打开应用内页面
+*  打开URI页面
+* 客户端自定义
 
+同样建议选择预定义Uri页面，具体参数如下
+
+![](https://user-gold-cdn.xitu.io/2020/7/21/17371e99c0b483fd?w=1736&h=952&f=png&s=181086)
+
+最终发送数据格式简化如下：
 
 	 {
-		noticeBarType = 0,
+		 noticeBarType = 0,
 		 title = 'meizu明天之后⏰恢复原价', 
 		 content = '店庆爆款返场！乳胶床垫直降500，拉杆箱仅7折！😱每满150减25消费券全品类通用，最后1天>>',
-		  noticeExpandType = 0, 
-		  noticeExpandContent = '',
 		   clickType = 2, 
-		   url = 'yanxuan://yxwebview?url=https%3A%2F%2Fact.you.163.com%2Fact%2Fpub%2FDisjY2u1n9p4SB3.html%3Fanchor%3DSeen3xcj%26opOrderId%3Dcrm_task_20200414160053263_1', parameters = null, activity = '', customAttribute = '{"uid":"12#hbyxtest52@163.com","uid_type":"0","alert":"店庆爆款返场！乳胶床垫直降500，拉杆箱仅7折！😱每满150减25消费券全品类通用，最后1天>>","payload":{"body":"{\"id\":0,\"title\":\"明天之后⏰恢复原价\",\"schemeUrl\":\"yanxuan://yxwebview?url=https%3A%2F%2Fact.you.163.com%2Fact%2Fpub%2FDisjY2u1n9p4SB3.html%3Fanchor%3DSeen3xcj%26opOrderId%3Dcrm_task_20200414160053263_1\",\"imageUrls\":[],\"type\":8}"},"appid":"12","os_type":"android","ack":"true","mid":"a468132600632836096","msg_type":"yanxuan"}', isOffLine = true, validTime = 24, pushTimeType = 0, startTime = null, isFixSpeed = false, fixSpeedRate = 0, isSuspend = true, isClearNoticeBar = true, isFixDisplay = false, fixStartDisplayDate = null, fixEndDisplayDate = null, vibrate = true, lights = true, sound = true, notifyKey = , extra = {
-			callback.type = 3
+		   url = 'yanxuan://yxwebview?url=https%3A%2F%2Fact.you.163.com%2Fact%2Fpub%2FDisjY2u1n9p4SB3.html%3Fanchor%3DSeen3xcj%26opOrderId%3Dcrm_task_20200414160053263_1'
 		}
 	}
 
-
+clickType = 2 配合Uri Schema来实现，拉起对应界面。
 
 ## oppo
  
-  离线推送支持选择点击后面的表现，不过oppo同样无法感知click事件
+接入与上面类似，同时，oppo无法感知click事件，它支持五种预定义行为（有冗余）：
   
- * 0，启动应用；
-* 1，打开应用内页（activity的intent action）； ===< action android:name="com.coloros.push.demo.internal" />
+* 0，启动应用；
+* 1，打开应用内页（activity的intent action） 
 * 2，打开网页；
-* 4，打开应用内页（activity）；【非必填，默认值为0】;  ------com.coloros.push.demo.component.InternalActivity
-* 5 ,Intent scheme URL       -----command://test?key1=val1&key2=val2
+* 4，打开应用内页（利用activity全名） 
+* 5, Intent scheme URL  
 
-为了避免无法启动的问题，这里选click_action_type选择5，如果想要知道推送的 一些标识，需要通过click_action_activity中加scheme参数来实现， 具体数据格式如下
+处理类似，这里选click_action_type选择5，可以通过通过click_action_activity中加scheme参数来实现， 具体数据格式如下
  
 		{
 		    "notification":{
@@ -193,22 +217,18 @@ Android 9之后禁止后台启动，并且想小米之类的ROM是禁止后台�
 		
 ## vivo
 
-Vivo跟oppo很类似，不过它可以收到click事件，同样，其click动作也支持多种表现：
+Vivo跟oppo很类似，不过它也可以收到click事件（并没什么卵用），其click动作也支持多种表现：
 
 * 1：打开APP首页
 * 2：打开链接
 * 3：自定义
 * 4：打开app内指定页面
 
-为了防止禁止后台启动，我们不采用自定义的方式，而知直接定制好动作，这样也能加快启动动作 ： "skipType":4,
+同样，为了防止禁止后台启动，不采用自定义的方式，而直接打开打开app内指定页面， "skipType":4,
 
 	{
 	    "classification":1,
 	    "content":"adssdsr345436",
-	    "extra":{
-	        "callback":"https://test4push.you.163.com/push/receipt/third/12/vivo",
-	        "callback.param":"data"
-	    },
 	    "notifyType":1,
 	    "pushMode":1,
 	    "regId":"15905547110541891320627",
@@ -219,61 +239,11 @@ Vivo跟oppo很类似，不过它可以收到click事件，同样，其click动�
 	}
 
 
-#  目前线上问题 (目前基本都已解决或者有方案解决)
+以上是几种离线推送的接入方式，整体总结就是：
 
-* 小米离线拉不起来，**更改click唤起类型解决**
-* click点击重复，不在额外统计，采用统一的统计类型
-* 国内推送的回执，成功才有，不然没有
- 
-离线推送统一采用schema方式，在线推送，透传，无所谓。心跳如何保证。
+* 选择**预定义**方式，不要采用**自定义**的方式
+* 可以通过scheme中加参数的方式，统一鉴别click事件
+* 不要自行处理click事件，在预定义的方式下，没有任何意义
+* 如果只要离线推送功能，没必要处理透传配置
 
-
-
-# 到达率
-
-推送送达率=本次推送真正送达的设备数/所覆盖的所有设备数（按理说，是应该清理掉无效设备）
-
-
-#### 有哪些影响送达率的因素？
-
-* 1) 应用的留存率。已经卸载了app的设备，肯定是推送不到的，按照目前的计算方式，大部分的卸载设备会被计入分母（计划推送数）当中。
-* 2) 应用所在设备的联网情况。如果在消息有效期内，设备一直不联网，那消息也是不能送达的，但也会被计入分母当中。
-* 3) 消息的有效期。有效期越短，在有效期内联网的设备数势必就越少，因此送达率会随之下降。
-* 4) 目标设备的选取。如果选取的是全量用户，那其送达率肯定会比按照用户联网情况精准提取目标设备（如选取7天内有过打开应用行为的用户）要低。
-
-
-### 2.关于regID
-
-* 2.1. regID是根据什么生成的？
-
-regID一般是客户端向推送服务注册时，推送服务端根据设备标识、appID以及当前时间戳生成，因此能够保证每个设备上每个app对应的regID都是不同的。
-
-* 2.2. regID会不会变化？
-
-当app注册成功后，小米推送服务客户端SDK会在本地通过shared_prefs来保存这个regID，之后app调用注册，SDK后会在本地直接读取出这个regID并直接返回，不会重新请求服务器。因此只要应用不卸载重装或者清除应用本地数据，regID就不会变化。否则，如果SDK没有从本地读取到缓存的regID，则会向服务端重新请求，此时regID会重新生成。
-
-* 2.3. regID在哪些情况下会失效？
-
-1) app卸载重装或者清除数据后重新注册，这种情况下会生成一个新的regID，而老的regID会失效；
-2) app调用了unregisterPush；
-3) app卸载时，如果能成功上报，则regID会被判定失效；
-4) 设备超过3个月没有和小米push服务器建立长连接；
-
-
-# 点击率
-
-
-点击率 可以统一采用scheme加参数，唤起方式进行统计
-
-
-# 严选Token问题
-
-
-严选双token：
-
-* 离线推送所需token（第三方regid）
-* 在线推送token（wzp自己生成）
- 
-如果APP在线，并且推送打开，则走在线token推送，如果离线则走离线regid推送
-
-# 数据传输
+# 总结
