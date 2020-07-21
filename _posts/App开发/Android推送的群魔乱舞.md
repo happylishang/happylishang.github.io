@@ -72,7 +72,7 @@ App是否可以统计到离线点击事件 | 是 | 否 |  是|否|是
 
 如果APP有自己的PushSDK，那只要接入第三方离线推送能力就好了，一些关于透传的处理配置可以完全不用关心，用自己PushSDK那套就可以。如果没有自家PushSDK，那就需要选择一个SDK进行透传处理，当然，仍要接入第三方离线推送能力。不过即使如此，各家ROM的接入规则也个不相同，比如小米有个奇葩的权限叫：“后台弹出界面权限 ”，如果后端服务Push姿势不对，可能会引入奇葩问题：比如，手机能收到PUSH，但是拉不起界面，坑爹。
 
-下面简单看下各ROM计入注意事项，先只看离线能力，不考虑透传：
+简单看下各ROM计入注意事项，只看离线能力，不考虑透传：
 
 ## 小米
 
@@ -120,7 +120,7 @@ extra.intent_uri的值就是APP端定义的私有scheme，点击通知会直接�
 
 	extra.intent_uri= yanxuan://re?opOrderId=0200715&platform=xiaomi 
 
-之后在路由Activity中可以解析出platform参数，从而标记click事件及来源平台。预定义行为系统会帮我们处理好唤起，在APP中，不需要在onNotificationMessageClicked再次响应click事件了，避免重复处理。
+之后在路由Activity中可以解析出platform参数，从而标记click事件及来源平台。预定义行为系统会帮我们处理好唤起，在APP中，不需要在onNotificationMessageClicked再次响应click事件了，避免重复处理，后面各方SDK的能力基本都跟小米类似，没多少花样。
 
 ## 华为
 
