@@ -1,3 +1,12 @@
+
+---
+layout: post
+title: "Android推送的群魔乱舞"
+category: Android
+ 
+---
+
+
 # 前言
 
 
@@ -21,11 +30,16 @@
 
 与两者对应也有两种消息的概念：透传消息与通知栏消息：
 
-* 透传消息：APP存活情况下，由推送服务直接把消息发送给APP应用，由APP自己选择如何处理，注意透**传的前提是APP存活** ，透传消息可以不用接入第三方SDK。
+* 透传消息：APP存活情况下，由推送服务直接把消息发送给APP应用，由APP自己选择如何处理，注意**透传的前提是APP存活** ，透传消息可以不用接入第三方SDK。
 
-* 通知栏消息：在设备接收到消息之后，由系统弹出标准安卓通知，用户点击通知栏才激活应用，这种场景，APP 无需存活（活着也不受影响），离线场景下，只有通知栏消息这一条路。
 
-对于在线消息，APP存活，APP端可以统计到所有需要的信息，如论是推送达到记录，推送内容还是点击，但是对于离线就没那么简单了，同怎么接入，怎么发消息相比，业务方会更加关心到达率、点击率这些数据，下面看一下如何统计这些数据。
+* 通知栏消息：在设备接收到消息之后，由系统弹出标准安卓通知，用户点击通知栏才激活应用，这种场景，APP无需存活（活着也不受影响），离线场景下，只有通知栏消息这一条路。
+
+透传消息每个APP自己维护一条通道，离线消息只要一条系统通道，简单看下两者对比，示意如下：
+
+![](https://user-gold-cdn.xitu.io/2020/7/22/173745c183504909?w=892&h=338&f=png&s=50622)
+
+对于在线透传消息，由于是在APP存活的情况下收到的，APP端可以统计到所有必要信息，无论是推送达时间、推送内容还是通知的点击都能统计到；但是离线推送就没那么幸运，很多信息APP自己是拿不到的，但是，业务方通常非常关心到达率、点击率这些数据，必须有一个有效的解决方案。
 
 # 推送统计问题 （离线推送）
 
@@ -55,7 +69,7 @@ App是否可以统计到离线点击事件 | 是 | 否 |  是|否|是
 
 ### 哪些因素影响送达率
 
-* 1)  留存率。已经卸载了APP，肯定收不到，但是有些三方平台可能会归结到分母中，需要自家后台根据回执手动清理regID。
+* 1) 留存率。已经卸载了APP，肯定收不到，但是有些三方平台可能会归结到分母中，需要自家后台根据回执手动清理regID。
 * 2) 消息有效期，基本所有第三方PUSH平台都支持设置有效期，有效期越短，触达设备就越少，送达率会下降，可以适当选择有效时间。
 * 3) 联网情况， 在有效期内，设备没联网，也无法送达，但会被计入分母
 * 4) 目标人群设备的选取，活跃人群设备送达率肯定要高于全量推送
@@ -76,15 +90,15 @@ App是否可以统计到离线点击事件 | 是 | 否 |  是|否|是
 
 ## 小米
 
-关于MIPUSH的接入，直接看官方文档即可，没太多问题，需要注意的是，小米有个奇葩的权限设置：**后台弹出界面权限** ，该权限默认是关闭，这个选项可能会影响推送通知的点击行为，小米有两大中点击行为需要考虑，第一种，
+关于MIPUSH的接入，直接看官方文档即可，没太多问题，需要注意的是，小米有个奇葩的权限设置：**后台弹出界面权限** ，该权限默认是关闭，这个选项可能会影响推送通知的点击行为，小米有两大类点击行为：
 
 ### 完全自定义点击行为
 
-在这种行为下，开发者可以拦截默认点击行为，自定义如何处理后续事件，点击通知后，封装消息MiPushMessage通过PushMessageReceiver继承类的onNotificationMessageClicked方法传到APP进程，开发者可自行处理，如果想要启动界面，只需要在其中调用context.startActivity方法即可，**但是**，这种自定义的行为会受到**后台弹出界面权限**的影响，尤其是高版本的MIUI ROM中。
+在这种行为下，开发者可以拦截通知点击事件，自定义如何处理后续事件，点击后，MiPushMessage通过PushMessageReceiver继承类的onNotificationMessageClicked方法传到APP进程，开发者可自行处理，如果想要启动界面，只需要在其中调用context.startActivity方法即可，**但是**，这种自定义的行为会受到**后台弹出界面权限**的影响，尤其是高版本的MIUI ROM中。
 
 ![](https://user-gold-cdn.xitu.io/2020/7/21/173712a7a3ac2fdf?w=642&h=320&f=png&s=95442)
 
-你会发现，在这些手机上，此方式压根没法拉起APP，除非通过先启动一个Service，然后在Service中拉起，非常像小米的一个BUG，即使通过此下策能拉起，你会发现，拉起速度非常慢，所以这种策略其实可以毙了。
+你会发现，在这些手机上，此方式压根没法拉起APP，除非通过先启动一个Service，然后在Service中拉起，非常像小米的一个BUG，并且，即使通过此下策能拉起，你会发现，拉起速度非常慢，可能是过多AMS交互通信导致的，所以这种策略可以毙了。
 
 ###  预定义点击行为
 
@@ -106,7 +120,6 @@ APP一般会采用第二种行为，打开APP任意一个Activity，其实最终
 		restrictedPackageNames=[com.test.example], 
 		notifyType=1, 
 		notifyId=1249808047, 
-		extra.callback=https://test4push.xxx.163.com/push/receipt/third/12/xiaomi,
 		<!--打开任意Activity配置-->
 		extra.intent_uri=yanxuan://re?opOrderId=crm_a1d05c1d3d1743e192a08b461a376785_20200715,
 		extra.notify_effect=2
@@ -120,59 +133,57 @@ extra.intent_uri的值就是APP端定义的私有scheme，点击通知会直接�
 
 	extra.intent_uri= yanxuan://re?opOrderId=0200715&platform=xiaomi 
 
-之后在路由Activity中可以解析出platform参数，从而标记click事件及来源平台。预定义行为系统会帮我们处理好唤起，在APP中，不需要在onNotificationMessageClicked再次响应click事件了，避免重复处理，后面各方SDK的能力基本都跟小米类似，没多少花样。
+之后在路由Activity中可以解析出platform参数，从而标记click事件及来源平台。预定义行为系统会帮我们处理好唤起，在APP中，不需要在onNotificationMessageClicked再次响应click事件了，避免重复处理。后面其余各方SDK的能力基本都跟小米类似，大同小异，没多少花样。
 
 ## 华为
 
-接入流程同小米类似，按文档即可，华为的预定义行为有如下四种:
+流程同小米类似，按文档即可，预定义行为有如下四种:
 
-* 1：用户定义Uri点击行为，打开目标界面
+* 1：用户定义Uri，打开目标界面
 * 2：点击后打开特定网页
 * 3：点击后打开应用
 * 4：点击后打开富媒体信息
 
-华为无法感知离线推送click，一般选择用户自定义Uri点击行为，所有数据必须通过intent uri传输给APP，对应参数意义如下：
+一般选择自定义Uri行为，所有数据通过intent uri传输给APP，依旧是私有scheme的DeepLink实现方式。对应参数意义如下：
 
 ![](https://user-gold-cdn.xitu.io/2020/7/21/17371e1f83b68861?w=1648&h=796&f=png&s=144132)
 
-选择type=1 跟 intent uri配合，intent生成格式如下：
+基本上，选择type=1 同 intent uri配合，uri生成格式如下：
 
 	Intent intent = new Intent(Intent.ACTION_VIEW);
 	intent.setData(Uri.parse("pushscheme://com.huawei.codelabpush/deeplink?name=abc&age=180"));
 	String intentUri = intent.toUri(Intent.URI_INTENT_SCHEME);
 
 最终通过API发送给华为push平台数据格式简化如下：
-	
-		{
-		    "hps":{
-		        "msg":{
-		            "action":{
-		                "param":{
-		                    "intent":"intent://member?url=http%3A%2F%2Fm.you.163.com%2Fmembership%2Findex&_yanxuan_hwpush=1&_mid=a397314518947995648#Intent;scheme=yanxuan;launchFlags=0x4000000;end"
-		                },
-		                "type":1
-		            },
-		            "type":3,
-		            "body":{
-		                "title":"huawei免邮券礼包",
-		                "content":"快来领取你的每月专属免运费券，立即领取>>"
-		            }
-		        },
-		    }
-		}
 
-跟小米类似，可以将推送平台的参数塞入到scheme，不再敖述。
+    "msg":{
+        "action":{
+            "param":{
+                "intent":"intent://member?url=http%3A%2F%2Fm.you.163.com%2Fmembership%2Findex&_yanxuan_hwpush=1&_mid=a397314518947995648#Intent;scheme=yanxuan;launchFlags=0x4000000;end"
+            },
+            "type":1
+        },
+        "body":{
+            "title":"huawei免邮券礼包",
+            "content":"快来领取你的每月专属免运费券，立即领取>>"
+        }
+    }
+ 
+
+同小米类似，如果需要添加额外参数，放到scheme中，不再敖述。
+
+
 
 # 魅族
 
-魅族推送类似，也支持四种预定义行为：
+接入类似，支持四种预定义行为：
 
 * 打开应用主页
 * 打开应用内页面
-*  打开URI页面
+* 打开URI页面
 * 客户端自定义
 
-同样建议选择预定义Uri页面，具体参数如下
+同样选择预定义Uri页面，具体参数如下
 
 ![](https://user-gold-cdn.xitu.io/2020/7/21/17371e99c0b483fd?w=1736&h=952&f=png&s=181086)
 
@@ -182,16 +193,15 @@ extra.intent_uri的值就是APP端定义的私有scheme，点击通知会直接�
 		 noticeBarType = 0,
 		 title = 'meizu明天之后⏰恢复原价', 
 		 content = '店庆爆款返场！乳胶床垫直降500，拉杆箱仅7折！😱每满150减25消费券全品类通用，最后1天>>',
-		   clickType = 2, 
-		   url = 'yanxuan://yxwebview?url=https%3A%2F%2Fact.you.163.com%2Fact%2Fpub%2FDisjY2u1n9p4SB3.html%3Fanchor%3DSeen3xcj%26opOrderId%3Dcrm_task_20200414160053263_1'
-		}
-	}
-
-clickType = 2 配合Uri Schema来实现，拉起对应界面。
+		 clickType = 2, 
+		 url = 'yanxuan://yxwebview?url=https%3A%2F%2Fact.you.163.com%2Fact%2Fpub%2FDisjY2u1n9p4SB3.html%3Fanchor%3DSeen3xcj%26opOrderId%3Dcrm_task_20200414160053263_1'
+	 }
+	 
+clickType = 2 配合Uri scheme来实现，预定义拉起对应界面，如果需要添加额外参数，同上。
 
 ## oppo
  
-接入与上面类似，同时，oppo无法感知click事件，它支持五种预定义行为（有冗余）：
+接入类似，oppo无法感知click事件，支持五种预定义行为（有冗余）：
   
 * 0，启动应用；
 * 1，打开应用内页（activity的intent action） 
@@ -199,25 +209,28 @@ clickType = 2 配合Uri Schema来实现，拉起对应界面。
 * 4，打开应用内页（利用activity全名） 
 * 5, Intent scheme URL  
 
-处理类似，这里选click_action_type选择5，可以通过通过click_action_activity中加scheme参数来实现， 具体数据格式如下
+![](https://user-gold-cdn.xitu.io/2020/7/22/1737526b32522382?w=919&h=697&f=png&s=103047)
+
+处理类似，选click_action_type选择5，通过私有scheme拉起APP，具体数据格式如下
  
-		{
-		    "notification":{
-		        "app_message_id":"a467789237882716160",
-		        "channel_id":"yanxuan_notification_channel",
-		        "click_action_activity":"yanxuan://yxwebview?url=https%3A%2F%2Fact.you.163.com%2Fact%2Fpub%2FDisjY2u1n9p4SB3.html%3Fanchor%3DSeen3xcj%26opOrderId%3Dcrm_task_20200414160053263_1",
-		        "click_action_type":5,
-		        "content":"明天之后恢复原价",
-		        "title":"明天之后恢复原价"
-		    },
-		    "target_type":2,
-		    "target_value":"CN_29c9ed3771b470e24138944b373a2f22"
-		}
-		
-		
+	{
+	    "notification":{
+	        "app_message_id":"a467798011733344256",
+	        "channel_id":"NotificationChannel",
+	        "click_action_url":"yanxuan://yxwebview?url=https%3A%2F%2Fact.you.163.com%2Fact%2Fpub%2FDisjY2u1n9p4SB3.html%3Fanchor%3DSeen3xcj%26opOrderId%3Dcrm_task_20200414160053263_1",
+	        "click_action_type":5,
+	        "content":"明天之后恢复原价",
+	        "title":"明天之后恢复原价"
+	    },
+	    "target_type":2,
+	    "target_value":"CN_04f112241e183f6309611df2a95d6237"
+	}
+
+click_action_type= 5 配合 scheme拉起APP，，如果需要添加额外参数，同上。
+
 ## vivo
 
-Vivo跟oppo很类似，不过它也可以收到click事件（并没什么卵用），其click动作也支持多种表现：
+vivo跟oppo很类似，不过它也可以收到click事件（并没什么卵用），因此支持完全自定义（然而不用），支持五种Click行为
 
 * 1：打开APP首页
 * 2：打开链接
@@ -238,12 +251,21 @@ Vivo跟oppo很类似，不过它也可以收到click事件（并没什么卵用�
 	    "title":"adssdsr345436"
 	}
 
+skipType:4配合 scheme拉起APP，，如果需要添加额外参数，同上。
 
+## 各ROM接入事项小结
 以上是几种离线推送的接入方式，整体总结就是：
 
-* 选择**预定义**方式，不要采用**自定义**的方式
-* 可以通过scheme中加参数的方式，统一鉴别click事件
-* 不要自行处理click事件，在预定义的方式下，没有任何意义
-* 如果只要离线推送功能，没必要处理透传配置
+* 尽量选择**预定义Uri scheme**方式，不要采用**自定义**的方式
+* 可以在scheme中填加参数，统一鉴别click事件
+* 在预定义的方式下，不要在click回调中重复处理事件
+* 如果只要离线推送功能，没必要处理透传配置（比如什么Receiver Service之类的配置）
 
 # 总结
+
+* 不得不接入第三方SDK是为了离线推送
+* 各家离线推送大同小异，为了统一建议统一采用预定义Uri方式，配合私有scheme拉起APP
+* 额外追踪参数可以通过添加scheme字段解决
+* 不同ROM可能有自己的额外限制，比如小米，尽量避免受其限制
+
+最后，Android的推送困境是个悲剧...
