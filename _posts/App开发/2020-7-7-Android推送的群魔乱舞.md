@@ -167,6 +167,8 @@ extra.intent_uri的值就是APP端定义的私有scheme，点击通知会直接�
         }
     }
  
+ 
+  
 
 同小米类似，如果需要添加额外参数，放到scheme中，不再敖述。
 
