@@ -36,7 +36,8 @@
 	(缺少)
 	(缺少)
 	
-有与Firebase SDK问题，native堆栈日志统计不全，很难定位问题
+有与Firebase SDK问题，native堆栈日志统计不全，很难定位问题，目前还未能找到手机复现。
+
 
 
 	
