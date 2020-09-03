@@ -37,31 +37,24 @@
 
 ## 启动耗时
 
-界面启动从直观上说就是：从点击一个图标到看到下一个界面首帧，如果这个过程耗时较长，用户会会感受到顿挫，影响体验。从场景上说，启动耗时能简单分两种：
+界面启动从直观上说就是：从点击一个图标到看到下一个界面首帧，如果这个过程耗时较长，用户会会感受到顿挫，影响体验。从场景上说，启动耗时间简单分两种：
 
-* 冷启动耗时：在APP未启动的情况从，从点击桌面ICON到看到闪屏Activity的首帧（非默认背景）
-* 界面启动耗：APP启动后，从上一个界面pause，到下一个界面首帧可见
+* 冷启动耗时：在APP未启动的情况从，从点击桌面icon 到看到闪屏Activity的首帧（非默认背景） 
+* 界面启动耗：APP启动后，从上一个界面pause，到下一个界面首帧可见， 
 
-本文粒度较粗，主要聚焦Activity，这里有个比较核心的时机：首帧可见，究竟Activity什么时候首帧可见？经过测试发现，这个点与Activity的onWindowFocusChanged基本吻合，API的官方解释也基本对的上。
+本文粒度较粗，主要聚焦Activity，这里有个比较核心的时机：Activity首帧可见点，这个点究竟在什么时候？经分析测试发现，不同版本表现不一，在Android 10 之前这个点与onWindowFocusChanged回调点基本吻合，在Android  10 之后，系统做了优化，将首帧可见的时机提前到onWindowFocusChanged之前，可以简单看做onResume（或者onAttachedToWindow）之后，对于一开始点击icon的点，可以约等于APP进程启动的点，拿到了上面两个时间点，就可以得到冷启动耗时。
 
-> onWindowFocusChanged  Called when the current Window of the activity gains or loses focus. This is the best indicator of whether this activity is the entity with which the user actively interacts. The default implementation clears the key tracking state, so should always be called.
-
-那么冷启动事件其实就是从APP启动进程到闪屏Activity的onWindowFocusChanged被调用，这里要统计的有两个点：
-
-* 1：进程启动的时间节点
-* 2、onWindowFocusChanged被调用节点
-
-进程启动可以通过加载一个空的ContentProvider来记录，它的加载时机甚至在Application的onCreate之前，相对更准确一点，目前很多SDK的初始也采用这种方式：
+APP进程启动的点可以通过加载一个空的ContentProvider来记录，因为ContentProvider的加载时机比较靠前，早于Application的onCreate之前，相对更准确一点，很多SDK的初始也采用这种方式，实现如下：
 	
 	public class LauncherHelpProvider extends ContentProvider {
 	
 	    // 用来记录启动时间
 	    public static long sStartUpTimeStamp = SystemClock.uptimeMillis();
 	    ...
+	    
 	    }
 
-这样就得到了冷启动的开始时间，那么如何得到第一个Activity界面可见的时间呢？比较简单的做法是在SplashActivity的	 onWindowFocusChanged进行记录，不过，如果做SDK就需要尽量减少对业务的入侵，可以利用Applicattion监听Activity Lifecycle来间接实现：利用registerActivityLifecycleCallbacks对Activity堆栈做一个监听，在Activity Resumed时，利用ViewTreeObserve为Activity添加一个OnWindowFocusChangeListener，达到不入侵原Activity就监听到onWindowFocusChanged被调用的时机，示意代码如下
-
+这样就得到了冷启动的开始时间，如何得到第一个Activity界面可见的时间呢？比较简单的做法是在SplashActivity中进行打点，对于Android 10 以前的，可以在onWindowFocusChanged中打点，在Android 10以后，可以在onResume之后进行打点。不过，做SDK需要减少对业务的入侵，可以借助Applicattion监听Activity Lifecycle无入侵获取这个时间点。对于Android 10之前系统， 可以利用ViewTreeObserve监听nWindowFocusChange回调，达到无入侵获取onWindowFocusChanged调用点，示意代码如下
 
        application.registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
            ....
@@ -69,7 +62,8 @@
         public void onActivityResumed(@NonNull final Activity activity) {
             super.onActivityResumed(activity);
             launcherFlag |= resumeFlag;
-             <!--添加onWindowFocusChanged 监听-->
+            
+              <!--添加onWindowFocusChanged 监听-->
             	activity.getWindow().getDecorView().getViewTreeObserver().addOnWindowFocusChangeListener(new ViewTreeObserver.OnWindowFocusChangeListener() {
             	<!--onWindowFocusChanged回调-->
                 @Override
@@ -89,9 +83,26 @@
                                 //todo 监听到冷启动耗时
                                 ...
 
-这样就可以检测到冷启动耗时，监测各个Activity界面的启动耗时也依赖这个时机，还缺少一个Activity启动的时间点，经分析测试，这个点定义在上一个Actiivty pause的时候比较合理，因此Activity启动耗时定义如下：
 
-	Activity启动耗时=当前Activity onWindowFocusChanged首次被调用 - 上一个Activity onPause被调用
+对于Android 10以后的系统，可以在onActivityResumed回调时添加一UI线程Message来达到监听目的，代码如下
+
+        @Override
+        public void onActivityResumed(@NonNull final Activity activity) {
+            super.onActivityResumed(activity);
+            if (launcherFlag != 0 && (launcherFlag & resumeFlag) == 0) {
+                launcherFlag |= resumeFlag;
+                if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
+                    //  10 之后有改动，第一帧可见提前了 可认为onActivityResumed之后
+                    mUIHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            <!--获取第一帧可见时间点-->                        }
+                    });
+                }
+
+如此就可以检测到冷启动耗时。APP启动后，各Activity启动耗时计算逻辑类似，首帧可见点沿用上面方案即可，不过这里还缺少上一个界面暂停的点，经分析测试，锚在上一个Actiivty pause的时候比较合理，因此Activity启动耗时定义如下：
+
+	Activity启动耗时 = 当前Activity 首帧可见 - 上一个Activity onPause被调用
 
 同样为了减轻对业务入侵，也依赖registerActivityLifecycleCallbacks来实现：补全上方缺失
 
@@ -109,18 +120,12 @@
         public void onActivityResumed(@NonNull final Activity activity) {
             super.onActivityResumed(activity);
             launcherFlag |= resumeFlag;
-            activity.getWindow().getDecorView().getViewTreeObserver().addOnWindowFocusChangeListener(new ViewTreeObserver.OnWindowFocusChangeListener() {
-                @Override
-                public void onWindowFocusChanged(boolean b) {
-                <!--计算差值 获取启动时间-->
-                 final long activityLauncherTime = SystemClock.uptimeMillis() - mActivityLauncherTimeStamp;
+           <!--参考上面获取首帧的点-->
                  ...
  
-中间可能存在各种异常场景：比如onCreate或者onResume中调用了finish，在不同版本表现不一，影响统计，需要额外甄别，但实现框架基本如此，
-
+到这里就获取了两个比较关键的启动耗时，不过，时机使用中可能存在各种异常场景：比如闪屏页在onCreate或者onResume中调用了finish跳转首页，对于这种场景就需要额外处理，比如在onCreate中调用了finish，onResume可能不会被调用，这个时候就要在 onCreate之后进行统计，同时利用用Activity.isFinishing()标识这种场景。其次，启动耗时对于不同配置也是不一样的，不能用绝对时间衡量，只能横向对比。
 
 ## FPS 
-
 
 其实并非如此，举个例子，游戏玩家通常追求更流畅的游戏画面体验一般要达到 60FPS 以上，但我们平时看到的大部分电影或视频 FPS 其实不高，一般只有 25FPS ~ 30FPS，而实际上我们也没有觉得卡顿。 在人眼结构上看，当一组动作在 1 秒内有 12 次变化（即 12FPS），我们会认为这组动作是连贯的；而当大于 60FPS 时，人眼很难区分出来明显的变化，所以 60FPS 也一直作为业界衡量一个界面流畅程度的重要指标。一个稳定在 30FPS 的动画，我们不会认为是卡顿的，但一旦 FPS 很不稳定，人眼往往容易感知到。
 
