@@ -1,4 +1,12 @@
 
+
+---
+layout: post
+title: "Android轻量级APM性能监测方案"
+category: Android
+
+---
+
 ## App性能如何量化
 
 如何衡量一个APP性能好坏？直观感受就是：启动快、流畅、不闪退、耗电少等感官指标，反应到技术层面包装下就是：FPS（帧率）、界面渲染速度、Crash率、网络、CPU使用率、电量损耗速度等，一般挑其中几个关键指标作为APP质量的标尺。目前也有多种开源APM监控方案，但大部分偏向离线检测，对于线上监测而言显得太重，可能会适得其反，方案简单对比如下：
@@ -12,8 +20,6 @@
 听云App          |  适合监测网络跟启动，场景受限  | 否   |
 
 还有其他多种APM检测工具，功能复杂多样，但其实很多指标并不是特别重要，实现越复杂，线上风险越大，因此，并不建议直接使用。而且，分析多家APP的实现原理，其核心思路基本相同，且门槛也并不是特别高，建议自研一套，在灵活性、安全性上更有保障，更容易做到轻量级。本文主旨就是**围绕几个关键指标**：FPS、内存（内存泄漏）、界面启动、流量等，实现**轻量级**的线上监测。
-
-
 
 
 ## 核心性能指标拆解
@@ -124,8 +130,14 @@ APP进程启动的点可以通过加载一个空的ContentProvider来记录，�
            <!--参考上面获取首帧的点-->
                  ...
  
-到这里就获取了两个比较关键的启动耗时，不过，时机使用中可能存在各种异常场景：比如闪屏页在onCreate或者onResume中调用了finish跳转首页，对于这种场景就需要额外处理，比如在onCreate中调用了finish，onResume可能不会被调用，这个时候就要在 onCreate之后进行统计，同时利用用Activity.isFinishing()标识这种场景。其次，启动耗时对于不同配置也是不一样的，不能用绝对时间衡量，只能横向对比。
+到这里就获取了两个比较关键的启动耗时，不过，时机使用中可能存在各种异常场景：比如闪屏页在onCreate或者onResume中调用了finish跳转首页，对于这种场景就需要额外处理，比如在onCreate中调用了finish，onResume可能不会被调用，这个时候就要在 onCreate之后进行统计，同时利用用Activity.isFinishing()标识这种场景，其次，启动耗时对于不同配置也是不一样的，不能用绝对时间衡量，只能横向对比，简单线上效果如下：
 
+![](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/c061d878832f4245804988d698f4554c~tplv-k3u1fbpfcp-zoom-1.image)
+
+![](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b8b1072f95114a9f816d7e81933749ee~tplv-k3u1fbpfcp-zoom-1.image)
+
+
+![](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b8b1072f95114a9f816d7e81933749ee~tplv-k3u1fbpfcp-zoom-1.image)
 	
 ### 流畅度及FPS(Frames Per Second）监测
 
@@ -278,7 +290,12 @@ Choreographer有个方法addCallbackLocked，通过这个方法添加的任务�
 
 	瞬时掉帧程度 = Message耗时/16 -1 （不足1 可看做1）
 
-瞬时掉帧小于2次可以认为没有发生抖动，如果出现了单个Message执行过长，可认为发生了掉帧，流畅度与瞬时帧率监测大概就是这样。不过，同启动耗时类似，不同配置结果不同，不能用绝对时间衡量，只能横向对比。
+瞬时掉帧小于2次可以认为没有发生抖动，如果出现了单个Message执行过长，可认为发生了掉帧，流畅度与瞬时帧率监测大概就是这样。不过，同启动耗时类似，不同配置结果不同，不能用绝对时间衡量，只能横向对比，简单线上效果如下：
+
+
+![](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/50cc555e0b5b48958fdadc9d3e850b33~tplv-k3u1fbpfcp-zoom-1.image)
+
+![](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/9f4edc35fc884637b6ae4de792bf72f3~tplv-k3u1fbpfcp-zoom-1.image)
 
 
 
@@ -362,7 +379,10 @@ Choreographer有个方法addCallbackLocked，通过这个方法添加的任务�
 * nativePss （native内存）
 * dalvikPss （java内存 OOM原因）
 
-一般而言total是大于nativ+dalvik的，因为它包含了共享内存，理论上我们只关心native跟dalvik就行，以上就是关于内存的监测能力。
+一般而言total是大于nativ+dalvik的，因为它包含了共享内存，理论上我们只关心native跟dalvik就行，以上就是关于内存的监测能力，不过内存泄露不是100%正确，暴露明显问题即可，效果如下：
+
+![](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/1874ed2feba4466abb317a492dbe50c3~tplv-k3u1fbpfcp-zoom-1.image)
+
 
 ### 流量监测
 
@@ -391,6 +411,14 @@ Choreographer有个方法addCallbackLocked，通过这个方法添加的任务�
 	            markActivityDestroy(activity);
 	        }
 	    };
+
+
+![](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ba7e92e31be64c39b0244ddce2fdf1da~tplv-k3u1fbpfcp-zoom-1.image)
+
+
+![](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/46c18c99588d45af9659edca8158691e~tplv-k3u1fbpfcp-zoom-1.image)
+
+
 
 ### 电量检测
 
@@ -421,5 +449,4 @@ APP端只是完成的数据的采集，数据的整合及根系还是要依赖�
 * 内存泄露可以一个WeakHashMap简单搞定
 * 电量及CPU还不知道怎么用
 
-
-
+ [GITHUB链接  Collie ](https://github.com/happylishang/Collie)
