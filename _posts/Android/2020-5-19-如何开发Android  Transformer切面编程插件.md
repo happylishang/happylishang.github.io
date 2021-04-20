@@ -130,10 +130,10 @@ jar文件修改流程如下\
             super.visitInsn(opcode)
         }
         
-  其中类似     mv.visitMethodInsn(XXX）中的代码是不需要自己编码的，依赖ASM ByteCode类的插件，反编译class文件，即可        
+  其中类似     mv.visitMethodInsn(XXX）中的代码是不需要自己编码的，依赖ASM ByteCode类的插件，反编译class文件即可        
   
   ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7865ee65c1114c429b6cb4683db127d2~tplv-k3u1fbpfcp-watermark.image)
   
-  最终照葫芦画瓢，填充即可。
+ 然后，照葫芦画瓢填充代码即可。
   
   
