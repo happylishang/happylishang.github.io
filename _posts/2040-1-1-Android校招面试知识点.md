@@ -127,7 +127,13 @@ SharePreference是Android中的一种数据存储方式，请问SharePreference�
 无论哪个线程通过Handler post的消息都会被加入到MessageQueue，loop线程不断从MessageQueue读取消息并执行，如果没有线程就睡眠，等到在新消息被加入的时候，线程被唤醒，并执行
 
  
+##  描述Java的强引用、软引用、弱引用和虚引用的区别，并举例软引用、弱引用的使用场景
 
+##  简述下Android Touch事件的传递机制
+
+##   简述Activity的四种启动模式及特点
+
+##  简述 linux系统的进程地址空间 及binder一次拷贝原理
 
 ## Android及linux实现，为什么选择binder作为最常用的进程间通讯方式，他有什么优点，背后实现又是什么，同时，存在什么限制，在开发中你曾遇到过什么binder问题吗？如何解决的。
 
