@@ -12,7 +12,6 @@ Android开发中，Native开发的场景不多，一般是牵扯一些秘钥或�
 * build文件中添加Native配置
 
 		android {
- 
     		compileSdkVersion 30
     		...
 			    defaultConfig {
