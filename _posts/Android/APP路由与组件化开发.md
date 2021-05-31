@@ -93,9 +93,24 @@ Android系统本身提供页面跳转能力：如startActivity，对于工具类
 *  业务组件**[UI业务及服务]**自动扫描及注册逻辑：扩展性好，无需入侵原有代码逻辑
 *  路由拦截逻辑：比如登陆，统一鉴权
 
+可以看下一个典型的Arouter用法，第一步：targetActivity声明，
 
-参考   [Android路由方案选型
-](http://www.ssevening.com/android%E5%BC%80%E5%8F%91/2017/06/11/Android%E8%B7%AF%E7%94%B1%E6%96%B9%E6%A1%88%E9%80%89%E5%9E%8B/)
+
+		@Route(path = "/test/activity2")
+		public class Test2Activity extends AppCompatActivity {
+			 ...
+		}
+
+build阶段会根据注解搜集路由scheme，生成路由表，第二步使用
+
+            ARouter.getInstance()
+                    .build("/test/activity2")
+                    .navigation(this);
+
+可以看到在ARouter框架下，仅需要字符串Scheme就可以，无需依赖任何Test2Activity实现即可使用。
+
+
+参考 [Android路由方案选型](http://www.ssevening.com/android%E5%BC%80%E5%8F%91/2017/06/11/Android%E8%B7%AF%E7%94%B1%E6%96%B9%E6%A1%88%E9%80%89%E5%9E%8B/)
 
 在国外，一个App，只负责一个功能，比如：看电影、充话费、购物、旅游等，一个功能，就会做成一个App，但在国内，就是喜欢做一个大而全的全家桶，比如万能的淘宝、万能的微信、万能的支付宝、万能的大众点评，但模块一多，要解决的问题也就来了。问题如下：
 
