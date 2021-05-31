@@ -1,4 +1,4 @@
-前端开发经常会遇到一个词就是路由，在Android APP开发中，路由还经常和组件化开发强关联在一起，那么到底什么是路由，一个路由框架到底应该具备什么功能，实现原理是什么样的？路由是否是APP的强需求呢？与组件化到底什么关系，本文就简单分析下如上几个问题。
+前端开发经常遇到一个词：路由，在Android APP开发中，路由还经常和组件化开发强关联在一起，那么到底什么是路由，一个路由框架到底应该具备什么功能，实现原理是什么样的？路由是否是APP的强需求呢？与组件化到底什么关系，本文就简单分析下如上几个问题。
 
 ## 路由
 
@@ -16,23 +16,85 @@ APP 的路由框首先能够搜集各组件的路由scheme，并生成路由表�
 
 所以一个基本路由框架要具备如下能力：
 
-1. APP路由的扫描及注册逻辑
-2. 路由跳转target页面能力
-3. 路由调用target服务能力
+* 1. APP路由的扫描及注册逻辑
+* 2. 路由跳转target页面能力
+* 3. 路由调用target服务能力
 
 APP中，在进行页面路由的时候，经常需要判断是否登录等一些额外鉴权逻辑所以，还需要提供如下拦截逻辑：
 
 * 4  ：APP特有的路由拦截逻辑【比如：登陆、校验】
 
-## 路由是否是APP强需求
+## 三方路由框架是否是APP强需求
 
 答案：不是，但稍微大规模的APP都需要该能力。
 
-Android系统本身提供页面跳转能力：如startActivity，对于工具类APP，或单机类APP，这种方式已经完全够用，完全不需要专门的路由框架，那为什么很多APP还是采用路由框架呢？这跟APP性质及路由框架的优点有关。
+Android系统本身提供页面跳转能力：如startActivity，对于工具类APP，或单机类APP，这种方式已经完全够用，完全不需要专门的路由框架，那为什么很多APP还是采用路由框架呢？这跟APP性质及路由框架的优点都有关。
 
-## APP路由框架的优点
+## Android原生路由的缺点  ：功能单一，扩展灵活性差，不易协同
 
-参考  [Android路由方案选型
+传统的路由基本上就限定在startActivity、或者startService来路由跳转或者启动服务。拿startActivity来说，传统的路由有什么缺点：startActivity有两种用法，一种是显示的，一种是隐式的，显示调用如下：
+
+	<!--1 导入依赖-->
+	import com.snail.activityforresultexample.test.SecondActivity;
+	
+	public class MainActivity extends AppCompatActivity {
+	
+	    void jumpSecondActivityUseClassName(){
+	    <!--显示的引用Activity类-->
+	        Intent intent =new Intent(MainActivity.this, SecondActivity.class);
+	        startActivity(intent);
+	    }
+	    
+显示调用的缺点很明显，那就是必须要强依赖目标Activity的类实现，有些场景，尤其是大型APP组件化开发时候，有些业务逻辑出于安全考虑，并不想被源码或aar依赖，这时显式依赖的方式就无法走通。再来看看隐式调用方法。
+
+第一步：manifest中配置activity的intent-filter，至少要配置一个action
+
+	<?xml version="1.0" encoding="utf-8"?>
+	<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+	    package="com.snail.activityforresultexample">
+	    <application
+	       ...
+	    <activity android:name=".test.SecondActivity">
+	            <intent-filter>
+	            <!--隐式调用必须配置android.intent.category.DEFAULT-->
+	                   <category android:name="android.intent.category.DEFAULT"/>
+	            <!--至少配置一个action才能通过隐式调用-->
+	                <action android:name="com.snail.activityforresultexample.SecondActivity" />
+	                <!--可选-->
+	  <!--              <data android:mimeType="video/mpeg" android:scheme="http" ... />-->
+	            </intent-filter>
+	        </activity>
+	    </application>
+	</manifest>
+
+第二步：调用
+
+    void jumpSecondActivityUseFilter() {
+        Intent intent = new Intent();
+        intent.setAction("com.snail.activityforresultexample.SecondActivity");
+        startActivity(intent);
+    }
+
+如果牵扯到数据参数的传递还有过滤写法上可能会更复杂一些，上述的缺点也很明显，
+
+* 首先manifest中定义复杂，相对应的会导致暴露的协议变的复杂，不易维护扩展。
+* 其次，不同Activity都要不同的action配置，每次增减修改Activity都会很麻烦，对比开发者非常不友好，增加了协作难度。
+* 最后，Activity的export属性并不建议都设置成True，这是降低风险的一种方式，一般都是收归到一个Activity，DeeplinkActivitiy统一处理跳转，这种场景下，DeeplinkActivitiy就兼具路由功能，隐式调用的场景下，新Activitiy的增减势必每次都要调整路由表，这会导致开发效率降低，风险增加。
+
+对于服务功能的路由，上述问题同样存在，同时，原生的路由框架不存在所谓的拦截逻辑，而三方路由框架就是为了解决上述问题而产生的。
+
+## APP三方路由框架需具备的基础能力及扩展能力
+
+三方路由想要有竞争力就需解决以上问题，目前市面上大部分的路由框架都能搞定上述能力，简单整理下现在三方路由的能力，可归纳如下：
+
+*  基础路由跳转能力  ：页面跳转能力的支持
+*  服务类组件的支持 ：如去某个服务组件获取一些配置等
+*  scheme与业务映射逻辑 ：无需依赖具体实现，做到代码隔离
+*  业务组件**[UI业务及服务]**自动扫描及注册逻辑：扩展性好，无需入侵原有代码逻辑
+*  路由拦截逻辑：比如登陆，统一鉴权
+
+
+参考   [Android路由方案选型
 ](http://www.ssevening.com/android%E5%BC%80%E5%8F%91/2017/06/11/Android%E8%B7%AF%E7%94%B1%E6%96%B9%E6%A1%88%E9%80%89%E5%9E%8B/)
 
 在国外，一个App，只负责一个功能，比如：看电影、充话费、购物、旅游等，一个功能，就会做成一个App，但在国内，就是喜欢做一个大而全的全家桶，比如万能的淘宝、万能的微信、万能的支付宝、万能的大众点评，但模块一多，要解决的问题也就来了。问题如下：
