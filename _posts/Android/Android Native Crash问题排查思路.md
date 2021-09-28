@@ -1,4 +1,52 @@
-对于Android APP而言，native层Crash相比于Java层更难捕获与定位，
+## 背景
+
+对于Android APP而言，native层Crash相比于Java层更难捕获与定位，因为so的代码通常不可见，而且，一些第三方so的crash或者系统的更难定位，堆栈信息非常少：参考下面的几个native crash实例
+
+![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ea708a1d1e2846c082480ac157fbd238~tplv-k3u1fbpfcp-watermark.image?)
+
+甚至即时全量打印Log信息，也只能得到一些不太方便定位的日志，无法直接定位问题
+
+	09-14 10:14:36.590  1361  1361 I /system/bin/tombstoned: received crash request for pid 5908
+	09-14 10:14:36.591  5944  5944 I crash_dump64: performing dump of process 5687 (target tid = 5908)
+	09-14 10:14:36.607  5944  5944 F DEBUG   : *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+	09-14 10:14:36.608  5944  5944 F DEBUG   : Build fingerprint: 'Xiaomi/vangogh/vangogh:10/QKQ1.191222.002/V12.0.6.0.QJVCNXM:user/release-keys'
+	09-14 10:14:36.608  5944  5944 F DEBUG   : Revision: '0'
+	09-14 10:14:36.608  5944  5944 F DEBUG   : ABI: 'arm64'
+	09-14 10:14:36.608  5944  5944 F DEBUG   : Timestamp: 2021-09-14 10:14:36+0800
+	09-14 10:14:36.608  5944  5944 F DEBUG   : pid: 5687, tid: 5908, name: nioEventLoopGro  >>> com.netease.yanxuan <<<
+	09-14 10:14:36.608  5944  5944 F DEBUG   : uid: 10312
+	09-14 10:14:36.608  5944  5944 F DEBUG   : signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x4
+	09-14 10:14:36.608  5944  5944 F DEBUG   : Cause: null pointer dereference
+	09-14 10:14:36.608  5944  5944 F DEBUG   :     x0  0000000000000000  x1  0000000014d85fb0  x2  0000000015100bf8  x3  0000000000000000
+	09-14 10:14:36.608  5944  5944 F DEBUG   :     x4  0000000015100c18  x5  000000000000005a  x6  0000000015100c30  x7  0000000000000018
+	09-14 10:14:36.608  5944  5944 F DEBUG   :     x8  0000000000000000  x9  20454cc47a8eade3  x10 00000000005c0000  x11 000000000000004b
+	09-14 10:14:36.608  5944  5944 F DEBUG   :     x12 000000000000001f  x13 0000000000000000  x14 00000000a2018668  x15 0000000000000010
+	09-14 10:14:36.608  5944  5944 F DEBUG   :     x16 0000000000000000  x17 0000000000054402  x18 00000077328bc000  x19 00000077616e0c00
+	09-14 10:14:36.608  5944  5944 F DEBUG   :     x20 0000000000000001  x21 00000000151004a0  x22 0000000014d85fb0  x23 00000000a1f03180
+	09-14 10:14:36.608  5944  5944 F DEBUG   :     x24 0000000000000001  x25 0000000000000000  x26 0000000000000003  x27 00000000151000b8
+	09-14 10:14:36.608  5944  5944 F DEBUG   :     x28 0000000000000000  x29 00000000151009b0
+	09-14 10:14:36.608  5944  5944 F DEBUG   :     sp  000000773536e4f0  lr  000000779431b80c  pc  0000007794240260
+
+如上，虽然能看到 Cause: null pointer dereference，但是到底是什么代码导致的，没有非常明确的消息，不像Java层Crash有非常清晰堆栈，这就让Native的crash定位非常头痛。
+
+
+## 如何定位native crash
+
+对于Crash而言，精确的定位等于成功的一半，如何通过工具定位到native crash呢，如果是自己实现的so库，并且是native 发生crash一般而言，还是会有相应的日志打印出来的，本文主要针对一些特殊的so，尤其是不存在源码的so，对于这种场景如何定位，最重要当然还是复现：匹配对应的机型、环境、不断重试复现线上问题，一旦发生Crash后就些蛛丝马迹可查，本文以线上偶发的一个ARM64升级为例子，分析下定位流程：通过大量重试，复现场景后，便可以去查找问题日志，这个时候有一个挺好用的方法：bugreport命令：
+
+	$ adb bugreport  ~\  
+
+该命令会导出最近的crash相关信息，
+
+
+
+
+
+
+
+
+
+
 
  [ 一个关于Android支持64位CPU架构升级的“锅” ](https://www.jianshu.com/p/841c18c6e18d)
 
