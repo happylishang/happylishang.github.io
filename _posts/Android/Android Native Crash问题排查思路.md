@@ -100,6 +100,29 @@ Java层的代码，怎么忽然就跑到arm64/base.odex (BakerReadBarrierThunk�
 
 ![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/6e07a18fd39046e7ad99ce558ee7ab81~tplv-k3u1fbpfcp-watermark.image?)
 
+解释执行代码实在是看不懂：摘录了下这条记录的log Fix null checks on volatile reference field loads on ARM64.如下：
+
+	Fix null checks on volatile reference field loads on ARM64.
+	
+	ART's compiler adds a null check HIR instruction before each field
+	load HIR instruction created in the instruction builder phase. When
+	implicit null checks are allowed, the compiler elides the null check
+	if it can be turned into an implicit one (i.e. if the offset is within
+	a system page range).
+	
+	On ARM64, the Baker read barrier thunk built for field reference loads
+	needs to check the lock word of the holder of the field, and thus
+	includes an explicit null check if no null check has been done before.
+	However, this was not done for volatile loads (implemented with a
+	load-acquire instruction on ARM64). This change adds this missing null
+	check.
+	
+意思就是：对于volatile修饰的变量（映射为load-acquire instruction），Android 10没有做这个空检查，该commit就是为这种case加上空检查，从而避免运行时空指针。回到我们自己的业务中发现确实有地方用了volatile：
+
+ 
+
+
+
 GetCompilerOptions().GetImplicitNullChecks() ARM64的话，一般默认True
 
 ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/e2cbd1b4dd744a33999441efbc140116~tplv-k3u1fbpfcp-watermark.image?)
@@ -114,7 +137,7 @@ GetCompilerOptions().GetImplicitNullChecks() ARM64的话，一般默认True
           Register::GetXRegFromCode(BakerReadBarrierSecondRegField::Decode(encoded_data));
       CheckValidReg(holder_reg.GetCode());
 
-holder_reg与base_reg一般来说是相同的，所以NULL检查一般都会做，但是对于volatile修饰的变量，每次都会重新加载，那么holder_reg.Is(base_reg就会一直是False，这个时候，就需要现实的判NULL，
+holder_reg与base_reg一般来说是相同的，所以NULL检查一般都会做，但是对于volatile修饰的变量，每次都会重新加载，那么holder_reg.Is(base_reg
 
 )这个通常是False，所以不会走 __ Cbz(holder_reg.W(), throw_npe);空检查，但是Android 11增加的case
 
@@ -137,26 +160,6 @@ BakerReadBarrierKind::kAcquire，Field获取都要经过空检查，从而避免
 对比Android 10跟Android 11的源码回发现：code_generator_arm64.cc源码有如下修复
 
 
-      
-     
-     
-
-
- Fix null checks on volatile reference field loads on ARM64.
-
-ART's compiler adds a null check HIR instruction before each field
-load HIR instruction created in the instruction builder phase. When
-implicit null checks are allowed, the compiler elides the null check
-if it can be turned into an implicit one (i.e. if the offset is within
-a system page range).
-
-On ARM64, the Baker read barrier thunk built for field reference loads
-needs to check the lock word of the holder of the field, and thus
-includes an explicit null check if no null check has been done before.
-However, this was not done for volatile loads (implemented with a
-load-acquire instruction on ARM64). This change adds this missing null
-check.
- 
 
 
  [ 一个关于Android支持64位CPU架构升级的“锅” ](https://www.jianshu.com/p/841c18c6e18d)
