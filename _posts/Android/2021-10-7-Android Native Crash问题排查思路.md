@@ -117,87 +117,14 @@ Java层的代码，怎么忽然就跑到arm64/base.odex (BakerReadBarrierThunk�
 	load-acquire instruction on ARM64). This change adds this missing null
 	check.
 	
-意思就是：对于volatile修饰的变量（映射为load-acquire instruction），Android 10没有做这个空检查，该commit就是为这种case加上空检查，从而避免运行时空指针。回到我们自己的业务中发现确实有地方用了volatile：
+意思就是：对于volatile修饰的变量（映射为load-acquire instruction），加上空检查，避免运行时空指针。Android 10没有做这个空检查，该commit就是为修复该BUG，回到业务中发现，确实有地方用了多线程及volatile，处理掉这段逻辑即可。
 
+## 总结
  
-
-
-
-GetCompilerOptions().GetImplicitNullChecks() ARM64的话，一般默认True
-
-![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/e2cbd1b4dd744a33999441efbc140116~tplv-k3u1fbpfcp-watermark.image?)
-
-而对于Field的使用上
-
-    case BakerReadBarrierKind::kAcquire: {
-      auto base_reg =
-          Register::GetXRegFromCode(BakerReadBarrierFirstRegField::Decode(encoded_data));
-      CheckValidReg(base_reg.GetCode());
-      auto holder_reg =
-          Register::GetXRegFromCode(BakerReadBarrierSecondRegField::Decode(encoded_data));
-      CheckValidReg(holder_reg.GetCode());
-
-holder_reg与base_reg一般来说是相同的，所以NULL检查一般都会做，但是对于volatile修饰的变量，每次都会重新加载，那么holder_reg.Is(base_reg
-
-)这个通常是False，所以不会走 __ Cbz(holder_reg.W(), throw_npe);空检查，但是Android 11增加的case
-
-	  (holder_reg.Is(base_reg) || (kind == BakerReadBarrierKind::kAcquire)
-
-BakerReadBarrierKind::kAcquire，Field获取都要经过空检查，从而避免进一步运行时出现NULL的问题。
-
-
-
-
-同时：
-
-![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/8946f14bcef2420baf5f8a4f10b12ca0~tplv-k3u1fbpfcp-watermark.image?)
-
-
-比较，为零则跳转，避免运行时空指针：最终跳转地址0 +偏移地址4，就是0x4, fault addr 0x4: 而原因其实就是  Cause: null pointer dereference
-	
-	
-
-对比Android 10跟Android 11的源码回发现：code_generator_arm64.cc源码有如下修复
-
-
-
-
- [ 一个关于Android支持64位CPU架构升级的“锅” ](https://www.jianshu.com/p/841c18c6e18d)
+ 最主要的是结合bugreport及tombstone文件做好定位，定位问题后，才方便解决。
  
- 数据
+#### 参考文档 	   
  
- ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7568520088914dd281fa993eb1dfb2bd~tplv-k3u1fbpfcp-watermark.image?)
- 
-## lib.so问题排查：
+ https://wufengxue.github.io/2020/06/22/wechat-voice-codec-SEGV_MAPERR.html  有效参考分析工具 
 
-https://gerrit.aospa.co/c/AOSPA/android_art/+/9174
-
-null point check 
- 	
-	
-	  
-# /data/tombstones
-
-
-
-如果手机没有 Root，那么需要借助 adb bugreport 命令进行抓取（官网 - 使用 adb 获取错误报告（需翻墙））
-如果是安卓7.0以下，那么不支持将其打包成zip
-
-	  $ adb bugreport ./
-	Failed to get bugreportz version: 'bugreportz -v' returned '/system/bin/sh: bugreportz: not found' (code 0).
-	If the device does not run Android 7.0 or above, try 'adb bugreport' instead.
-
-
-直接运行 adb bugreport 会将全部报告输出到控制台（内容很多，不便查看）
-可以将其输出到指定文件中，方便查阅（报告内容比较多，可能要等一会才执行完）
-
-	  $ adb bugreport > bugreport.txt
-	Failed to get bugreportz version, which is only available on devices running Android 7.0 or later.
-	Trying a plain-text bug report instead.
- 
-
- 
- 
-###  https://wufengxue.github.io/2020/06/22/wechat-voice-codec-SEGV_MAPERR.html  有效参考分析工具 
-
-###  https://developer.android.com/ndk/guides/ndk-stack
+ https://developer.android.com/ndk/guides/ndk-stack
