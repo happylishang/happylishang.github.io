@@ -92,4 +92,9 @@ Activity启动时候一般会调用onCreate回调setContentView，会触发View�
 ![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f5e66d79ca4b4621addec689f02940c9~tplv-k3u1fbpfcp-watermark.image?)
 
 
-所以整体Message的流程是：Create->Start->Resume->performTraversals->其他消息，所以只要performTraversals之后插入一条消息，其实就可以认为能拿到第一帧时机，onResume之后Post一个即可，为什么呢？因为performTraversals已经占位了
+所以整体Message的流程是：Create->Start->Resume->performTraversals->其他消息，所以只要performTraversals之后插入一条消息，其实就可以认为能拿到第一帧时机，onResume之后Post一个即可，为什么呢？因为performTraversals已经占位了。一些onAttachedToWindow与OnWindowFocusChange的回调时机如下图:
+
+![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ba357571e08640808e3193fd009c07ba~tplv-k3u1fbpfcp-watermark.image?)
+
+ 
+ 可以看到，其实Resume之后插入一个消息即可，当然OnWindowFocusChange也可以，差别不大。
