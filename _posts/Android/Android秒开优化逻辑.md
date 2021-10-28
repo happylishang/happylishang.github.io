@@ -15,9 +15,3 @@
 	   resConfigs "en", "zh-rCN"
    
 冷启动耗时统计：   
-
-
-
- 
-
-adb shell am start -W  -d "yanxuan://yxwebview?url=https%3A%2F%2Fact.you.163.com%2Fact%2Fpub%2Fssr%2F8JxAkm0k17Xh.html%3F_mid%3D100000%26brand%3Dhuawei"  -a  android.intent.action.VIEW
