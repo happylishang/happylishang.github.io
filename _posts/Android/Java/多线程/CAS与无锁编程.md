@@ -54,8 +54,67 @@ JAVA里的compareAndSet一般是通过Unsafe这个类实现的，
 
 ## CAS的ABA问题
 
+
 ## AtomicInteger中volatile value作用
 
+volatile 可以保证可见性：启动两个线程，一个线程修改static 变量，另一个线程读取该变量，看看volatile变量的作用
+
+	public class VolatileTest {
+	    final static int COUNT = 5;
+	    static int value = 0;
+	    public static void main(String[] args) {
+	        new Thread(() -> {
+	            int tmp = value;
+	            while (tmp < COUNT) {
+	            <!--读取并使用-->
+	                if (value != tmp) {
+	                    tmp = value;
+	                    System.out.print("\n R "+value + " "+tmp);
+	                }
+	            }
+	        }, "R").start();
+	        new Thread(() -> {
+	            while (value < COUNT) {
+	                value ++;
+	                System.out.print("\n W "+value);
+	                try {
+	                    TimeUnit.SECONDS.sleep(1);
+	                } catch (Exception e) {
+	                }
+	            }
+	        }, "W").start();
+	    }
+	}
+	
+输出可能是如下情况：	
+
+	 W 1
+	 R 1 1
+	 W 2
+	 W 3
+	 W 4
+	 W 5
+	 结束
+	 
+可以看到写线程已经将静态变量value更新成了5，但是R线程中看到的value依旧是1，所以R线程可能就在那个地方死循环了，为value加上volatile之后呢？
+
+	    static volatile  int value = 0;
+
+之后输出会变成理想情况：
+
+	 W 1
+	 R 1 1
+	 W 2
+	 R 2 2
+	 W 3
+	 R 3 3
+	 W 4
+	 R 4 4
+	 W 5
+	 R 5 5
+	Process finished with exit code 0
+
+所以volatile修饰的变量其可见性会很时时，一个线程修改后，另一个线程会再次用的时候会立即可见。
 
 ## 无锁编程与乐观锁
 
