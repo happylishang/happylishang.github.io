@@ -315,4 +315,7 @@ getAndAddInt()循环获取给定对象o中的偏移量处的值v，然后判断�
             System.out.println(atomicReference.compareAndSet("A", "C") + "\t" + atomicReference.get());
             System.out.print("版本号的原子类解决ABA问题： ");
  
+#  synchronized锁原理
+ 
+ Java早期版本中，synchronized属于重量级锁，效率低下，因为监视器锁（monitor）是依赖于底层的操作系统的Mutex Lock来实现的，而操作系统实现线程之间的切换时需要从用户态转换到核心态，这个状态之间的转换需要相对比较长的时间，时间成本相对较高，这也是为什么早期的synchronized效率低的原因。庆幸的是在Java 6之后Java官方对从JVM层面对synchronized较大优化，所以现在的synchronized锁效率也优化得很不错了，Java 6之后，为了减少获得锁和释放锁所带来的性能消耗，引入了轻量级锁和偏向锁，
  
