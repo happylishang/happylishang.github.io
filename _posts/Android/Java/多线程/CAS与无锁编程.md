@@ -56,24 +56,89 @@ JAVA里的compareAndSet通过Unsafe类实现的，
 
 ## 并发AbstractQueuedSynchronizer[AQS队列同步器]框架与CAS的关系
 
-AbstractQueuedSynchronizer（队列同步器）可以看作是并发包（java.util.concurrent）的基础框架：
-
-    JDK中许多并发工具类的内部实现都依赖于AQS，如ReentrantLock, Semaphore, CountDownLatch等。
-
-    AQS底层依靠CAS与同步队列。
+AbstractQueuedSynchronizer（队列同步器）可以看作是并发包（java.util.concurrent）的基础框架，ReentrantLock, Semaphore等都是借助AQS模板实现的，而AQS由是借助CAS与同步队列实现的，AQS会把请求获取锁失败的线程放入一个队列的尾部，然后睡眠。CAS的使用的时机一定是在操作临界资源的时候，请求锁的操作就是一个CAS操作，CAS保证只会有一个线程获取锁成功，失败的就进入睡眠。ReentrantLock是借助AQS实现一个常用锁，支持公平与非公平两种模式，可以通过它看看CAS在锁上的具体用法。
 
 
-AbstractQueuedSynchronizer会把请求获取锁失败的线程放入一个队列的尾部：
 
-    等待获取锁的线程全部处于阻塞状态。当前线程执行完毕（释放锁）后，会激活当前线程的后继节点。
-    
-    
-compareAndSet使用的时机一定是在操作临界资源的时候，或者说更新共享变量的时候。
 
 # 非公平锁，上来就抢，不关心是不是有其他线程在等待
 
-## CAS的ABA问题
+   static final class NonfairSync extends Sync {
+        private static final long serialVersionUID = 7316153563782823691L;
 
+        /**
+         * Performs lock.  Try immediate barge, backing up to normal
+         * acquire on failure.
+         */
+        final void lock() {
+            if (compareAndSetState(0, 1))
+                setExclusiveOwnerThread(Thread.currentThread());
+            else
+                acquire(1);
+        }
+
+        protected final boolean tryAcquire(int acquires) {
+            return nonfairTryAcquire(acquires);
+        }
+    }
+
+	   final boolean nonfairTryAcquire(int acquires) {
+	            final Thread current = Thread.currentThread();
+	            int c = getState();
+	            if (c == 0) {
+	            <!--再抢一次-->
+	                if (compareAndSetState(0, acquires)) {
+	                    setExclusiveOwnerThread(current);
+	                    return true;
+	                }
+	            }
+	            else if (current == getExclusiveOwnerThread()) {
+	                int nextc = c + acquires;
+	                if (nextc < 0) // overflow
+	                    throw new Error("Maximum lock count exceeded");
+	                setState(nextc);
+	                return true;
+	            }
+	            return false;
+	        }
+        
+    /**
+     * Sync object for fair locks
+     */
+    static final class FairSync extends Sync {
+        private static final long serialVersionUID = -3000897897090466540L;
+
+        final void lock() {
+            acquire(1);
+        }
+
+        /**
+         * Fair version of tryAcquire.  Don't grant access unless
+         * recursive call or no waiters or is first.
+         */
+        protected final boolean tryAcquire(int acquires) {
+            final Thread current = Thread.currentThread();
+            int c = getState();
+            if (c == 0) {
+            <!--判断前面是不是有等待的节点-->
+                if (!hasQueuedPredecessors() &&
+                    compareAndSetState(0, acquires)) {
+                    setExclusiveOwnerThread(current);
+                    return true;
+                }
+            }
+            else if (current == getExclusiveOwnerThread()) {
+                int nextc = c + acquires;
+                if (nextc < 0)
+                    throw new Error("Maximum lock count exceeded");
+                setState(nextc);
+                return true;
+            }
+            return false;
+        }
+    }
+
+## CAS的ABA问题
 
 
 ## AtomicInteger中volatile value作用
