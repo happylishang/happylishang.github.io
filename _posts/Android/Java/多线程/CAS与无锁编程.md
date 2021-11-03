@@ -42,7 +42,7 @@ AtomicBoolean的getAndSet保证了GET+SET的原子性，中间没有中断，因
        return var2;
     }
 
-JAVA里的compareAndSet一般是通过Unsafe这个类实现的，
+JAVA里的compareAndSet通过Unsafe类实现的，
 
     public final boolean compareAndSet(boolean var1, boolean var2) {
         int var3 = var1 ? 1 : 0;
@@ -50,14 +50,37 @@ JAVA里的compareAndSet一般是通过Unsafe这个类实现的，
         return unsafe.compareAndSwapInt(this, valueOffset, var3, var4);
     }
 
-底层实现在不同平台各不相同，Java利用该类屏蔽不同平台的CAS实现，对上而言不需要过多关心。综上所述，**CAS自身知识提供原子操作的能力，配合原子操作+自旋才能达到synchronization 的目的**。
+底层实现在不同平台各不相同，Java利用该类屏蔽不同平台的CAS实现，对上而言不需要过多关心。综上所述，**CAS只能提供原子操作能力，配合CAS+自旋才能达到synchronization 的目的**。
+
+
+
+## 并发AbstractQueuedSynchronizer[AQS队列同步器]框架与CAS的关系
+
+AbstractQueuedSynchronizer（队列同步器）可以看作是并发包（java.util.concurrent）的基础框架：
+
+    JDK中许多并发工具类的内部实现都依赖于AQS，如ReentrantLock, Semaphore, CountDownLatch等。
+
+    AQS底层依靠CAS与同步队列。
+
+
+AbstractQueuedSynchronizer会把请求获取锁失败的线程放入一个队列的尾部：
+
+    等待获取锁的线程全部处于阻塞状态。当前线程执行完毕（释放锁）后，会激活当前线程的后继节点。
+    
+    
+compareAndSet使用的时机一定是在操作临界资源的时候，或者说更新共享变量的时候。
+
+# 非公平锁，上来就抢，不关心是不是有其他线程在等待
 
 ## CAS的ABA问题
 
 
+
 ## AtomicInteger中volatile value作用
 
-volatile 可以保证可见性：启动两个线程，一个线程修改static 变量，另一个线程读取该变量，看看volatile变量的作用
+### volatile 可以保证可见性
+
+：启动两个线程，一个线程修改static 变量，另一个线程读取该变量，看看volatile变量的作用
 
 	public class VolatileTest {
 	    final static int COUNT = 5;
@@ -115,6 +138,39 @@ volatile 可以保证可见性：启动两个线程，一个线程修改static �
 	Process finished with exit code 0
 
 所以volatile修饰的变量其可见性会很时时，一个线程修改后，另一个线程会再次用的时候会立即可见。
+
+### 防止指令重排
+
+public class NoVisibility {
+    private static boolean ready = false;
+    private static int number = 0;
+
+    private static class ReaderThread extends Thread {
+        @Override
+        public void run() {
+            while (!ready) {
+                Thread.yield(); //交出CPU让其它线程工作
+            }
+            System.out.println(number);
+        }
+    }
+
+    public static void main(String[] args) {
+        new ReaderThread().start();
+        number = 42;
+        ready = true;
+    }
+}
+
+在单一线程中，只要重排序不会影响到程序的执行结果，那么就不能保证其中的操作一定按照程序写定的顺序执行，即使重排序可能会对其它线程产生明显的影响。
+
+
+### synchroniz关键字也能保证可见性
+
+即当ThreadA释放锁M时，它所写过的变量（比如，x和y，存在它工作内存中的）都会同步到主存中，而当ThreadB在申请同一个锁M时，ThreadB的工作内存会被设置为无效，然后ThreadB会重新从主存中加载它要访问的变量到它的工作内存中（这时x=1，y=1，是ThreadA中修改过的最新的值）。通过这样的方式来实现ThreadA到ThreadB的线程间的通信。
+
+ 
+
 
 ## 无锁编程与乐观锁
 
