@@ -2,9 +2,9 @@
 
 CAS到底是什么，为什么出现？很多文章都说的稀里糊涂，Wiki百科的解释反而是最清晰的
 
-> In computer science, compare-and-swap (CAS) is an atomic instruction used in multithreading to achieve synchronization. 
+> In computer science, compare-and-swap (CAS) is an atomic instruction used in multithreading to achieve synchronization. It compares the contents of a memory location with a given value and, only if they are the same, modifies the contents of that memory location to a new given value. This is done as a single atomic operation. The atomicity guarantees that the new value is calculated based on up-to-date information; if the value had been updated by another thread in the meantime, the write would fail.
 
-**CAS是一条原子操作指令，用于在多线程编程中实现同步**，可以看出CAS其实就是为了实现同步锁而出现的，而compare-and-swap这种操作方式只是实现了了compare+swap的原子性，是实现同步锁的基础而已。
+**CAS是一条原子操作指令，用于在多线程编程中实现同步**，它本身就是为了多线程同步而出现的，对于单线程编程没有任何意义。在同步上，CAS的立足点是**共享变量**，多线程对同个变量进行操作的时候，都要确保之前GET的值未被修改，否则，后续计算出来的值就是错误的，所以在写新值的时候，需要对比当下内存值与原先取到的值是否一致，一致才可更新，并且依赖硬件保证了CAS的原子性。如此，保证对变量的更新是**线程安全的**，CAS本身是没有锁的概念与能力的，锁是借助CAS这个能力构建起来的。
 
 ## 利用CAS实现 synchronization "锁"
 
@@ -50,13 +50,12 @@ JAVA里的compareAndSet通过Unsafe类实现的，
         return unsafe.compareAndSwapInt(this, valueOffset, var3, var4);
     }
 
-底层实现在不同平台各不相同，Java利用该类屏蔽不同平台的CAS实现，对上而言不需要过多关心。综上所述，**CAS只能提供原子操作能力，配合CAS+自旋才能达到synchronization 的目的**。
-
+底层实现在不同平台各不相同，Java利用该类屏蔽不同平台的CAS实现，对上而言不需要过多关心。综上所述，**CAS只能提供原子操作能力，配合CAS+自旋才能达到类似synchronization 的目的**，这里采用的是一种无锁的同步思想，可能会增加CPU负担。
 
 
 ## 并发AbstractQueuedSynchronizer[AQS队列同步器]框架与CAS的关系
 
-AbstractQueuedSynchronizer（队列同步器）可以看作是并发包（java.util.concurrent）的基础框架，ReentrantLock, Semaphore等都是借助AQS模板实现的，而AQS由是借助CAS与同步队列实现的，AQS会把请求获取锁失败的线程放入一个队列的尾部，然后睡眠。CAS的使用的时机一定是在操作临界资源的时候，请求锁的操作就是一个CAS操作，CAS保证只会有一个线程获取锁成功，失败的就进入睡眠。ReentrantLock是借助AQS实现一个常用锁，支持公平与非公平两种模式，可以通过它看看CAS在锁上的具体用法。
+AbstractQueuedSynchronizer（队列同步器）可以看作是并发包（java.util.concurrent）的基础框架，ReentrantLock, Semaphore等都是借助AQS模板实现的，而AQS由是借助CAS与同步队列实现的，AQS会把请求获取锁失败的线程放入一个队列的尾部，然后睡眠。CAS的使用的时机一定是在操作临界资源的时候，请求锁的操作就是一个CAS操作，CAS保证只会有一个线程获取锁成功，失败的就进入睡眠，ReentrantLock是借助AQS实现一个常用锁，支持公平与非公平两种模式，可以通过其用法看CAS在锁上的作用。
 
 
 
