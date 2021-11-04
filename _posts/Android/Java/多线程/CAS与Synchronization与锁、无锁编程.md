@@ -1,14 +1,14 @@
-## CAS概念
+## CAS概念：compare-and-swap原子操作
 
 CAS到底是什么，为什么出现？很多文章都说的稀里糊涂，Wiki百科的解释反而是最清晰的
 
 > In computer science, compare-and-swap (CAS) is an atomic instruction used in multithreading to achieve synchronization. It compares the contents of a memory location with a given value and, only if they are the same, modifies the contents of that memory location to a new given value. This is done as a single atomic operation. The atomicity guarantees that the new value is calculated based on up-to-date information; if the value had been updated by another thread in the meantime, the write would fail.
 
-**CAS是一条原子操作指令，用于在多线程编程中实现同步**，它本身就是为了多线程同步而出现的，对于单线程编程没有任何意义。在同步上，CAS的立足点是**共享变量**，多线程对同个变量进行操作的时候，都要确保之前GET的值未被修改，否则，后续计算出来的值就是错误的，所以在写新值的时候，需要对比当下内存值与原先取到的值是否一致，一致才可更新，并且依赖硬件保证了CAS的原子性。如此，保证对变量的更新是**线程安全的**，CAS本身是没有锁的概念与能力的，锁是借助CAS这个能力构建起来的。
+**CAS是一条原子操作指令，用于在多线程编程中实现同步**，CAS本身就是为了多线程同步而出现的，对于单线程编程没有任何意义。在同步上，CAS的立足点是**共享变量**，依赖硬件指令，保证了读+比较+修改的原子性，每次利用CAS写的时候，都要确保之前GET值未被修改，否则更新失败，该操作可以保证任何写操作都是基于最新的值计算而来，避免线程被被打断，值被更新而不知。CAS本身是没有锁的概念与能力的，CAS是构建锁的一种工具。
 
-## 利用CAS实现 synchronization "锁"
+## 利用CAS实现无锁synchronization 
 
-CAS本身的定位是原子操作，本身不具备锁或者synchronization的能力，必须活用才能达到synchronization的目的。CAS首先比较变量的内存值与期望值，如果两者相同，则认为没有被修改，进而写入新值，这两个操作是一步完成的，中间不会被打断，相反如果发现内存值与期望值不同，则认为被修改过了，便不更新，这就是可以实现synchronization的契机。参考如下实现：利用CAS实现无锁并发编程：先看下在没有CAS的情况下怎么做
+CAS本身的定位是原子操作，不具备锁或者synchronization的能力，但是compare-and-swap的不可中断的特性为实现synchronization提供了契机：多个线程争夺更新一个值的契机，只有一个会成功，成功代表已获取锁，失败的代表竞争失败，而失败的线程可以选择自旋等待或者睡眠等待，这就是不同锁自己所考虑的事情了。可以参考利用AtomicBoolean实现的一个无锁并发编程：先看下在没有锁的情况下会有什么表现：
 
 	 <!--无锁编程：CPU忙等待-->
 	static boolean condition=false;
@@ -21,7 +21,7 @@ CAS本身的定位是原子操作，本身不具备锁或者synchronization的�
 	         condition = false;
 	        } }
 	        
-上述做法存在问题，并发情况下，如果线程A在if (!condition)与condition = true之间被切走了，还没来得及更新condition，那么其他线程也可以满足 if (!condition) ，从而进入临界区，从而会出现多个线程访问临界区从情况，究其原因就是 GET跟SET是分开的，如若换成实现了CAS 的AtomicBoolean就可避免上述问题：
+多线程执行如上逻辑时，会存在问题，如果线程A恰好在执行condition = true这条操作前之前被切走了，还没来得及更新condition，那么其他线程也同样可以满足 if (!condition) ，从而进入临界区，这时会出现多个线程访问临界区从情况，究其原因就是get、compare、set是分开的，如若换成实现了CAS 的AtomicBoolean就可避免上述问题：
 
     static AtomicBoolean  condition = new AtomicBoolean(false);
 	  @Override
@@ -31,7 +31,7 @@ CAS本身的定位是原子操作，本身不具备锁或者synchronization的�
         }  
     }
     
-AtomicBoolean的getAndSet保证了GET+SET的原子性，中间没有中断，因而不会存在多个线程同时满足  if (!condition.getAndSet(false, true))的情况，而AtomicBoolean的getAndSet其实就是通过自旋+CAS操作完成的
+AtomicBoolean的getAndSet保证了GET->SET的原子性，中间没有中断，因而不会存在多个线程同时满足  if (!condition.getAndSet(false, true))的情况，而AtomicBoolean的getAndSet其实就是通过CAS+自旋完成的
 
     //AtomicBoolean.java
     public final boolean getAndSet(boolean var1) {
@@ -49,11 +49,11 @@ JAVA里的compareAndSet通过Unsafe类实现的，
         int var4 = var2 ? 1 : 0;
         return unsafe.compareAndSwapInt(this, valueOffset, var3, var4);
     }
+    
+Unsafe底层在不同平台实现各不相同，不需要过多关心。综上所述，**CAS只能提供原子操作能力，配合CAS+自旋能达到类似synchronization 的目的**，不过这种锁是忙等待，如果临近区执行比较耗时，会造成CPU负担过重。
 
-底层实现在不同平台各不相同，Java利用该类屏蔽不同平台的CAS实现，对上而言不需要过多关心。综上所述，**CAS只能提供原子操作能力，配合CAS+自旋才能达到类似synchronization 的目的**，这里采用的是一种无锁的同步思想，可能会增加CPU负担。
 
-
-## 并发AbstractQueuedSynchronizer[AQS队列同步器]框架与CAS的关系
+## 利用CAS实现AbstractQueuedSynchronizer[AQS队列同步器]框架
 
 AbstractQueuedSynchronizer（队列同步器）可以看作是并发包（java.util.concurrent）的基础框架，ReentrantLock, Semaphore等都是借助AQS模板实现的，而AQS由是借助CAS与同步队列实现的，AQS会把请求获取锁失败的线程放入一个队列的尾部，然后睡眠。CAS的使用的时机一定是在操作临界资源的时候，请求锁的操作就是一个CAS操作，CAS保证只会有一个线程获取锁成功，失败的就进入睡眠，ReentrantLock是借助AQS实现一个常用锁，支持公平与非公平两种模式，可以通过其用法看CAS在锁上的作用。
 
