@@ -4,11 +4,11 @@ CAS到底是什么，为什么出现？很多文章都说的稀里糊涂，Wiki�
 
 > In computer science, compare-and-swap (CAS) is an atomic instruction used in multithreading to achieve synchronization. It compares the contents of a memory location with a given value and, only if they are the same, modifies the contents of that memory location to a new given value. This is done as a single atomic operation. The atomicity guarantees that the new value is calculated based on up-to-date information; if the value had been updated by another thread in the meantime, the write would fail.
 
-**CAS是一条原子操作指令，用于在多线程编程中实现同步**，CAS本身就是为了多线程同步而出现的，对于单线程编程没有任何意义。在同步上，CAS的立足点是**共享变量**，依赖硬件指令，保证了读+比较+修改的原子性，每次利用CAS写的时候，都要确保之前GET值未被修改，否则更新失败，该操作可以保证任何写操作都是基于最新的值计算而来，避免线程被被打断，值被更新而不知。CAS本身是没有锁的概念与能力的，CAS是构建锁的一种工具。
+**CAS是一条原子操作指令，用于在多线程编程中实现同步**，CAS本身就是为了多线程同步而出现的，对于单线程编程没有任何意义。在同步上，CAS的立足点是**共享变量**，依赖硬件指令，保证了比较+修改的原子性，每次利用CAS写的时候，都要确保之前GET值未被修改，否则更新失败，该操作可以保证写操作都是基于最新的值计算而来，避免了GET->SET之间线程被被打断而引发的风险。
 
 ## 利用CAS实现无锁synchronization 
 
-CAS本身的定位是原子操作，不具备锁或者synchronization的能力，但是compare-and-swap的不可中断的特性为实现synchronization提供了契机：多个线程争夺更新一个值的契机，只有一个会成功，成功代表已获取锁，失败的代表竞争失败，而失败的线程可以选择自旋等待或者睡眠等待，这就是不同锁自己所考虑的事情了。可以参考利用AtomicBoolean实现的一个无锁并发编程：先看下在没有锁的情况下会有什么表现：
+CAS本身的定位是原子操作，不具备锁或者synchronization的能力，但是它是构建锁的一种非常好用的工具，compare-and-swap的原子性为实现synchronization提供了契机：多个线程更新一个时，只有一个会成功，成功代表已获取锁，失败的代表竞争失败，失败的线程可以选择自旋等待或者睡眠等待，**这就是锁的概念**。可以参考利用AtomicBoolean实现的一个无锁并发编程：先看下在没有锁的情况下会有什么表现：
 
 	 <!--无锁编程：CPU忙等待-->
 	static boolean condition=false;
@@ -55,10 +55,7 @@ Unsafe底层在不同平台实现各不相同，不需要过多关心。综上�
 
 ## 利用CAS实现AbstractQueuedSynchronizer[AQS队列同步器]框架
 
-AbstractQueuedSynchronizer（队列同步器）可以看作是并发包（java.util.concurrent）的基础框架，ReentrantLock, Semaphore等都是借助AQS模板实现的，而AQS由是借助CAS与同步队列实现的，AQS会把请求获取锁失败的线程放入一个队列的尾部，然后睡眠。CAS的使用的时机一定是在操作临界资源的时候，请求锁的操作就是一个CAS操作，CAS保证只会有一个线程获取锁成功，失败的就进入睡眠，ReentrantLock是借助AQS实现一个常用锁，支持公平与非公平两种模式，可以通过其用法看CAS在锁上的作用。
-
-
-
+AbstractQueuedSynchronizer（队列同步器）是并发包的核心，ReentrantLock, Semaphore等都是借助AQS模板实现的，而AQS由是借助CAS与同步队列实现的，AQS会把请求获取锁失败的线程放入一个队列的尾部，然后睡眠。CAS的使用的时机一定是在操作临界资源的时候，请求锁的操作就是一个CAS操作，CAS保证只会有一个线程获取锁成功，失败的就进入睡眠，ReentrantLock是借助AQS实现一个常用锁，支持公平与非公平两种模式，可以通过其用法看CAS在锁上的作用。
 
 # 非公平锁，上来就抢，不关心是不是有其他线程在等待
 
