@@ -7,8 +7,7 @@
 *  闪光灯:扫码补光
 	
 ### Android 7
-	
-	2021-12-02 09:47:28.216 14371-14371/com.snail.labaffinity V/Collie: onWindowFocusChanged com.snail.labaffinity.activity.MainActivity@847eee410330397
+
 	2021-12-02 09:47:28.217 14371-14371/com.snail.labaffinity V/Collie: onPause com.snail.labaffinity.activity.MainActivity@847eee410330398
 	2021-12-02 09:47:28.245 14371-14371/com.snail.labaffinity V/Collie: onResume com.snail.labaffinity.activity.LauncherTestActivity@4d2977610330426
 	2021-12-02 09:47:28.245 14371-14371/com.snail.labaffinity V/Collie: onPostResumemcom.snail.labaffinity.activity.LauncherTestActivity@4d2977610330426
@@ -27,7 +26,7 @@
 	2021-12-02 10:33:43.004 3470-3470/com.snail.labaffinity V/Collie: onPause com.snail.labaffinity.activity.MainActivity@d6ec83f114614
 	2021-12-02 10:33:43.036 3470-3470/com.snail.labaffinity V/Collie: onResume com.snail.labaffinity.activity.LauncherTestActivity@73be63f114646
 	2021-12-02 10:33:43.037 3470-3470/com.snail.labaffinity V/Collie: onPostResumemcom.snail.labaffinity.activity.LauncherTestActivity@73be63f114646
-	2021-12-02 10:33:43.045 3470-3470/com.snail.labaffinity V/Collie: onWindowFocusChanged com.snail.labaffinity.activity.MainActivity@d6ec83f114655
+
 	2021-12-02 10:33:43.051 3470-3470/com.snail.labaffinity V/Collie: onAttachedToWindow
 	2021-12-02 10:33:44.098 3470-3470/com.snail.labaffinity V/Collie: onDraw
 	2021-12-02 10:33:45.108 3470-3470/com.snail.labaffinity V/Collie: onWindowFocusChanged
@@ -48,7 +47,7 @@
 	2021-12-02 10:28:35.169 3663-3663/com.snail.labaffinity V/Collie: onPause com.snail.labaffinity.activity.MainActivity@f85174494367
 	2021-12-02 10:28:35.208 3663-3663/com.snail.labaffinity V/Collie: onResume com.snail.labaffinity.activity.LauncherTestActivity@d038b8a94405
 	2021-12-02 10:28:35.208 3663-3663/com.snail.labaffinity V/Collie: onPostResumemcom.snail.labaffinity.activity.LauncherTestActivity@d038b8a94406
-	2021-12-02 10:28:35.219 3663-3663/com.snail.labaffinity V/Collie: onWindowFocusChanged com.snail.labaffinity.activity.MainActivity@f85174494417
+
 	2021-12-02 10:28:35.223 3663-3663/com.snail.labaffinity V/Collie: onAttachedToWindow
 	2021-12-02 10:28:36.263 3663-3663/com.snail.labaffinity V/Collie: onDraw
 	2021-12-02 10:28:37.277 3663-3663/com.snail.labaffinity V/Collie: onWindowFocusChanged
@@ -151,7 +150,7 @@
 	2021-12-02 09:49:20.966 10722-10722/com.snail.labaffinity V/Collie: onPause com.snail.labaffinity.activity.MainActivity@cee5428300315573
 	2021-12-02 09:49:21.030 10722-10722/com.snail.labaffinity V/Collie: onResume com.snail.labaffinity.activity.LauncherTestActivity@1248aac300315637
 	2021-12-02 09:49:21.030 10722-10722/com.snail.labaffinity V/Collie: onPostResumemcom.snail.labaffinity.activity.LauncherTestActivity@1248aac300315638
-	2021-12-02 09:49:21.066 10722-10722/com.snail.labaffinity V/Collie: onWindowFocusChanged com.snail.labaffinity.activity.MainActivity@cee5428300315674
+
 	2021-12-02 09:49:21.070 10722-10722/com.snail.labaffinity V/Collie: onAttachedToWindow
 	2021-12-02 09:49:22.097 10722-10722/com.snail.labaffinity V/Collie: onDraw
 	2021-12-02 09:49:22.118 10722-10791/com.snail.labaffinity V/Collie: activity启动耗时 com.snail.labaffinity.activity.LauncherTestActivity@1248aac 1152 finishNow false
@@ -169,7 +168,7 @@
 	2021-12-02 10:22:31.844 9558-9558/com.snail.labaffinity V/Collie: onPostResumemcom.snail.labaffinity.activity.LauncherTestActivity@284f20e1060689
 	2021-12-02 10:22:31.862 9558-9558/com.snail.labaffinity V/Collie: onAttachedToWindow
 	2021-12-02 10:22:32.898 9558-9558/com.snail.labaffinity V/Collie: onDraw
-	2021-12-02 10:22:32.917 9558-9558/com.snail.labaffinity V/Collie: onWindowFocusChanged com.snail.labaffinity.activity.MainActivity@6ea3a811061762
+ 
 	2021-12-02 10:22:32.919 9558-9704/com.snail.labaffinity V/Collie: activity启动耗时 com.snail.labaffinity.activity.LauncherTestActivity@284f20e 1145 finishNow false
 	2021-12-02 10:22:33.946 9558-9558/com.snail.labaffinity V/Collie: onWindowFocusChanged
 	2021-12-02 10:22:33.946 9558-9558/com.snail.labaffinity V/Collie: onWindowFocusChanged com.snail.labaffinity.activity.LauncherTestActivity@284f20e1062791
@@ -184,7 +183,6 @@
 	2021-12-02 10:21:32.937 28713-28713/com.snail.labaffinity V/Collie: onPostResumemcom.snail.labaffinity.activity.LauncherTestActivity@18bab5a554344853
 	2021-12-02 10:21:32.945 28713-28713/com.snail.labaffinity V/Collie: onAttachedToWindow
 	2021-12-02 10:21:33.957 28713-28713/com.snail.labaffinity V/Collie: onDraw
-	2021-12-02 10:21:33.963 28713-28713/com.snail.labaffinity V/Collie: onWindowFocusChanged com.snail.labaffinity.activity.MainActivity@925ebd3554345879
 	2021-12-02 10:21:33.965 28713-28759/com.snail.labaffinity V/Collie: activity启动耗时 com.snail.labaffinity.activity.LauncherTestActivity@18bab5a 1057 finishNow false
 	2021-12-02 10:21:34.978 28713-28713/com.snail.labaffinity V/Collie: onWindowFocusChanged
 	2021-12-02 10:21:34.979 28713-28713/com.snail.labaffinity V/Collie: onWindowFocusChanged com.snail.labaffinity.activity.LauncherTestActivity@18bab5a554346895

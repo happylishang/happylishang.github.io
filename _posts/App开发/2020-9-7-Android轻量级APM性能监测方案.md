@@ -59,53 +59,25 @@ APP进程启动的点可以通过加载一个空的ContentProvider来记录，�
 	    
 	    }
 
-这样就得到了冷启动的开始时间，如何得到第一个Activity界面可见的时间呢？比较简单的做法是在SplashActivity中进行打点，对于Android 10 以前的，可以在onWindowFocusChanged中打点，在Android 10以后，可以在onResume之后进行打点。不过，做SDK需要减少对业务的入侵，可以借助Applicattion监听Activity Lifecycle无入侵获取这个时间点。对于Android 10之前系统， 可以利用ViewTreeObserve监听nWindowFocusChange回调，达到无入侵获取onWindowFocusChanged调用点，示意代码如下
+这样就得到了冷启动的开始时间，如何得到第一个Activity界面可见的时间呢？大概回执流程如下
 
-       application.registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
-           ....
-           @Override
-        public void onActivityResumed(@NonNull final Activity activity) {
-            super.onActivityResumed(activity);
-            launcherFlag |= resumeFlag;
-            
-              <!--添加onWindowFocusChanged 监听-->
-            	activity.getWindow().getDecorView().getViewTreeObserver().addOnWindowFocusChangeListener(new ViewTreeObserver.OnWindowFocusChangeListener() {
-            	<!--onWindowFocusChanged回调-->
-                @Override
-                public void onWindowFocusChanged(boolean b) {
-                    if (b && (launcherFlag ^ startFlag) == 0) {
-                       <!--判断是不是首个Activity-->
-                        final boolean isColdStarUp = ActivityStack.getInstance().getBottomActivity() == activity;
-                        <!--获取首帧可见距离启动的时间-->
-                        final long coldLauncherTime = SystemClock.uptimeMillis() - LauncherHelpProvider.sStartUpTimeStamp;
-                        final long activityLauncherTime = SystemClock.uptimeMillis() - mActivityLauncherTimeStamp;
-                        activity.getWindow().getDecorView().getViewTreeObserver().removeOnWindowFocusChangeListener(this);
-                        <!--异步线程处理回调，减少UI线程负担-->
-                        mHandler.post(new Runnable() {
-                            @Override
-                            public void run() {
-                                if (isColdStarUp) {
-                                //todo 监听到冷启动耗时
-                                ...
+![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/78902fe9f558459fa5988d3b82910079~tplv-k3u1fbpfcp-watermark.image?)
 
+网上有一些认为可以监听onAttachedToWindow或者OnWindowFocusChange，onAttachedToWindow的问题是可能太过靠前，还没有Draw, OnWindowFocusChange的缺点可能是太过滞后。其实可以简单认为在view draw以后，View的绘制就算完成，虽然到展示还可能相差一个VSYNC等待图层合成，但是对于性能监测的评定，误差一个固定值可以接受：
 
-对于Android 10以后的系统，可以在onActivityResumed回调时添加一UI线程Message来达到监听目的，代码如下
+![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ba357571e08640808e3193fd009c07ba~tplv-k3u1fbpfcp-watermark.image?)
 
-        @Override
-        public void onActivityResumed(@NonNull final Activity activity) {
-            super.onActivityResumed(activity);
-            if (launcherFlag != 0 && (launcherFlag & resumeFlag) == 0) {
-                launcherFlag |= resumeFlag;
-                if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
-                    //  10 之后有改动，第一帧可见提前了 可认为onActivityResumed之后
-                    mUIHandler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            <!--获取第一帧可见时间点-->                        }
-                    });
-                }
+在onResume函数中插入一条消息可以吗，理论上来说，太过靠前，这条消息在执行的时候，还没Draw，因为请求VSYNC的同步栅栏是在是在Onresume结束后才插入的，无法拦截之前的Message，但是由于VSYNC可能存在复用，Onresume中插入的消息也有可能会在绘制之后执行，这个不是完全一定的，比如点击MaterialButton启动一个Activity，第二个Activity的setView触发的VSYNC就可能复用MaterialButton的波纹触发的VSYNC，从而导致第二个Activity的performTraval复用第一个VSYNC执行，从而发生在onResume插入消息之前，如下
 
-如此就可以检测到冷启动耗时。APP启动后，各Activity启动耗时计算逻辑类似，首帧可见点沿用上面方案即可，不过这里还缺少上一个界面暂停的点，经分析测试，锚在上一个Actiivty pause的时候比较合理，因此Activity启动耗时定义如下：
+> 栅栏消息
+
+![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7f9b2a9052a2433586bfc2b0ff48f81a~tplv-k3u1fbpfcp-watermark.image?)
+
+> 重绘CallBack包含多个Activity的重绘
+
+![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/441ed56238664d2c9d2443de540224de~tplv-k3u1fbpfcp-watermark.image?)	 
+
+综上所述，**将指标定义在第一次View的Draw执行可能比较靠谱**。具体可以再DecorView上插入一个透明View，监听器onDraw回调即可，如果觉得不够优雅，就退一步，监听OnWindowFocusChange的回调，也勉强可以接受, OnWindowFocusChange一定是在Draw之后的。如此就可以检测到冷启动耗时。APP启动后，各Activity启动耗时计算逻辑类似，首帧可见点沿用上面方案即可，不过这里还缺少上一个界面暂停的点，经分析测试，锚在上一个Actiivty pause的时候比较合理，因此Activity启动耗时定义如下：
 
 	Activity启动耗时 = 当前Activity 首帧可见 - 上一个Activity onPause被调用
 

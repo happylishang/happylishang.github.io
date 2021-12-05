@@ -131,16 +131,27 @@ requestLayout会scheduleTraversals预先占位一个异步消息，用于接收�
     
 ![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f5e66d79ca4b4621addec689f02940c9~tplv-k3u1fbpfcp-watermark.image?)
 
-可以看到，这个逻辑基本上是挨着addView执行。所以可以认为是Resume之后第一个比较靠前的系统调度异步消息，那么**只要在onResume之后插入插入一条消息，其实就可以监控到首帧渲染**，如下图所示。
+所以首帧的渲染一定是在Resume之后，那么具体的时机怎么把控？到底在哪，如下图所示，插入的点在哪？
 
 ![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/78902fe9f558459fa5988d3b82910079~tplv-k3u1fbpfcp-watermark.image?)
 
-网上也有一些其他的实现，比如onAttachedToWindow或者OnWindowFocusChange后发消息，或者直接监听，原理差不多。
+网上有一些其他的实现，认为可以监听onAttachedToWindow或者OnWindowFocusChange，onAttachedToWindow的问题是可能太过靠前，还没有Draw, OnWindowFocusChange的缺点可能是太过滞后，其实可以简单认为view会的draw以后，View的绘制就算完成，虽然到展示还可能相差一个VSYNC等待图层合成，但是对于性能监测的评定，误差一个固定值可以接受：
 
 ![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ba357571e08640808e3193fd009c07ba~tplv-k3u1fbpfcp-watermark.image?)
 
- 
-**综上所述，可以认为在Resume之后插入一个消息即可**。有了指标，那是否达标？如何采集？基线呢？可以参考业界做法，采集方式可以无入侵打点，而优秀基线可以认为：
+在onResume函数中插入一条消息可以吗，理论上来说，太过靠前，这条消息在执行的时候，还没Draw，因为请求VSYNC的同步栅栏是在是在Onresume结束后才插入的，无法拦截之前的Message，但是由于VSYNC可能存在复用，Onresume中插入的消息也有可能会在绘制之后执行，这个不是完全一定的，比如点击MaterialButton启动一个Activity，第二个Activity的setView触发的VSYNC就可能复用MaterialButton的波纹触发的VSYNC，从而导致第二个Activity的performTraval复用第一个VSYNC执行，从而发生在onResume插入消息之前，如下
+
+> 栅栏消息
+
+![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7f9b2a9052a2433586bfc2b0ff48f81a~tplv-k3u1fbpfcp-watermark.image?)
+
+> 重绘CallBack包含多个Activity的重绘
+
+![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/441ed56238664d2c9d2443de540224de~tplv-k3u1fbpfcp-watermark.image?)	 
+
+综上所述，**将指标定义在第一次View的Draw执行可能比较靠谱**。具体可以再DecorView上插入一个透明View，监听器onDraw回调即可，如果觉得不够优雅，就退一步，监听OnWindowFocusChange的回调，也勉强可以接受, OnWindowFocusChange一定是在Draw之后的。
+
+有了指标，那是否达标？如何采集？基线呢？可以参考业界做法，采集方式可以无入侵打点，而优秀基线可以认为：
 
 	优秀=秒开 
 
