@@ -61,6 +61,12 @@ charless查看本地IP
 
 ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/94148bd4935c48f59bd4b92fae831d1f~tplv-k3u1fbpfcp-watermark.image?)
 
+
+如果想要动态修改返回Code可以用rewrite的能力
+
+
+![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3a9d841a99754a23a71cd3b02ccdfca5~tplv-k3u1fbpfcp-watermark.image?)
+
 ### HTTPS抓包
 
 如果抓https，也要把Https打开，另外Android7.0以上的设备支持难度较高，要么ROOT要么修改APP
