@@ -1,9 +1,3 @@
----
-layout: default
-title: 性能调优之软/弱引用
-category: Java
-
----
 
 ### 性能调优之软/弱引用
 
@@ -85,6 +79,7 @@ At the same time or some time in the future, all references in refs will be enqu
 The system may delay clearing and enqueueing soft references, yet all SoftReferences pointing to softly reachable objects will be cleared before the runtime throws an OutOfMemoryError.
 Unlike a WeakReference, a SoftReference will not be cleared and enqueued until the runtime must reclaim memory to satisfy an allocation.
 
+
 ### 2 .弱引用（WeakReference）
 
 弱引用与软引用的区别在于：只具有弱引用的对象拥有更短暂的生命周期。在垃圾回收器线程扫描它所管辖的内存区域的过程中，一旦发现了只具有弱引用的对象，不管当前内存空间足够与否，都会回收它的内存。不过，由于垃圾回收器是一个优先级很低的线程，因此不一定会很快发现那些只具有弱引用的对象。
@@ -103,13 +98,8 @@ In order to ensure that a reclaimable object remains so, the referent of a phant
 Unlike soft and weak references, phantom references are not automatically cleared by the garbage collector as they are enqueued. An object that is reachable via phantom references will remain so until all such references are cleared or themselves become unreachable.
 
 
-“虚引用”顾名思义，就是形同虚设，与其他几种引用都不同，虚引用并不会决定对象的生命周期。如果一个对象仅持有虚引用，那么它就和没有任何引用一样，在任何时候都可能被垃圾回收器回收。
+虚引用不影响对象的生命周期，但是影响对象的GC时机，虚引用主要用来跟踪对象被垃圾回收器回收的活动，如果程序发现某个虚引用已经被加入到引用队列，
 
-虚引用主要用来跟踪对象被垃圾回收器回收的活动。虚引用与软引用和弱引用的一个区别在于：虚引用必须和引用队列 （ReferenceQueue）联合使用。当垃圾回收器准备回收一个对象时，如果发现它还有虚引用，就会在回收对象的内存之前，把这个虚引用加入到与之 关联的引用队列中。
-
-ReferenceQueue queue = new ReferenceQueue ();  
-PhantomReference pr = new PhantomReference (object, queue);  
-程序可以通过判断引用队列中是否已经加入了虚引用，来了解被引用的对象是否将要被垃圾回收。如果程序发现某个虚引用已经被加入到引用队列，那么就可以在所引用的对象的内存被回收之前采取必要的行动。
 
 ### 4. 强引用（StrongReference）
 
