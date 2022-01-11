@@ -106,7 +106,7 @@ In order to ensure that a reclaimable object remains so, the referent of a phant
 Unlike soft and weak references, phantom references are not automatically cleared by the garbage collector as they are enqueued. An object that is reachable via phantom references will remain so until all such references are cleared or themselves become unreachable.
 
 
-虚引用不影响对象的生命周期，但是影响对象的GC时机，虚引用主要用来跟踪对象被垃圾回收器回收的活动，如果程序发现某个虚引用已经被加入到引用队列，
+虚引用不影响对象的生命周期，但是影响对象的GC，虚引用主要用来跟踪对象被垃圾回收，**只有虚引用本身也变得不可达【不是虚引用指向的对象】，虚引用所指向的对象才会被垃圾回收器GC回收。**
 
 
 ### 4. 强引用（StrongReference）
