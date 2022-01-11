@@ -1,4 +1,10 @@
+---
 
+layout: post
+title: Android GPU呈现模式原理及卡顿掉帧分析
+category: Android
+
+---
 ### 性能调优之软/弱引用
 
 ### 1 .SoftReference软引用
