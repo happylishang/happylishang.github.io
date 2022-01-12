@@ -114,6 +114,54 @@ Unlike soft and weak references, phantom references are not automatically cleare
 虚引用不影响对象的生命周期，但是影响对象的GC，虚引用主要用来跟踪对象被垃圾回收，**只有虚引用本身也变得不可达【不是虚引用指向的对象】，虚引用所指向的对象才会被垃圾回收器GC回收。**
 
 
-### 4. 强引用（StrongReference）
+	public final class Daemons {
+	    private static final int NANOS_PER_MILLI = 1000 * 1000;
+	    private static final int NANOS_PER_SECOND = NANOS_PER_MILLI * 1000;
+	    private static final long MAX_FINALIZE_NANOS = 10L * NANOS_PER_SECOND;
+	
+	    public static void start() {
+	        ReferenceQueueDaemon.INSTANCE.start();
+	        FinalizerDaemon.INSTANCE.start();
+	        FinalizerWatchdogDaemon.INSTANCE.start();
+	        HeapTaskDaemon.INSTANCE.start();
+	    }
+	
+	    public static void startPostZygoteFork() {
+	        ReferenceQueueDaemon.INSTANCE.startPostZygoteFork();
+	        FinalizerDaemon.INSTANCE.startPostZygoteFork();
+	        FinalizerWatchdogDaemon.INSTANCE.startPostZygoteFork();
+	        HeapTaskDaemon.INSTANCE.startPostZygoteFork();
+	    }
+	    
 
-强引用是使用最普遍的引用。如果一个对象具有强引用，那垃圾回收器绝不会回收它。当内存空间不足，Java虚拟机宁愿抛出OutOfMemoryError错误，使程序异常终止，也不会靠随意回收具有强引用的对象来解决内存不足的问题。
+清理的时机，自定义清理策略
+
+    private boolean enqueueLocked(Reference<? extends T> r) {
+        // Verify the reference has not already been enqueued.
+        if (r.queueNext != null) {
+            return false;
+        }
+
+        if (r instanceof Cleaner) {
+            // If this reference is a Cleaner, then simply invoke the clean method instead
+            // of enqueueing it in the queue. Cleaners are associated with dummy queues that
+            // are never polled and objects are never enqueued on them.
+            Cleaner cl = (sun.misc.Cleaner) r;
+            <!--此处支持自定义一些清理逻辑-->
+            cl.clean();
+
+            // Update queueNext to indicate that the reference has been
+            // enqueued, but is now removed from the queue.
+            r.queueNext = sQueueNextUnenqueued;
+            return true;
+        }
+
+        if (tail == null) {
+            head = r;
+        } else {
+            tail.queueNext = r;
+        }
+        tail = r;
+        tail.queueNext = r;
+        return true;
+    }	    
