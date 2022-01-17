@@ -96,6 +96,11 @@ Unlike a WeakReference, a SoftReference will not be cleared and enqueued until t
 
 ### 3 .虚引用（PhantomReference）
 
+虚引用必须和引用队列(ReferenceQueue)联合使用，程序可以通过判断引用队列中是否已经加入了虚引用，来了解被引用的对象是否将要进行垃圾回收。如果程序发现某个虚引用已经被加入到引用队列，那么就可以在所引用的对象的内存被回收之前采取必要的行动。
+
+
+
+
 > public class PhantomReference<T>extends Reference<T>
 
 Phantom reference objects, which are enqueued after the collector determines that their referents may otherwise be reclaimed. Phantom references are most often used for scheduling pre-mortem cleanup actions in a more flexible way than is possible with the Java finalization mechanism.
