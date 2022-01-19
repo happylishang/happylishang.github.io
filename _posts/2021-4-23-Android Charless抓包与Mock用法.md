@@ -78,3 +78,20 @@ charless查看本地IP
 ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/85c4daf4f15141a594a58b71c24554f1~tplv-k3u1fbpfcp-watermark.image?)
 
 ​​
+## MAC上抓HTTPS的包
+
+安装根证书并信任
+
+![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/91eda4898c544dd4a4bd111d5c985842~tplv-k3u1fbpfcp-watermark.image?)
+
+信任
+
+![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/1c13b23bffb64d43972608002370be6b~tplv-k3u1fbpfcp-watermark.image?)
+
+打开配置，设置监听所有域名
+
+![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f1ba295556994cdabb0c133dae862af6~tplv-k3u1fbpfcp-watermark.image?)
+
+之后就可以看到https请求
+
+![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/c4da1d65a3354055a0851ace74d8dd14~tplv-k3u1fbpfcp-watermark.image?)
