@@ -57,3 +57,19 @@
             .addInterceptor(apiInterceptor)
             .build()
     }
+    
+    
+ 以上两种方式均可以，在SSL pinging生效的情况下，即使用了代理，也无法抓包，效果如下：
+ 
+ 
+![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/fb6de7e2d0304f4c8fdb84b8bf9e9529~tplv-k3u1fbpfcp-watermark.image?)
+
+客户端会主动拒绝此次通信，因为它发现服务端的证书不正确。
+ 
+![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/062033dcc0c343fe99ec3497c941520f~tplv-k3u1fbpfcp-watermark.image?)
+
+当然，Android客户端还可以禁止代理比如OkHttp的
+
+            proxy(Proxy.NO_PROXY)
+            
+               
