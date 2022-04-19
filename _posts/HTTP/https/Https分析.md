@@ -7,13 +7,13 @@ Https协议要做到什么
 中间人
 
 
-### 总体建立与断开
+## TSL1.2链接建立[DHE/ECDHE]
 
 ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/18c4245997d04e6aaf95703a6cfbe874~tplv-k3u1fbpfcp-watermark.image?)
 
 
 
-### client Hello
+### Client Hello
 
 ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/8ce07f0d85a34d47b5c524650b8536dc~tplv-k3u1fbpfcp-watermark.image?)
 
@@ -60,3 +60,8 @@ CER格式的证书
 ###  	Application Data
 
 ![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/825e9cdcb5934d53891ef56eeedf1805~tplv-k3u1fbpfcp-watermark.image?)
+
+## TSL1.2链接建立[ ]
+
+
+![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/92b55a44972540efa0cae0ab64767be7~tplv-k3u1fbpfcp-watermark.image?)
