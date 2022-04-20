@@ -12,7 +12,6 @@ Https协议要做到什么
 ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/18c4245997d04e6aaf95703a6cfbe874~tplv-k3u1fbpfcp-watermark.image?)
 
 
-
 ### Client Hello
 
 ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/8ce07f0d85a34d47b5c524650b8536dc~tplv-k3u1fbpfcp-watermark.image?)
@@ -22,6 +21,7 @@ Https协议要做到什么
 
 ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/405790c64435485ca2c28a2ba4667eeb~tplv-k3u1fbpfcp-watermark.image?)
 
+启动TSL握手过程，提供自己所能支持各种算法，同时提供一个将来所能用到的随机数。参考文档【https://blog.csdn.net/mrpre/article/details/77867439】
 
 
 ### Server Hello
