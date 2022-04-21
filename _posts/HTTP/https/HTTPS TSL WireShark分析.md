@@ -7,6 +7,8 @@ Https协议要做到什么
 中间人
 
 
+我们需要一个办法来保证服务器传输的公钥确实是服务器的，而不是第三方的。这个时候，我们需要使用 数字证书。数字证书由权威机构 (CA, Certificate Authority) 颁发，里面包含有服务器的公钥，证书文件使用 CA 私钥进行加密。当客户端与服务器建立加密通信的时候，服务器不再返回公钥，而是返回他的数字证书。客户端拿到证书，使用对应的 CA 的公钥解密，然后获取到服务器的公钥。这里有一个问题，客户端怎么拿到 CA 的公钥呢？如果还是去CA 服务器获取的话，那么我们又会回到问题的原点即怎样保证 CA 公钥不被人篡改。因此，大部分浏览器中，权威 CA 的公钥都是内置的，不需要去获取。这就保证了 CA 公钥的正确性。第三方没有办法伪造证书，因为第三方没有 CA 的私钥（当然，CA 被入侵的例子的也是有的，技术永远解决不了人的问题）。
+
 ## TSL1.2链接建立[DHE/ECDHE]
 
 ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/18c4245997d04e6aaf95703a6cfbe874~tplv-k3u1fbpfcp-watermark.image?)
@@ -31,6 +33,8 @@ Https协议要做到什么
 
 Handshake Type: Server Hello (2)，主要对Client Hello的响应 ，**确定使用的加密套件**，上图看出使用的是Cipher Suite: TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 (0xc02f)。
 
+RSA加密算法是一种非对称加密算法   AES
+
 ###   Certificate  服务端发送证书链 
 
 ![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/8204a7f74b7b4982aea40fc8c9bf1f19~tplv-k3u1fbpfcp-watermark.image?)
@@ -38,14 +42,38 @@ Handshake Type: Server Hello (2)，主要对Client Hello的响应 ，**确定使
 
 ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/a699f40c013c4e1dbced50085cdc9008~tplv-k3u1fbpfcp-watermark.image?)
 
-将服务器配置的证书（链）发送到客户端。
+将服务器配置的证书（链）发送到客户端。证书是一个文件，里面含有目标网站的各种信息。例如网站的域名，证书的有效时间，签发机构等，其中最重要的是这两个：
 
+* 用于生成对称秘钥的公钥
+* 由上级证书签发的签名
 
 CER格式的证书 ：CER用于**存储公钥证书**的文件格式，CER文件中的公共证书使用数字签名来映射具有特定身份的公共密钥，从而验证网站。可以使用Base64（PEM）和DER等不同编码算法来编码CER文件的内容。
 
 
 ![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/56fbc9e8317e40c9b8aac044cb932869~tplv-k3u1fbpfcp-watermark.image?)
 
+#### 解决办法是采用「信任链」。保证证书的有效性
+
+首先，有一批证书颁发机构（Certificate Authority，简称为 CA），由他们生成秘钥对，其中私钥保存好，公钥以证书的格式安装在我们的操作系统中，这就是 根证书。
+
+我们的手机、电脑、电视机的操作系统中都预装了 CA 的根证书，他们是所有信任构建的基石。当然，我们也可以自己下载任意的根证书进行安装。
+
+接下来，只要设计一个体系，能够证明 A 证书签发了 B 证书即可。这样对于收到的任何一个证书，顺藤摸瓜，只要最上面的根证书在系统中存在，即可证明该证书有效。
+
+比如说，我们收到了服务器发过来的 C 证书，我们验证了 C 是由 B 签发的，然后又验证了 B 是由 A 签发的，而 A 在我们的系统中存在，那也就证明了 C 这个证书的有效性。
+
+这其中，A 是根证书，B 是中间证书，C 是叶证书（类似树中的叶节点）。中间证书可以有很多个，信任的链条可以任意长，只要最终能到根证书即可。
+
+得益于 RSA 的非对称性质，验证 A 是否签发了 B 证书很简单：
+
+计算 B 的 hash 值（算法随便，比如 SHA1）
+使用 A 的 私钥 对该 hash 进行加密，加密以后的内容叫做「签名（Signature）」
+将该「签名」附在 B 证书中
+A 使用自己的私钥给 B 生成签名的过程也就是「签发证书」，其中 A 叫做 Issuer，B 叫做 Subject。
+
+这样，当我们收到 B 证书时，首先使用 A 证书的公钥（公钥存储在证书中）解开签名获得 hash，然后计算 B 的 hash，如果两个 hash 匹配，说明 B 确实是由 A 签发的。
+
+重复上面的过程，直到根证书，就可以验证某个证书的有效性。
 
 ### Server Key Exchange 
 
