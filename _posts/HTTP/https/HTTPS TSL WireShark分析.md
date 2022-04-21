@@ -1,4 +1,11 @@
-Https协议要做到什么
+## 直白的说法，用非对称加密 协商好通信的对称秘钥，然后用对称秘钥进行通信
+
+
+![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f7019822b33148ffb60429ffbbfbc303~tplv-k3u1fbpfcp-watermark.image?)
+
+![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/af7dc23663924342bfb98525a1e9d171~tplv-k3u1fbpfcp-watermark.image?)
+
+Https协议要做到什么 ：比如防止中间路由器网管篡改信息
 
 * 数据的保密性
 * 校验双方身份的真实性
@@ -8,6 +15,12 @@ Https协议要做到什么
 
 
 我们需要一个办法来保证服务器传输的公钥确实是服务器的，而不是第三方的。这个时候，我们需要使用 数字证书。数字证书由权威机构 (CA, Certificate Authority) 颁发，里面包含有服务器的公钥，证书文件使用 CA 私钥进行加密。当客户端与服务器建立加密通信的时候，服务器不再返回公钥，而是返回他的数字证书。客户端拿到证书，使用对应的 CA 的公钥解密，然后获取到服务器的公钥。这里有一个问题，客户端怎么拿到 CA 的公钥呢？如果还是去CA 服务器获取的话，那么我们又会回到问题的原点即怎样保证 CA 公钥不被人篡改。因此，大部分浏览器中，权威 CA 的公钥都是内置的，不需要去获取。这就保证了 CA 公钥的正确性。第三方没有办法伪造证书，因为第三方没有 CA 的私钥（当然，CA 被入侵的例子的也是有的，技术永远解决不了人的问题）。
+
+
+### HTTPS 中间人攻击
+
+HTTPS 可以防止用户在不知情的情况下通信链路被监听，对于主动授信的抓包操作是不提供防护的，因为这个场景用户是已经对风险知情。要防止被抓包，需要采用应用级的安全防护，例如采用私有的对称加密，同时做好移动端的防反编译加固，防止本地算法被破解。
+
 
 ## TSL1.2链接建立[DHE/ECDHE]
 
@@ -77,6 +90,8 @@ A 使用自己的私钥给 B 生成签名的过程也就是「签发证书」，
 
 ### Server Key Exchange 
 
+> In Diffie-Hellman, the client can't compute a premaster secret on its own; both sides contribute to computing it, so the client needs to get a Diffie-Hellman public key from the server. In ephemeral Diffie-Hellman, that public key isn't in the certificate (that's what ephemeral Diffie-Hellman means). So the server has to send the client its ephemeral DH public key in a separate message so that the client can compute the premaster secret (remember, both parties need to know the premaster secret, because that's how they derive the master secret). That message is the ServerKeyExchange.
+
 ![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b540854aefcd4c43b0bc21f8362fe617~tplv-k3u1fbpfcp-watermark.image?)
 
 ###  Server Hello Done
@@ -100,3 +115,8 @@ A 使用自己的私钥给 B 生成签名的过程也就是「签发证书」，
 
 
 ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/92b55a44972540efa0cae0ab64767be7~tplv-k3u1fbpfcp-watermark.image?)
+
+
+## 前向保密
+
+前向保密（英語：Forward Secrecy，FS）有时也被称为完全前向保密（英語：Perfect Forward Secrecy，PFS），是密码学中通讯协议的一种安全特性，指的是长期使用的主密钥泄漏不会导致过去的会话密钥泄漏。 前向保密能够保护过去进行的通讯不受密码或密钥在未来暴露的威胁。
