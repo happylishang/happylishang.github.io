@@ -36,3 +36,15 @@ Header字段添加 利用时间戳及设备ID生成的结果
 * md5 fb6973da4bfba5f4ab59212cdcf7e528
 * 裁剪 fb6973da4bfba5f4ab59212cdc 
 
+
+
+## 动态下发手机可执行代码 动态下发so库，手机调用接口，
+
+
+* 执行
+
+
+L8SxVRYsAPkN3D/CfxuSxaYRFlVr8d/NadAadhwK/D2SwAcUuys1JIuJgLlo3j9hDfS8Keq0R2ve
+Nus63oJo2+sq8MO1p1nBP9G1TED96roVM++f1Mev1Pmeq3q21NxBhrIV27M8TB9TTCnnsCPPWg==
+
+{"sessionId":2972,"shopId":"133330100011","itemInfoList":[{"itemId":"92","count":1}],"userId":676803}
