@@ -1,22 +1,19 @@
 HTTPS目前是网站标配，否则浏览器会提示链接不安全，同HTTP相比比，HTTPS提供安全通信，具体原因是多了个“S”层，或者说SSL层[Secure Sockets Layer]，现在一般都是TLS[Transport Layer Security]，它是HTTP**明文**通信变成安全**加密通信**的基础，核心就在加密上：
 
-![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/2e2b937a6b134b7486b3352d100ef294~tplv-k3u1fbpfcp-watermark.image?)
+
+![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/af195d42e4c046b3abeffe316b1a069c~tplv-k3u1fbpfcp-watermark.image?)
 
 如上图所示，HTTP明文通信经中间路由最终发送给对方，如果中间某个路由节点抓取了数据，就可以直接看到通信内容，甚至可以篡改后，路由给目标对象，如下：
 
 ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/615ffafd9b234d0abe622bc9f3d1ffb0~tplv-k3u1fbpfcp-watermark.image?)
 
-因此，HTTP传输是不安全的，但是，如果传输的是双方可校验的密文，就可以避免被偷窃、篡改，保证传输的安全性，这就是SSL/TLS层做的事情。
+可见HTTP传输是不安全的，但，如果传输的是只有双方可校验的密文，就可以避免被偷窃、篡改，保证传输的安全性，这就是SSL/TLS层做的事情。
 
 ## HTTPS从哪些方面保证传输的安全性 ？
 
-* 数据的保密性
-* 身份校验与鉴别：可选的客户端认证，和强制的服务器端认证
-* 数据的完整性
-
-* ①保密：在握手协议中定义了会话密钥后，所有的消息都被加密;
-* ②鉴别：
-* ③完整性：传送的消息包括消息完整性检查(使用MAC)。
+* 数据保密性：通过非对称与对称加密保证传输的数据无法被解析
+* 身份校验与鉴别：强制服务器端认证与客户端认证【SSL证书有效性】
+* 数据的完整性：
 
 
 ## 直白的说法，用非对称加密 协商好通信的对称秘钥，然后用对称秘钥进行通信
