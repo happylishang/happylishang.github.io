@@ -1,50 +1,24 @@
-### 防接口直接刷：**双端校验**
+背景
 
+难点
 
-### 1.0版本  Android 利用Java实现
+收益
 
-Header字段添加 利用时间戳及设备ID生成的结果
-
-输入：
-
-* MT_K 本地时间戳
-* MT_V md5(设备ID + 本地时间戳) 【删减后两位成30位】
-
-输入：
-
-* 时间戳 ：1649301352985 设备id8220c2a8c148d6dad1f625b4cbb6ebfd
-* 输出：1649301352985  f5f32b04d0cea756222c4d01134dcb
-
- 
-## 2.0版本  Android C 实现，
-
-1.0的Java被破的时间应该不会持续太久，2.0算法做些改动，参考严选
-
-算法：利用时间戳、设备ID、版本、平台及部分规则  ：  仍然不下发salt，不需要加接口【后期看是不是再更改】
-
-* 1、 字符串拼接：时间戳 + 设备ID +平台[android or ios]+版本号
-* 2、 字符串排序 
-* 3、 md5 输出32位
-* 4、 裁剪到26位
-
-如果识别到风险包，风险环境，输出error
-
-示例： 时间戳 ：1649301352985 设备id 8220c2a8c148d6dad1f625b4cbb6ebfd
-
-* 拼接 android16493013529858220c2a8c148d6dad1f625b4cbb6ebfd1.0.9   
-* 排序 ..00011111222223344455566668888999aaabbbbcccddddddeffinor
-* md5 fb6973da4bfba5f4ab59212cdcf7e528
-* 裁剪 fb6973da4bfba5f4ab59212cdc 
+展望
 
 
 
-## 动态下发手机可执行代码 动态下发so库，手机调用接口，
+##  工程安全：人员管理+代码管理
 
 
-* 执行
+## 运行时安全
 
+## 反向侦测：
 
-L8SxVRYsAPkN3D/CfxuSxaYRFlVr8d/NadAadhwK/D2SwAcUuys1JIuJgLlo3j9hDfS8Keq0R2ve
-Nus63oJo2+sq8MO1p1nBP9G1TED96roVM++f1Mev1Pmeq3q21NxBhrIV27M8TB9TTCnnsCPPWg==
+## 防刷  
 
-{"sessionId":2972,"shopId":"133330100011","itemInfoList":[{"itemId":"92","count":1}],"userId":676803}
+* 真机识别：
+* 设备指纹
+* 运行环境
+* 核心信息加密
+* 代码隔离
