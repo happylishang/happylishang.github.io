@@ -14,10 +14,25 @@ HTTPS目前是网站标配，否则浏览器会提示链接不安全，同HTTP�
 SSL/TLS协议主要从三方面来保证数据传输的安全性：保密、鉴别、完整：
 
 * **身份校验与鉴别**：强制服务器端认证与客户端认证【SSL证书有效性】，来保证消息的源头准确
-*  **数据保密性**：通过非对称与对称加密保证传输的数据无法被解析
+* **数据保密性**：通过非对称与对称加密保证传输的数据无法被解析
 * **数据的完整性**：利用MAC[Message Authentication Codes]消息摘要算法来保证
 
-第一个问题就是怎么保证通信的另一端是目标端，对用户端比较好理解的就是怎么保证我访问的网站就是想要的网站呢？TLS是通过证书来解决这个问题，每个支持HTTPS网站都需要TLS证书，在传输开始前，服务端先将证书下发到用户端，用户端通过校验证书是否有效来判断通信是否安全。那么证书的有效性是怎么保证呢？证书的有效性主要通过**校验是否由正规证书颁发机构（Certificate Authority，简称为 CA）颁布**，只要证书是由正规CA发布的，那么证书就是有效的，那如何验证证书是由正规CA发布的呢？这里靠3点来保证，**信任链、RSA的非对称加密、系统内置根证书**，这3点结合起来就可以让用户端确保证书的有效性，也是保证目标端的有效性，
+> 第一个问题就是怎么保证通信的另一端是目标端
+
+对用户端而言：怎么保证访问的网站就是目标网站？答案就是**证书**。每个HTTPS网站都需要TLS证书，在数据传输开始前，服务端先将证书下发到用户端，由用户根据证书判断是否是目标网站。这其中的原理是什么，证书又是如何标识网站的有效性呢？证书也叫 digital certificate 或者public key certificate，是密码学中的概念，在TLS中就是指CA证书【**由证书的签发机构（Certificate Authority，简称为 CA）颁布的证书**】，好比是权威部门的公章，WIKI百科解释如下：
+
+> In cryptography, a public key certificate, also known as a digital certificate or identity certificate, is an electronic document used to prove the validity of a public key.[1] The certificate includes information about the key, information about the identity of its owner (called the subject), and the digital signature of an entity that has verified the certificate's contents (called the issuer). If the signature is valid, and the software examining the certificate trusts the issuer, then it can use that key to communicate securely with the certificate's subject. In email encryption, code signing, and e-signature systems, a certificate's subject is typically a person or organization. However, in Transport Layer Security (TLS) a certificate's subject is typically a computer or other device, though TLS certificates may identify organizations or individuals in addition to their core role in identifying devices. TLS, sometimes called by its older name Secure Sockets Layer (SSL), is notable for being a part of HTTPS, a protocol for securely browsing the web.
+
+大意就是证书包含了目标站点的身份信息，并可以通过某种方式校验其合法性，对于任何一个HTTPS网站，你都可以拿到其CA证书公钥信息，在Chrome浏览器中点击HTTPS网站的锁标志，就可以查看公钥信息，并可以导出CA二进制文件：
+
+![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/20ac886f9b974bec83d3e90ab65808e1~tplv-k3u1fbpfcp-watermark.image?)
+
+浏览器就是通过这个文件来校验网站是否安全合法，它背后的技术其实是**信任链+RSA的非对称加密+系统内置根证书**。客户端获取的证书里有两个信息是验证的关键
+
+*  证书的公钥
+* 上级CA证书为子级网站签发的签名【不是所有的证书都是由根证书机构签发】
+
+其中
 
 证书的颁发机构来保证
 
