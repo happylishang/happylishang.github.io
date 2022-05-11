@@ -55,8 +55,11 @@ TSL协议最大的提升点就是数据的安全，通HTTP通信相比，HTTPS�
 
 ## HTTPS传输的安全性WireShark原理分析
 
-HTTPS安全通信简化来说：**在协商阶段用非对称加密协商好通信的对称秘钥**，然后**用对称秘钥加密进行数据通信**，具体的协商过程示意如下：
+HTTPS安全通信简化来说：**在协商阶段用非对称加密协商好通信的对称秘钥**，然后**用对称秘钥加密进行数据通信**，简易的WireShark TLS/SSL协商过程示意如下：
 
+![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ea267a45e8f04ac0aaa075f0e9b99fd1~tplv-k3u1fbpfcp-watermark.image?)
+
+稍微细化分离后如下：
 
 ![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f7019822b33148ffb60429ffbbfbc303~tplv-k3u1fbpfcp-watermark.image?)
 
