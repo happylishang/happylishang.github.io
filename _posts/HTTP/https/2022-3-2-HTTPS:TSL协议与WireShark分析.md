@@ -59,10 +59,11 @@ HTTPS安全通信简化来说：**在协商阶段用非对称加密协商好通�
 
 ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ea267a45e8f04ac0aaa075f0e9b99fd1~tplv-k3u1fbpfcp-watermark.image?)
 
-稍微细化分离后如下：
+细化分离后示意如下：
 
-![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f7019822b33148ffb60429ffbbfbc303~tplv-k3u1fbpfcp-watermark.image?)
+![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7d3e212f184e49d492c7b7ec733fbe68~tplv-k3u1fbpfcp-watermark.image?)
 
+握手分多个阶段，不多一次握手可以完成多个动作。
 
 ## TSL1.2链接建立[DHE/ECDHE]
 
@@ -114,7 +115,7 @@ CER格式的证书 ：CER用于**存储公钥证书**的文件格式，CER文件
 
 > In Diffie-Hellman, the client can't compute a premaster secret on its own; both sides contribute to computing it, so the client needs to get a Diffie-Hellman public key from the server. In ephemeral Diffie-Hellman, that public key isn't in the certificate (that's what ephemeral Diffie-Hellman means). So the server has to send the client its ephemeral DH public key in a separate message so that the client can compute the premaster secret (remember, both parties need to know the premaster secret, because that's how they derive the master secret). That message is the ServerKeyExchange.
 
-![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b540854aefcd4c43b0bc21f8362fe617~tplv-k3u1fbpfcp-watermark.image?)
+![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/11d81a3153444cddbb38991ae05fb774~tplv-k3u1fbpfcp-watermark.image?)
 
 ###  Server Hello Done
 
