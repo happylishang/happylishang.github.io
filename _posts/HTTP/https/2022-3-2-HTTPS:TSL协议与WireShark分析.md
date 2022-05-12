@@ -63,16 +63,13 @@ HTTPS安全通信简化来说：**在协商阶段用非对称加密协商好通�
 
 ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7d3e212f184e49d492c7b7ec733fbe68~tplv-k3u1fbpfcp-watermark.image?)
 
-握手分多个阶段，不多一次握手可以完成多个动作。
+握手分多个阶段，不过一次握手可以完成多个动作，而且也并不是所有类型的握手都是上述模型，因为协商对称秘钥的算法不止一种，所以握手的具体操作也并非一成不变，比如RSA就比ECDHE要简单的多，目前主流使用的都是ECDHE，具体流程拆分如下：
 
-## TSL1.2链接建立[DHE/ECDHE]
 
-![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/18c4245997d04e6aaf95703a6cfbe874~tplv-k3u1fbpfcp-watermark.image?)
+#### Client Hello 【TLS/SSL握手发起】
 
-参考文档：https://blog.csdn.net/mrpre/category_9270159.html
-
-### Client Hello
-
+ Client Hello是TLS/SSL握手发起的第一个动作，类似TCP的SYN，Client Hello 阶段客户端会将自己支持的协议、算法暴露给Server，让Server来选择后续通信用的套件。
+ 
 ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/8ce07f0d85a34d47b5c524650b8536dc~tplv-k3u1fbpfcp-watermark.image?)
 
 
@@ -83,7 +80,7 @@ HTTPS安全通信简化来说：**在协商阶段用非对称加密协商好通�
 启动TSL握手过程，**提供自己所能支持各种算法，同时提供一个将来所能用到的随机数**。参考文档【https://blog.csdn.net/mrpre/article/details/77867439】
 
 
-### Server Hello
+#### Server Hello
 
 ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/e34eb38cee2b43f391e0324e5e0e9e68~tplv-k3u1fbpfcp-watermark.image?)
 
@@ -91,7 +88,7 @@ Handshake Type: Server Hello (2)，主要对Client Hello的响应 ，**确定使
 
 RSA加密算法是一种非对称加密算法   AES
 
-###   Certificate  服务端发送证书链 
+####   Certificate  服务端发送证书链 
 
 ![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/8204a7f74b7b4982aea40fc8c9bf1f19~tplv-k3u1fbpfcp-watermark.image?)
 
@@ -111,38 +108,28 @@ CER格式的证书 ：CER用于**存储公钥证书**的文件格式，CER文件
 #### 解决办法是采用「信任链」。保证证书的有效性
 
 
-### Server Key Exchange 
+#### Server Key Exchange 
 
 > In Diffie-Hellman, the client can't compute a premaster secret on its own; both sides contribute to computing it, so the client needs to get a Diffie-Hellman public key from the server. In ephemeral Diffie-Hellman, that public key isn't in the certificate (that's what ephemeral Diffie-Hellman means). So the server has to send the client its ephemeral DH public key in a separate message so that the client can compute the premaster secret (remember, both parties need to know the premaster secret, because that's how they derive the master secret). That message is the ServerKeyExchange.
 
 ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/11d81a3153444cddbb38991ae05fb774~tplv-k3u1fbpfcp-watermark.image?)
 
-###  Server Hello Done
+####  Server Hello Done
 
 ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3c05475b5ed440539b89f74770e51493~tplv-k3u1fbpfcp-watermark.image?)
 
 
-###  Client Key Exchange, Change Cipher Spec, Encrypted Handshake Message
+####  Client Key Exchange, Change Cipher Spec, Encrypted Handshake Message
 
 ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/9e04b43b0de9420db98f0dcbd41deec4~tplv-k3u1fbpfcp-watermark.image?)
 
-### Change Cipher Spec, Encrypted Handshake Message
+#### Change Cipher Spec, Encrypted Handshake Message
 
 ![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/12ed22a64dcc4a4da9997d9ff08659d6~tplv-k3u1fbpfcp-watermark.image?)
 
-###  	Application Data
+####  	Application Data
 
 ![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/825e9cdcb5934d53891ef56eeedf1805~tplv-k3u1fbpfcp-watermark.image?)
-
-## TSL1.2链接建立[ ]
-
-
-![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/92b55a44972540efa0cae0ab64767be7~tplv-k3u1fbpfcp-watermark.image?)
-
-
-## 前向保密
-
-前向保密（英語：Forward Secrecy，FS）有时也被称为完全前向保密（英語：Perfect Forward Secrecy，PFS），是密码学中通讯协议的一种安全特性，指的是长期使用的主密钥泄漏不会导致过去的会话密钥泄漏。 前向保密能够保护过去进行的通讯不受密码或密钥在未来暴露的威胁。
 
 
 
@@ -173,4 +160,20 @@ Https协议要做到什么 ：比如防止中间路由器网管篡改信息
 ### HTTPS 中间人攻击
 
 HTTPS 可以防止用户在不知情的情况下通信链路被监听，对于主动授信的抓包操作是不提供防护的，因为这个场景用户是已经对风险知情。要防止被抓包，需要采用应用级的安全防护，例如采用私有的对称加密，同时做好移动端的防反编译加固，防止本地算法被破解。
+
+## TSL1.2链接建立[ ]
+
+
+![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/92b55a44972540efa0cae0ab64767be7~tplv-k3u1fbpfcp-watermark.image?)
+
+## TSL1.2链接建立[DHE/ECDHE]
+
+![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/18c4245997d04e6aaf95703a6cfbe874~tplv-k3u1fbpfcp-watermark.image?)
+
+参考文档：https://blog.csdn.net/mrpre/category_9270159.html
+
+
+## 前向保密
+
+前向保密（英語：Forward Secrecy，FS）有时也被称为完全前向保密（英語：Perfect Forward Secrecy，PFS），是密码学中通讯协议的一种安全特性，指的是长期使用的主密钥泄漏不会导致过去的会话密钥泄漏。 前向保密能够保护过去进行的通讯不受密码或密钥在未来暴露的威胁。
 
