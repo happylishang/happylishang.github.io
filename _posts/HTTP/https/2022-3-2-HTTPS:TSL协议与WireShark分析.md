@@ -97,10 +97,9 @@ Server Key Exchange是针对选定的ECDHE协商所必须的步骤，Diffie-Hell
 
 > In Diffie-Hellman, the client can't compute a premaster secret on its own; both sides contribute to computing it, so the client needs to get a Diffie-Hellman public key from the server. In ephemeral Diffie-Hellman, that public key isn't in the certificate (that's what ephemeral Diffie-Hellman means). So the server has to send the client its ephemeral DH public key in a separate message so that the client can compute the premaster secret (remember, both parties need to know the premaster secret, because that's how they derive the master secret). That message is the ServerKeyExchange.
 
-大意就是ephemeral Diffie-Hellman不会使用证书中的公钥参与对称秘钥的生成，而是需要服务端传一个临时的pubkey给客户端，
+大意就是ephemeral Diffie-Hellman不会使用证书中的公钥参与对称秘钥的生成，而是需要服务端传一个临时的非对称秘钥对的pubkey给客户端，同时自己保留与之对应的私钥
 
-
-
+![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/45b7ac6852b84bbebbc67b7f9e23db7c~tplv-k3u1fbpfcp-watermark.image?)
 
 
 
