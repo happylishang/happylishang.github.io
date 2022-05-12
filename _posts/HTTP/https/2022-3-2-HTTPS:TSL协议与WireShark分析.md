@@ -93,6 +93,8 @@ Handshake Type: Server Hello (2)，作为对Client Hello的响应 ，**确定使
 
 #### Server Key Exchange 
 
+Server Key Exchange是针对选定的ECDHE协商所必须的步骤，
+
 > In Diffie-Hellman, the client can't compute a premaster secret on its own; both sides contribute to computing it, so the client needs to get a Diffie-Hellman public key from the server. In ephemeral Diffie-Hellman, that public key isn't in the certificate (that's what ephemeral Diffie-Hellman means). So the server has to send the client its ephemeral DH public key in a separate message so that the client can compute the premaster secret (remember, both parties need to know the premaster secret, because that's how they derive the master secret). That message is the ServerKeyExchange.
 
 ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/11d81a3153444cddbb38991ae05fb774~tplv-k3u1fbpfcp-watermark.image?)
