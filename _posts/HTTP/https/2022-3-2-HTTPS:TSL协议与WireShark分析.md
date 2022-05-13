@@ -79,7 +79,7 @@ ContentType指示TLS通信处于哪个阶段阶段，值22代表Handshake，握�
 ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/e34eb38cee2b43f391e0324e5e0e9e68~tplv-k3u1fbpfcp-watermark.image?)
 
 Handshake Type: Server Hello (2)，作为对Client Hello的响应 ，**确定使用的加密套件**: TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 (0xc02f)，密钥协商使用 ECDHE，签名使用 RSA，
-数据通信通信使用 AES 对称加密并且密钥长度是128位，GCM分组，同时生成一个服务端的random及会话ID回传。
+数据通信通信使用 AES 对称加密，并且密钥长度是128位，GCM分组，同时生成一个服务端的random及会话ID回传。
 
 ####  Certificate  服务端发送证书
 
@@ -92,7 +92,8 @@ Handshake Type: Server Hello (2)，作为对Client Hello的响应 ，**确定使
 ![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/56fbc9e8317e40c9b8aac044cb932869~tplv-k3u1fbpfcp-watermark.image?)
 
 
-#### Server Key Exchange 
+#### Server Key Exchange   Server Hello Done
+
 
 Server Key Exchange是针对选定的ECDHE协商所必须的步骤，Diffie-Hellman模型解释如下：
 
@@ -108,11 +109,7 @@ Server Key Exchange是针对选定的ECDHE协商所必须的步骤，Diffie-Hell
 
 ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/45b7ac6852b84bbebbc67b7f9e23db7c~tplv-k3u1fbpfcp-watermark.image?)
 
-
-参考文档  https://www.cnblogs.com/xiaolincoding/p/14318338.html
-
-####  Server Hello Done
-
+ 
 ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3c05475b5ed440539b89f74770e51493~tplv-k3u1fbpfcp-watermark.image?)
 
 
@@ -189,5 +186,8 @@ HTTPS 可以防止用户在不知情的情况下通信链路被监听，对于�
 
 > 参考文档【https://blog.csdn.net/mrpre/article/details/77867439】
 > https://www.cnblogs.com/xiaolincoding/p/14318338.html
+参考文档  https://www.cnblogs.com/xiaolincoding/p/14318338.html
+
+
 
 
