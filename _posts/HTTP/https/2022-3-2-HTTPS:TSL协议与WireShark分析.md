@@ -110,50 +110,43 @@ Server Key Exchange是针对选定的ECDHE协商所必须的步骤，Diffie-Hell
 
 算法：
 
-	Client端私钥keyc，计算C端公钥pubC = g^keyc mod p，Server端私钥keys，计算S端公钥pubS = g^ keys mod p
+	Client端私钥keyc，计算C端公钥pubKC = g^keyc mod p，Server端私钥keys，计算S端公钥pubKS = g^ keys mod p
 	
-	pubS ^ keyc mod p=  pubC ^ keys mod p 
+	pubKS ^ keyc mod p=  pubKC ^ keys mod p 
 
 其中p和g是公开的DH参数，只要P是一个足够大的数，在不知道私钥的情况下，即使截获了双方的公钥，也是很难破解的。
 
 ####  Client Key Exchange, Change Cipher Spec, Encrypted Handshake Message
 
-客户端收到服务端的证书后悔利用信任链检测证书有效性，同时也会同Server Key Exchange 类似，讲自己的Diffie-Hellman公钥发送给Server端，
-
-会生成一个随机数作为客户端椭圆曲线的私钥，然后再根据服务端前面给的信息，生成客户端的椭圆曲线公钥，然后用「Client Key Exchange」消息发给服务端。
-
-
-
-至此，双方都有对方的椭圆曲线公钥、自己的椭圆曲线私钥、椭圆曲线基点 G。于是，双方都就计算出点（x，y），其中 x 坐标值双方都是一样的，前面说 ECDHE 算法时候，说 x 是会话密钥，但实际应用中，x 还不是最终的会话密钥。
-
-最终的会话密钥，就是用「客户端随机数 + 服务端随机数 + x（ECDHE 算法算出的共享密钥） 」三个材料生成的。
+客户端收到服务端的证书后，利用信任链检测证书有效性，同时也会同Server Key Exchange 类似，将自己的Diffie-Hellman公钥发送给Server端，
 
 ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/9e04b43b0de9420db98f0dcbd41deec4~tplv-k3u1fbpfcp-watermark.image?)
 
+至此，ECDHE协商所需要的信息都传输完毕， 双方都可以基于ECDHE算法算出的共享密钥，同时结合之前的随机数生成最终的对称加密秘钥：
 
+	  客户端随机数 & 服务端随机数  &  ECDHE 算法算出的共享密钥 
 
+之后客户端发送Change Cipher Spec与 Encrypted Handshake Message标识握手完成，同时传输一个加密的数据给Server，验证双方确立的秘钥是否正确，这就需要服务端也要重复这个操作给客户端，这样才能验证彼此的加解密一致，即服务端也要来一次Encrypted Handshake Message回传给客户端校验，
 
-#### 之前交换的随机数有什么用
+![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/12ed22a64dcc4a4da9997d9ff08659d6~tplv-k3u1fbpfcp-watermark.image?)
 
-最终对称会话密钥包含三部分：
+走完如上流程，双方就确认了正确的对称加密通道，后面就是TLS的数据通信，其Record Layer的ContentType  也会变成 Content Type: Application Data (23)：
+
+![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/d338c3a349f341a9b6b35bf824179c2f~tplv-k3u1fbpfcp-watermark.image?)
+
+#### 之前交换的随机数有什么用 
+
+最终对称会话密钥包含三部分因子：
 
 * 客户端随机数
 * 服务端随机数 
 * ECDHE 算法算出的共享密钥
 
-随机数是Client Hello与Server Hello阶段双方互传的，之所以增加两个随机数，是为了保证对称秘钥的完全随机，提高「随机」的程度，从而提高会话密钥的破解难度。
+随机数是Client Hello与Server Hello阶段双方互传的，是为了提高秘钥的「随机」程度，提高会话密钥的破解难度。
 
 
-#### Change Cipher Spec, Encrypted Handshake Message
+## RSA算法、ECDHE[Elliptic Curve Diffie-Hellman Ephemeral ]的区别
 
-![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/12ed22a64dcc4a4da9997d9ff08659d6~tplv-k3u1fbpfcp-watermark.image?)
-
-####  	Application Data
-
-![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/825e9cdcb5934d53891ef56eeedf1805~tplv-k3u1fbpfcp-watermark.image?)
-
-
-# RSA算法与ECDHE[Elliptic Curve Diffie-Hellman Ephemeral ]的区别
 
 
 RSA简单但是废弃，但是对于理解HTTPS很有帮助，ECDHE协商更优秀，现在都是用这种，得益于算DH算法的优点。
@@ -162,9 +155,20 @@ ECDHE协商秘钥流程
 
 ![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/af7dc23663924342bfb98525a1e9d171~tplv-k3u1fbpfcp-watermark.image?)
 
-# HTTPS是否可以防止中间人攻击及抓包
 
- 无法避免自动授权抓包，Charles就有这个能力，在握手阶段，Charles可以将服务端的公钥进行篡改，生成自己的公钥，本地新人证书后，证书链便可信任，进而抓包通信。证书的可靠性是靠证书链来保证，只要证书是合法的证书机构颁发的，那么网站就是安全的
+## 前向保密
+
+前向保密（英語：Forward Secrecy，FS）有时也被称为完全前向保密（英語：Perfect Forward Secrecy，PFS），是密码学中通讯协议的一种安全特性，指的是长期使用的主密钥泄漏不会导致过去的会话密钥泄漏。 前向保密能够保护过去进行的通讯不受密码或密钥在未来暴露的威胁。
+
+既然固定一方的私钥有被破解的风险，那么干脆就让双方的私钥在每次密钥交换通信时，都是随机生成的、临时的，这个方式也就是 DHE 算法，E 全称是 ephemeral（临时性的）。
+
+所以，即使有个牛逼的黑客破解了某一次通信过程的私钥，其他通信过程的私钥仍然是安全的，因为每个通信过程的私钥都是没有任何关系的，都是独立的，这样就保证了「前向安全」。
+
+
+
+## HTTPS是否可以防止中间人攻击及抓包
+
+无法避免自动授权抓包，Charles就有这个能力，在握手阶段，Charles可以将服务端的公钥进行篡改，生成自己的公钥，本地新人证书后，证书链便可信任，进而抓包通信。证书的可靠性是靠证书链来保证，只要证书是合法的证书机构颁发的，那么网站就是安全的
 
 中间人攻击其实跟Https抓包原理一样，都是要强制添加一个自己的信任根证书
 
@@ -180,31 +184,12 @@ Https协议要做到什么 ：比如防止中间路由器网管篡改信息
 ### HTTPS 中间人攻击
 
 HTTPS 可以防止用户在不知情的情况下通信链路被监听，对于主动授信的抓包操作是不提供防护的，因为这个场景用户是已经对风险知情。要防止被抓包，需要采用应用级的安全防护，例如采用私有的对称加密，同时做好移动端的防反编译加固，防止本地算法被破解。
-
-## TSL1.2链接建立[ ]
-
-
-![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/92b55a44972540efa0cae0ab64767be7~tplv-k3u1fbpfcp-watermark.image?)
-
-## TSL1.2链接建立[DHE/ECDHE]
-
-![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/18c4245997d04e6aaf95703a6cfbe874~tplv-k3u1fbpfcp-watermark.image?)
-
-参考文档：https://blog.csdn.net/mrpre/category_9270159.html
-
-
-## 前向保密
-
-前向保密（英語：Forward Secrecy，FS）有时也被称为完全前向保密（英語：Perfect Forward Secrecy，PFS），是密码学中通讯协议的一种安全特性，指的是长期使用的主密钥泄漏不会导致过去的会话密钥泄漏。 前向保密能够保护过去进行的通讯不受密码或密钥在未来暴露的威胁。
-
-既然固定一方的私钥有被破解的风险，那么干脆就让双方的私钥在每次密钥交换通信时，都是随机生成的、临时的，这个方式也就是 DHE 算法，E 全称是 ephemeral（临时性的）。
-
-所以，即使有个牛逼的黑客破解了某一次通信过程的私钥，其他通信过程的私钥仍然是安全的，因为每个通信过程的私钥都是没有任何关系的，都是独立的，这样就保证了「前向安全」。
-
-
+ 
+ 
+> 参考文档：https://blog.csdn.net/mrpre/category_9270159.html
 > 参考文档【https://blog.csdn.net/mrpre/article/details/77867439】
 > https://www.cnblogs.com/xiaolincoding/p/14318338.html
-参考文档  https://www.cnblogs.com/xiaolincoding/p/14318338.html
+> 参考文档  https://www.cnblogs.com/xiaolincoding/p/14318338.html
 
 
 
