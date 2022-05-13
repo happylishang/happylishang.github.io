@@ -186,11 +186,8 @@ Https协议要做到什么 ：比如防止中间路由器网管篡改信息
 HTTPS 可以防止用户在不知情的情况下通信链路被监听，对于主动授信的抓包操作是不提供防护的，因为这个场景用户是已经对风险知情。要防止被抓包，需要采用应用级的安全防护，例如采用私有的对称加密，同时做好移动端的防反编译加固，防止本地算法被破解。
  
  
-> 参考文档：https://blog.csdn.net/mrpre/category_9270159.html
-> 参考文档【https://blog.csdn.net/mrpre/article/details/77867439】
-> https://www.cnblogs.com/xiaolincoding/p/14318338.html
+> 参考文档  https://blog.csdn.net/mrpre/category_9270159.html
+> 参考文档 【https://blog.csdn.net/mrpre/article/details/77867439】
 > 参考文档  https://www.cnblogs.com/xiaolincoding/p/14318338.html
-
-
-
-
+> 参考文档  https://www.cnblogs.com/xiaolincoding/p/14318338.html
+> 参考文档  https://blog.csdn.net/wvqusrtg/article/details/110092210
