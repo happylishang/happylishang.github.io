@@ -125,8 +125,16 @@ Server Key Exchange是针对选定的ECDHE协商所必须的步骤，Diffie-Hell
 
 最终的会话密钥，就是用「客户端随机数 + 服务端随机数 + x（ECDHE 算法算出的共享密钥） 」三个材料生成的。
 
-之所以这么麻烦，是因为 TLS 设计者不信任客户端或服务器「伪随机数」的可靠性，为了保证真正的完全随机，把三个不可靠的随机数混合起来，那么「随机」的程度就非常高了，足够让黑客计算出最终的会话密钥，安全性更高。
 
+#### 之前交换的随机数有什么用
+
+最终对称会话密钥包含三部分：
+
+* 客户端随机数
+* 服务端随机数 
+* ECDHE 算法算出的共享密钥
+
+随机数是Client Hello与Server Hello阶段双方互传的，之所以增加两个随机数，是为了保证对称秘钥的完全随机，提高「随机」的程度，从而提高会话密钥的破解难度。
 
 
 #### Change Cipher Spec, Encrypted Handshake Message
@@ -136,7 +144,6 @@ Server Key Exchange是针对选定的ECDHE协商所必须的步骤，Diffie-Hell
 ####  	Application Data
 
 ![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/825e9cdcb5934d53891ef56eeedf1805~tplv-k3u1fbpfcp-watermark.image?)
-
 
 
 # RSA算法与ECDHE[Elliptic Curve Diffie-Hellman Ephemeral ]的区别
