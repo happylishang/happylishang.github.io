@@ -124,7 +124,7 @@ Server Key Exchange是针对选定的ECDHE协商所必须的步骤，Diffie-Hell
 
 至此，ECDHE协商所需要的信息都传输完毕， 双方都可以基于ECDHE算法算出的共享密钥，同时结合之前的随机数生成最终的对称加密秘钥：
 
-	  客户端随机数 & 服务端随机数  &  ECDHE 算法算出的共享密钥 
+		  客户端随机数 & 服务端随机数  &  ECDHE 算法算出的共享密钥 
 
 之后客户端发送Change Cipher Spec与 Encrypted Handshake Message标识握手完成，同时传输一个加密的数据给Server，验证双方确立的秘钥是否正确，这就需要服务端也要重复这个操作给客户端，这样才能验证彼此的加解密一致，即服务端也要来一次Encrypted Handshake Message回传给客户端校验，
 
@@ -145,9 +145,7 @@ Server Key Exchange是针对选定的ECDHE协商所必须的步骤，Diffie-Hell
 随机数是Client Hello与Server Hello阶段双方互传的，是为了提高秘钥的「随机」程度，提高会话密钥的破解难度。
 
 
-## RSA算法、ECDHE[Elliptic Curve Diffie-Hellman Ephemeral ]的区别
-
-
+## RSA算法、ECDHE的区别
 
 RSA简单但是废弃，但是对于理解HTTPS很有帮助，ECDHE协商更优秀，现在都是用这种，得益于算DH算法的优点。
 
@@ -155,6 +153,7 @@ ECDHE协商秘钥流程
 
 ![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/af7dc23663924342bfb98525a1e9d171~tplv-k3u1fbpfcp-watermark.image?)
 
+ECDHE[Elliptic Curve Diffie-Hellman Ephemeral ]
 
 ## 前向保密
 
