@@ -110,7 +110,7 @@ Server Key Exchange是针对选定的ECDHE协商所必须的步骤，Diffie-Hell
 
 算法：
 
-	Client端私钥keyc，计算C端公钥pubKC = g^keyc mod p，Server端私钥keys，计算S端公钥pubKS = g^ keys mod p
+	Client端私钥keyc，计算C端公钥pubKC = g^keyc mod p，Server端私钥keys，计算S端公钥pubKS = g ^ keys mod p
 	
 	pubKS ^ keyc mod p=  pubKC ^ keys mod p 
 
@@ -134,7 +134,7 @@ Server Key Exchange是针对选定的ECDHE协商所必须的步骤，Diffie-Hell
 
 ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/d338c3a349f341a9b6b35bf824179c2f~tplv-k3u1fbpfcp-watermark.image?)
 
-#### 之前交换的随机数有什么用 
+#### Client Hello与Server Hello阶段交换的随机数有什么用 
 
 最终对称会话密钥包含三部分因子：
 
@@ -142,48 +142,14 @@ Server Key Exchange是针对选定的ECDHE协商所必须的步骤，Diffie-Hell
 * 服务端随机数 
 * ECDHE 算法算出的共享密钥
 
-随机数是Client Hello与Server Hello阶段双方互传的，是为了提高秘钥的「随机」程度，提高会话密钥的破解难度。
+随机数是Client Hello与Server Hello阶段双方互传的，是为了提高秘钥的「随机」程度，提高会话密钥破解难度。
 
 
-## RSA算法、ECDHE的区别
+## HTTPS中间人攻击及抓包
 
-RSA简单但是废弃，但是对于理解HTTPS很有帮助，ECDHE协商更优秀，现在都是用这种，得益于算DH算法的优点。
-
-ECDHE协商秘钥流程
-
-![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/af7dc23663924342bfb98525a1e9d171~tplv-k3u1fbpfcp-watermark.image?)
-
-ECDHE[Elliptic Curve Diffie-Hellman Ephemeral ]
-
-## 前向保密
-
-前向保密（英語：Forward Secrecy，FS）有时也被称为完全前向保密（英語：Perfect Forward Secrecy，PFS），是密码学中通讯协议的一种安全特性，指的是长期使用的主密钥泄漏不会导致过去的会话密钥泄漏。 前向保密能够保护过去进行的通讯不受密码或密钥在未来暴露的威胁。
-
-既然固定一方的私钥有被破解的风险，那么干脆就让双方的私钥在每次密钥交换通信时，都是随机生成的、临时的，这个方式也就是 DHE 算法，E 全称是 ephemeral（临时性的）。
-
-所以，即使有个牛逼的黑客破解了某一次通信过程的私钥，其他通信过程的私钥仍然是安全的，因为每个通信过程的私钥都是没有任何关系的，都是独立的，这样就保证了「前向安全」。
-
-
-
-## HTTPS是否可以防止中间人攻击及抓包
-
-无法避免自动授权抓包，Charles就有这个能力，在握手阶段，Charles可以将服务端的公钥进行篡改，生成自己的公钥，本地新人证书后，证书链便可信任，进而抓包通信。证书的可靠性是靠证书链来保证，只要证书是合法的证书机构颁发的，那么网站就是安全的
-
-中间人攻击其实跟Https抓包原理一样，都是要强制添加一个自己的信任根证书
-
-
-
-Https协议要做到什么 ：比如防止中间路由器网管篡改信息
-
-中间人
-
-
-我们需要一个办法来保证服务器传输的公钥确实是服务器的，而不是第三方的。这个时候，我们需要使用 数字证书。数字证书由权威机构 (CA, Certificate Authority) 颁发，里面包含有服务器的公钥，证书文件使用 CA 私钥进行加密。当客户端与服务器建立加密通信的时候，服务器不再返回公钥，而是返回他的数字证书。客户端拿到证书，使用对应的 CA 的公钥解密，然后获取到服务器的公钥。这里有一个问题，客户端怎么拿到 CA 的公钥呢？如果还是去CA 服务器获取的话，那么我们又会回到问题的原点即怎样保证 CA 公钥不被人篡改。因此，大部分浏览器中，权威 CA 的公钥都是内置的，不需要去获取。这就保证了 CA 公钥的正确性。第三方没有办法伪造证书，因为第三方没有 CA 的私钥（当然，CA 被入侵的例子的也是有的，技术永远解决不了人的问题）。
-
-### HTTPS 中间人攻击
-
-HTTPS 可以防止用户在不知情的情况下通信链路被监听，对于主动授信的抓包操作是不提供防护的，因为这个场景用户是已经对风险知情。要防止被抓包，需要采用应用级的安全防护，例如采用私有的对称加密，同时做好移动端的防反编译加固，防止本地算法被破解。
+HTTPS通过加密与完整性校验可以防止数据包破解与篡改，但对于主动授信的抓包操作是没法防护，比如Charles抓包，在这个场景用户已经风险，并且将Charles提供的证书信任为根证书，这从源头上构建了一条虚拟的信任链：在握手阶段，Charles利用自己的公钥，生成客户端可以信任的篡改证书，从而可以充作中间人进而抓包，所谓中间人攻击，感觉跟Https抓包原理一样，都是要强制添加一个自己的信任根证书。
  
+### 参考 
  
 > 参考文档  https://blog.csdn.net/mrpre/category_9270159.html
 > 参考文档 【https://blog.csdn.net/mrpre/article/details/77867439】
