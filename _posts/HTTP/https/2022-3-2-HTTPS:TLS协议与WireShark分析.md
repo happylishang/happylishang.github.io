@@ -1,7 +1,7 @@
 ---
 
 layout: post
-title: HTTPS/TSL协议与WireShark分析
+title: HTTPS/TLS协议与WireShark分析
 category: Android
 
 ---
@@ -47,11 +47,11 @@ SSL/TLS协议主要从三方面来保证数据传输的安全性：保密、鉴�
 
 #### 第二个问题：如何保证数据保密性
 
-TSL协议最大的提升点就是数据的安全，通HTTP通信相比，HTTPS的通信是加密的，在协商阶段，通过非对称加密确定对称加密使用的秘钥，之后利用对称秘钥进行加密通信，这样传输的数据就是密文，就算中间节点泄漏，也可以保证数据不被窃取，从而保证通信数据的安全性。
+TLS协议最大的提升点就是数据的安全，通HTTP通信相比，HTTPS的通信是加密的，在协商阶段，通过非对称加密确定对称加密使用的秘钥，之后利用对称秘钥进行加密通信，这样传输的数据就是密文，就算中间节点泄漏，也可以保证数据不被窃取，从而保证通信数据的安全性。
 
 #### 第三个个问题：数据的完整性
 
-第三个问题，虽然中间节点无法窃取数据，但是还是可以随意更改数据的，那么怎么保证数据的完整性呢，这个其实任何数据传输中都会有这个问题，通过MAC[Message Authentication Codes]信息摘要算法就可以解决这个问题，同普通MD5、SHA等对比，MAC消息的散列加入了秘钥的概念，更加安全，是MD5和SHA算法的升级版，可以认为TSL完整性是数据保密性延伸，接下来就借助WireShark看看TSL握手的过程，并看看是如何实现身份鉴别、保密性、完整性的。
+第三个问题，虽然中间节点无法窃取数据，但是还是可以随意更改数据的，那么怎么保证数据的完整性呢，这个其实任何数据传输中都会有这个问题，通过MAC[Message Authentication Codes]信息摘要算法就可以解决这个问题，同普通MD5、SHA等对比，MAC消息的散列加入了秘钥的概念，更加安全，是MD5和SHA算法的升级版，可以认为TLS完整性是数据保密性延伸，接下来就借助WireShark看看TLS握手的过程，并看看是如何实现身份鉴别、保密性、完整性的。
 
 ## HTTPS传输的安全性WireShark原理分析
 
@@ -70,7 +70,7 @@ HTTPS安全通信简化来说：**在协商阶段用非对称加密协商好通�
 
 Client Hello是TLS/SSL握手发起的第一个动作，类似TCP的SYN，Client Hello 阶段客户端会指定版本，随机数、支持的密码套件供服务端选择，具体的包数据如下
  
-  ![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/8ce47a18cf704fa4a3014e96188cf856~tplv-k3u1fbpfcp-watermark.image?)启动TSL握手过程，**提供自己所能支持各种算法，同时提供一个将来所能用到的随机数**。
+  ![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/8ce47a18cf704fa4a3014e96188cf856~tplv-k3u1fbpfcp-watermark.image?)启动TLS握手过程，**提供自己所能支持各种算法，同时提供一个将来所能用到的随机数**。
   
 ContentType指示TLS通信处于哪个阶段阶段，值22代表Handshake，握手阶段，Version是TLS的版本1.2，在握手阶段，后面链接的就是握手协议，这里是Client Hello，值是1，同时还会创建一个随机数random给Server，它会在生成session key【对称密钥】时使用。之后就是支持的供服务端选择的密码套件，接下来等服务端返回。
  
@@ -142,7 +142,7 @@ Server Key Exchange是针对选定的ECDHE协商所必须的步骤，Diffie-Hell
 * 服务端随机数 
 * ECDHE 算法算出的共享密钥
 
-随机数是Client Hello与Server Hello阶段双方互传的，是为了提高秘钥的「随机」程度，提高会话密钥破解难度。
+Client Hello与Server Hello阶段交换的随机数，是为了提高秘钥的「随机」程度而进行的，这样有助于提高会话密钥破解难度。
 
 
 ## HTTPS中间人攻击及抓包
