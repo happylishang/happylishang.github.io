@@ -15,7 +15,16 @@ APP的每个业务场景都有其既定的运行模式，若被人为破坏就�
 
 ![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/aec456c0164244cd8feb3b17fc3a11e8~tplv-k3u1fbpfcp-watermark.image?)
 
-* 不在
+相应的安全体系建设必须能覆盖以上几种风险类型，简单说大概分四类
+
+> 不按既定的业务模型走
+
+
+
+
+* 不在预期的设备中运行
+* 不在既定的官方APP中运行
+*  核心业务玩法被侦测与破解
 
 ## 大家都是怎么做
 
