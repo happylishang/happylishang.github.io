@@ -13,9 +13,9 @@ APP的每个业务场景都有其既定的运行模式，若被人为破坏就�
 
 要做的事情就是围绕四个阶段构建不同的能力。先看第一阶段：风险场景的假设，预判有哪些风险场景，从AppStore或者官方应用市场下载，安装、正常使用，这是理想中的运行模式，但不安分的用户千千万，异常场景也多变，不存在一剑破万法的说法，这里人为做了一些场景归类：
 
-![image.png](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/aec456c0164244cd8feb3b17fc3a11e8~tplv-k3u1fbpfcp-watermark.image?)
+![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/322d5696a7ab4a299dbbed40eff2c5a7~tplv-k3u1fbpfcp-watermark.image?)
 
-相应的安全体系建设必须能覆盖以上几种风险类型，简单说大概分四类
+安全体系建设必须能覆盖以上几种风险类型，简单来说大概可分四类：
 
 > 不按既定的业务模型走
 
