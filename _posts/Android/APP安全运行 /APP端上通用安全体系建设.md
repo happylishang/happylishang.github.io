@@ -15,7 +15,7 @@ APP的每个业务场景都有其既定的运行模式，若被人为破坏就�
 
 ![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/322d5696a7ab4a299dbbed40eff2c5a7~tplv-k3u1fbpfcp-watermark.image?)
 
-安全体系建设必须能覆盖以上几种风险类型，简单来说大概可分四类：
+简单来说大概可分以上四类，安全建设必须能覆盖以上几种风险类型，：
 
 > 不按既定的业务模型走
 
