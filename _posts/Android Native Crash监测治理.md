@@ -1,3 +1,6 @@
+so文件，里面包含的信息并不多，仅仅有符号表，其他的基本都是地址，指令，可供查直接查看的信息不多，所以真的要看线上问题，只能通过错误利用原来的so进行处理。
+
+
 借助 ndk-stack 工具，可以使用符号来表示来自 adb logcat 的堆栈轨迹或 /data/tombstones/ 中的 Tombstone。该工具会将共享库内的任何地址替换为源代码中对应的 <source-file>:<line-number>，从而简化调试流程
 
 参考文档：https://developer.android.com/ndk/guides/ndk-stack
