@@ -100,3 +100,11 @@ so文件，里面包含的信息并不多，仅仅有符号表，其他的基本
 	
 	java -jar buglyqq-upload-symbol.jar -appid  0c20628c17  -appkey  412f7724-37fe-41b7-90d6-5456aca04a14  -bundleid com.moutai.mall  -version 1.2.1   -platform  Android -inputSymbol      /Users/hzlishang/prj/demo/mtsec/mtsc/build/intermediates/merged_native_libs/debug/out/lib/arm64-v8a
 	
+	
+#### 	根据线上日志/符号表导出原来堆栈
+
+	
+	/Users/hzlishang/Library/Android/sdk/ndk/21.4.7075529/ndk-stack  -sym /Users/hzlishang/prj/demo/xCrash/xcrash_sample/build/intermediates/merged_native_libs/debug/out/lib/arm64-v8a  --dump   crash.log
+	
+	
+	
