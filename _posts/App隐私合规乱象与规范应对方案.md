@@ -18,6 +18,27 @@
 ### 关于统一的拦截 隐私弹窗的设计
 
 
-第一个弹窗，第二个弹窗更新更新
+* 第一个弹窗固定放在闪屏，跟随APP更新，
+* 第二个弹窗走首页，动态展示
+
+
+在第一个隐私策略同意之前不许搜集任何信息，其实也不许做任何上报类的操作
+
+
+
+ sudo pip install frida
+ 
+ 
+ps -A | grep frida
+
+杀死进程
+kill -9 <process>
+
+
+
+frida -U -f com.tencent.k12gy -l D:\ADB\fridascript.js --no-paus
+
+
+主要是环境配置 python3  pip  等，环境好了直接就跑起来了
 
 
