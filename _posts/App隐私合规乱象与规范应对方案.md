@@ -24,7 +24,7 @@
 
 在第一个隐私策略同意之前不许搜集任何信息，其实也不许做任何上报类的操作
 
-
+/data/local/tmp/frida-server   
 
  sudo pip install frida
  
@@ -41,4 +41,6 @@ frida -U -f com.tencent.k12gy -l D:\ADB\fridascript.js --no-paus
 
 主要是环境配置 python3  pip  等，环境好了直接就跑起来了
 
+cd /Users/personal/prj/Github/camille/
 
+ python /Users/personal/prj/Github/camille/camille.py com.netease.yanxuan
