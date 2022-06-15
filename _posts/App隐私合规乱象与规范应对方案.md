@@ -29,9 +29,10 @@
  sudo pip install frida
  
  
+杀死特定进程
+
 ps -A | grep frida
 
-杀死进程
 kill -9 <process>
 
 
