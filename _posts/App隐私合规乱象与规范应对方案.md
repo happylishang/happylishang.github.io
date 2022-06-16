@@ -35,6 +35,7 @@ ps -A | grep frida
 
 kill -9 <process>
 
+2187582319
 
 
 frida -U -f com.tencent.k12gy -l D:\ADB\fridascript.js --no-paus
