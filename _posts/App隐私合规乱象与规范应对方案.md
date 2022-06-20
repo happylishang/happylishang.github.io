@@ -21,6 +21,7 @@
 * 第一个弹窗固定放在闪屏，跟随APP更新，
 * 第二个弹窗走首页，动态展示
 
+### 如何HOOK探测同以前的隐私调用
 
 在第一个隐私策略同意之前不许搜集任何信息，其实也不许做任何上报类的操作
 
@@ -46,3 +47,23 @@ frida -U -f com.tencent.k12gy -l D:\ADB\fridascript.js --no-paus
 cd /Users/personal/prj/Github/camille/
 
  python /Users/personal/prj/Github/camille/camille.py com.netease.yanxuan
+
+
+### 如何查看APK是否调用了系统限定的API
+
+你想APP，用jadx直接看就可以，后者自己通过dex2jar换成jar，再换成java，好像效果类似
+
+	#!/bin/bash
+	cd /Users/personal/soft/dex-tools-2.1
+	if [   -n  "$2" ] ;then
+	  sh d2j-dex2jar.sh -f  "$1" -o "$2"
+	else
+	  pre="$1"
+	  #用自己接住自己
+	  pre=`echo ${pre/%.dex/.jar}`
+	  sh d2j-dex2jar.sh -f  "$1" -o $pre
+	fi
+	
+dex2jar 再将jar换成java
+
+也可以直接jadex-gui，还可以将所有java导出，方便查看
