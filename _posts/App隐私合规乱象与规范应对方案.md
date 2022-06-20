@@ -67,3 +67,8 @@ cd /Users/personal/prj/Github/camille/
 dex2jar 再将jar换成java
 
 也可以直接jadex-gui，还可以将所有java导出，方便查看
+
+
+
+或者扫描Smali代码  **https://juejin.cn/post/7039512844768903198**
+
