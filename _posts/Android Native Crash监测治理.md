@@ -1,3 +1,10 @@
+## Native Crash的统计有两部分：
+
+####  信号量统计时机
+
+####  堆栈捕获
+
+
 so文件，里面包含的信息并不多，仅仅有符号表，其他的基本都是地址，指令，可供查直接查看的信息不多，所以真的要看线上问题，只能通过错误利用原来的so进行处理。
 
 
@@ -105,6 +112,8 @@ so文件，里面包含的信息并不多，仅仅有符号表，其他的基本
 
 	
 	/Users/hzlishang/Library/Android/sdk/ndk/21.4.7075529/ndk-stack  -sym /Users/hzlishang/prj/demo/xCrash/xcrash_sample/build/intermediates/merged_native_libs/debug/out/lib/arm64-v8a  --dump   crash.log
+	
+	
 	
 	
 	
