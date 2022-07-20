@@ -18,7 +18,7 @@ VSYNC即vertical sync，也称为垂直同步，是一种图形技术，主要�
 
 ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7c03e6553ccc49beae246ff2c3e0cd8b~tplv-k3u1fbpfcp-watermark.image?)
 
-具体的复现场景如下：假如显示设备只有一块显存用来存放显示数据，在没有同步加锁的情况下，可以认为**帧到了就可用**，此时，如果显卡输出帧率很高，可能上一帧A帧还没在屏幕上显示完，显存的数据就被B帧覆盖了，那么在继续刷新下半部分时，绘制的就是B帧数据，此时就会出现上半部分是A下半部分是B，这就是屏幕撕裂。
+具体的复现场景如下：假如显示设备只有一块显存用来存放显示数据，在没有同步加锁的情况下，可以认为**帧到了就可用**，此时，如果显卡输出帧率很高，可能上一帧A帧还没在屏幕上显示完，显存的数据就被B帧覆盖了，那么在继续刷新下半部分时，绘制的就是B帧数据，此时就会出现上半部分是A下半部分是B，这就是屏幕撕裂，示意如下：
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-d8a7b252191b7ad8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
