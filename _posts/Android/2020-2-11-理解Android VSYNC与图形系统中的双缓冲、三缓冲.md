@@ -18,7 +18,13 @@ VSYNC即vertical sync，也称为垂直同步，是一种图形技术，主要�
 
 ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7c03e6553ccc49beae246ff2c3e0cd8b~tplv-k3u1fbpfcp-watermark.image?)
 
+具体的复现场景如下：假如显示设备只有一块显存用来存放显示数据，在没有同步加锁的情况下，可以认为**帧到了就可用**，此时，如果显卡输出帧率很高，可能上一帧A帧还没在屏幕上显示完，显存的数据就被B帧覆盖了，那么在继续刷新下半部分时，绘制的就是B帧数据，此时就会出现上半部分是A下半部分是B，这就是屏幕撕裂。
 
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-d8a7b252191b7ad8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+相比较画面撕裂场景如下：
+
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-4424c66d36b291f2.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
  
 
@@ -27,17 +33,8 @@ VSync即垂直同步，一开始由GPU厂商提出，主要用来处理屏幕撕
 理想情况下：The display (LCD, AMOLED, whatever) gets each frame from the graphics chip, and starts drawing it line by line. Ideally, you want the display to get a new frame from the graphics chip after it is finished drawing the previous frame. Tearing occurs when the graphics chip loads a new frame in the middle of the LCD draw, so you get half of one frame and half of another.
 
 
+ 
 
-
-
-
-如果只有一块缓存，在没有加锁的情况下，容易出现。即：在屏幕更新的时候，如果显卡输出帧率很高，在A帧的数据上半部分刚更新完时，B帧就到了，如果没采取同步锁机制，可以认为**帧到了就可用**，在继续刷新下半部分时，由于只有一块存储，A被B覆盖，绘制用的数据就是B帧，此时就会出现上半部分是A下半部分是B，这就是屏幕撕裂，**个人觉得描述成显卡瞬时帧率过高也许更好**。同正常帧绘制相比，正常的帧给时间才就能完整绘制一帧，但撕裂的帧没有机会补全。
-
-![image.png](https://upload-images.jianshu.io/upload_images/1460468-d8a7b252191b7ad8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-相比较画面撕裂场景如下：
-
-![image.png](https://upload-images.jianshu.io/upload_images/1460468-4424c66d36b291f2.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 不过按照Android官方指导的说法，屏幕撕裂还有另外一种解释，那就是显示器用了半成品的帧，不过我是不太理解他说的这点。[参考视频](https://youtu.be/1iaHxmfZGGc?list=UU_x5XG1OV2P6uZZ5FSM9Ttw&t=112)
 
