@@ -14,21 +14,13 @@ VSYNC即vertical sync，也称为垂直同步，是一种图形技术，主要�
 * 帧率[Frame Rate，单位FPS]-显卡生成帧的速率，也可以认为是数据处理的速度
 * 屏幕刷新频率 [Refresh Rate单位赫兹/HZ]：是指硬件设备刷新屏幕的频率，值一般是固定的，以黑白电视的电子扫描枪类比，比如60Hz的显示屏，每16ms电子枪从上到下从左到右一行一行逐渐把图片绘制出来。
 
-两者要同步配合好才能高效的显示图像，可以人为帧率对应的是图像数据的输出，刷新率对应的是图像数据的屏幕展示，如果帧率高过显示设备的刷新率，而又没有采用合适的同步技术，会出现什么问题呢？
-
-
-
-
-
-如果两者的频率不匹配，就很容易发生屏幕撕裂，即多帧的局部数据共同组成了一个完整帧，显示在屏幕里面，如下图所示
+两者要同步配合好才能高效的显示图像，可以人为帧率对应的是图像数据的输出，刷新率对应的是图像数据的屏幕展示，如果帧率同设备的刷新率不一致，而又没有采用合适的同步技术，会出现什么问题呢？可能会出现上述的屏幕撕裂[多帧的局部数据共同组成了一个完整帧]，示意如下：
 
 ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7c03e6553ccc49beae246ff2c3e0cd8b~tplv-k3u1fbpfcp-watermark.image?)
 
 
-which is when your screen displays portions of multiple frames in one go. Tearing occurs when the monitor’s refresh rate (how many times it updates per second) is not in sync with the frames per second.
 
-
-如果GPU显卡性能非常强悍，帧率可以非常高，甚至会高于屏幕刷新频率。那VSync是什么？
+ 
 
 VSync即垂直同步，一开始由GPU厂商提出，主要用来处理屏幕撕裂的问题[FPS帧率与屏幕刷新频率不同步的时候就会发生] [本文参考视频 Google IO](https://www.youtube.com/watch?v=Q8m9sHdyXnE)，
 
