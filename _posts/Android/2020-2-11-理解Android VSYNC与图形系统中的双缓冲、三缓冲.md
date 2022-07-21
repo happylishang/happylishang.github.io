@@ -18,27 +18,15 @@ VSYNC即vertical sync，也称为垂直同步，是一种图形技术，主要�
 
 ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7c03e6553ccc49beae246ff2c3e0cd8b~tplv-k3u1fbpfcp-watermark.image?)
 
-具体的复现场景如下：假如显示设备只有一块显存用来存放显示数据，在没有同步加锁的情况下，可以认为**帧到了就可用**，此时，如果显卡输出帧率很高，可能上一帧A帧还没在屏幕上显示完，显存的数据就被B帧覆盖了，那么在继续刷新下半部分时，绘制的就是B帧数据，此时就会出现上半部分是A下半部分是B，这就是屏幕撕裂，示意如下：
+理论上来讲，只要没做到读/写完美线性同步就有几率发生撕裂， 只有帧数据完整更新+显示设备完整渲染才能阻止撕裂，相对应的撕裂的复现场景有两种：
 
-![image.png](https://upload-images.jianshu.io/upload_images/1460468-d8a7b252191b7ad8.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-相比较画面撕裂场景如下：
+* 1 假设**显示设备只有一块显存**存放显示数据，在没有同步加锁的情况下，帧数据由CPU/GPU处理完可随时写入到显存，如果恰好在上一帧A还没100%在屏幕显示完的时候，B帧到达，并且覆盖了A，那么在继续刷新下半部分时，绘制的就是B帧数据，此时就会出现上半部分是A下半部分是B，即发生屏幕撕裂：如下
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-4424c66d36b291f2.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
  
+* 2 依旧假设**显示设备只有一块显存**存放显示数据，如果在GPU覆盖旧帧的间隙，也就是显存数据没有100%刷新的时候，通知渲染到屏幕，这个时候同样会发生上述事情，即使用了半成品的帧：撕裂帧。[参考视频](https://youtu.be/1iaHxmfZGGc?list=UU_x5XG1OV2P6uZZ5FSM9Ttw&t=112)
 
-VSync即垂直同步，一开始由GPU厂商提出，主要用来处理屏幕撕裂的问题[FPS帧率与屏幕刷新频率不同步的时候就会发生] [本文参考视频 Google IO](https://www.youtube.com/watch?v=Q8m9sHdyXnE)，
-
-理想情况下：The display (LCD, AMOLED, whatever) gets each frame from the graphics chip, and starts drawing it line by line. Ideally, you want the display to get a new frame from the graphics chip after it is finished drawing the previous frame. Tearing occurs when the graphics chip loads a new frame in the middle of the LCD draw, so you get half of one frame and half of another.
-
-
- 
-
-
-不过按照Android官方指导的说法，屏幕撕裂还有另外一种解释，那就是显示器用了半成品的帧，不过我是不太理解他说的这点。[参考视频](https://youtu.be/1iaHxmfZGGc?list=UU_x5XG1OV2P6uZZ5FSM9Ttw&t=112)
-
-以上说的是只有一块显示存储的情况，其实只要加锁就能解决。那么如果多增加一块显示存储区能解决吗？显卡绘制成功后，先写入BackBuffer，不影响当前正在展示的FrameBuffer，这就是双缓冲，但是理论上其实也不行，因为BackBuffer毕竟也是要展示的，也要”拷贝“到FrameBuffer，在A帧没画完，BackBuffer如果不加干预，直接”拷贝“到FrameBuffer同样出现撕裂。所以**同步锁的机制才是关键**，必须有这么一个机制告诉GPU显卡，**要等待当前帧绘完整，才能替换当前帧**。但如果仅仅单缓存加锁的话GPU显卡会被挂啊？这就让效率低了，那就一边加同步锁，同时再多加一个缓存，垂直同步（VSYNC）就可看做是这么个东西，其实两者是配合使用的。
+以上都是针对一块显示存储的情况，理论上只要加锁就能解决，但无疑会大大降低效率。那么如果多增加一块显示存储区能解决吗？显卡绘制成功后，先写入BackBuffer，不影响当前正在展示的FrameBuffer，这就是双缓冲，但是理论上其实也不行，因为BackBuffer毕竟也是要展示的，也要”拷贝“到FrameBuffer，在A帧没画完，BackBuffer如果不加干预，直接”拷贝“到FrameBuffer同样出现撕裂。所以**同步锁的机制才是关键**，必须有这么一个机制告诉GPU显卡，**要等待当前帧绘完整，才能替换当前帧**。但如果仅仅单缓存加锁的话GPU显卡会被挂啊？这就让效率低了，那就一边加同步锁，同时再多加一个缓存，垂直同步（VSYNC）就可看做是这么个东西，其实两者是配合使用的。
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-30ac3ea4118e9390.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
