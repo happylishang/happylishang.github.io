@@ -18,35 +18,33 @@ VSYNC即vertical sync，也称为垂直同步，是一种图形技术，主要�
 
 ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7c03e6553ccc49beae246ff2c3e0cd8b~tplv-k3u1fbpfcp-watermark.image?)
 
-理论上来讲，只要没做到读/写完美线性同步就有几率发生撕裂， 只有帧数据完整更新+显示设备完整渲染才能阻止撕裂，相对应的撕裂的复现场景有两种：
+理论上来讲，只要没做到读/写线性同步就有几率发生撕裂， 只有帧数据完整更新+显示设备完整渲染才能阻止撕裂，相对应的撕裂的复现场景有两种：
 
-* 1 假设**显示设备只有一块显存**存放显示数据，在没有同步加锁的情况下，帧数据由CPU/GPU处理完可随时写入到显存，如果恰好在上一帧A还没100%在屏幕显示完的时候，B帧到达，并且覆盖了A，那么在继续刷新下半部分时，绘制的就是B帧数据，此时就会出现上半部分是A下半部分是B，即发生屏幕撕裂：如下
+* 1：**显示设备未完整渲染**： 假设显示设备**只有一块**显存存放显示数据，在没有同步加锁的情况下，帧数据由CPU/GPU处理完可随时写入到显存，如果恰好在上一帧A还没100%在屏幕显示完的时候，B帧到达，并且覆盖了A，那么在继续刷新下半部分时，绘制的就是B帧数据，此时就会出现上半部分是A下半部分是B，即发生屏幕撕裂：如下
 
 ![image.png](https://upload-images.jianshu.io/upload_images/1460468-4424c66d36b291f2.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
  
-* 2 依旧假设**显示设备只有一块显存**存放显示数据，如果在GPU覆盖旧帧的间隙，也就是显存数据没有100%刷新的时候，通知渲染到屏幕，这个时候同样会发生上述事情，即使用了半成品的帧：撕裂帧。[参考视频](https://youtu.be/1iaHxmfZGGc?list=UU_x5XG1OV2P6uZZ5FSM9Ttw&t=112)
+* 2 **帧数据未完整更新 **：依旧假设显示设备**只有一块**显存存放显示数据，如果在GPU覆盖旧帧的间隙，也就是显存数据没有100%刷新的时候，通知渲染到屏幕，这个时候同样会发生上述事情，即使用了半成品的帧：撕裂帧。[参考视频](https://youtu.be/1iaHxmfZGGc?list=UU_x5XG1OV2P6uZZ5FSM9Ttw&t=112)
 
-以上都是针对一块显示存储的情况，理论上只要加锁就能解决，但无疑会大大降低效率。那么如果多增加一块显示存储区能解决吗？显卡绘制成功后，先写入BackBuffer，不影响当前正在展示的FrameBuffer，这就是双缓冲，但是理论上其实也不行，因为BackBuffer毕竟也是要展示的，也要”拷贝“到FrameBuffer，在A帧没画完，BackBuffer如果不加干预，直接”拷贝“到FrameBuffer同样出现撕裂。所以**同步锁的机制才是关键**，必须有这么一个机制告诉GPU显卡，**要等待当前帧绘完整，才能替换当前帧**。但如果仅仅单缓存加锁的话GPU显卡会被挂啊？这就让效率低了，那就一边加同步锁，同时再多加一个缓存，垂直同步（VSYNC）就可看做是这么个东西，其实两者是配合使用的。
+以上都是针对一块显示存储的情况，理论上只要加锁就能解决，读的时候禁止写，但这么做无疑会大大降低效率。那么如果多增加一块显示存储区能解决吗？GPU绘制成功后，先写入BackBuffer，不影响当前正在展示的FrontBuffer，这就是双缓冲，相比于单缓存，双缓冲可让写与读分离，提高效率，比如显示设备在向屏幕渲染的时候，CPU/GPU仍然可以利用BackBuffer填充下一帧的数据，而不用等待FrontBuffer完全显示完成，但双缓冲理论上解决不了撕裂的问题，BackBuffer毕竟也是要展示的，也要”拷贝“到FrontBuffer，如果不对拷贝操作添加干预，也可能出现撕裂，所以**同步锁的机制才是关键**，必须有这么一个机制告诉GPU显卡，**要等待当前帧绘完整，才能替换当前帧**，这就是VSYNC，**VSYNC禁止在刷新的过程中更新FrontBuffer**，所有的COPY或者说是Page flipping操作都要等待上一帧完全渲染完才可以，渲染完成之后，显示设备就可以发出VSYNC信号，通知BackBuffer与FrontBuffer间进行拷贝，接着进行屏幕渲染，这样就能避免屏幕撕裂，当然，如果BackBuffer还未来得及完成帧更新，也是需要阻断，否则就是渲染了半成品的帧。所以基本是依靠Vsync+双缓冲来解决撕裂问题。
 
-![image.png](https://upload-images.jianshu.io/upload_images/1460468-30ac3ea4118e9390.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-再来看下VSYNC，屏幕刷新从左到右水平扫描（Horizontal Scanning），从上到下垂直扫描Vertical Scanning，**垂直扫描完成则整个屏幕刷新完毕，这便是告诉外界可以绘制下一帧的时机**，在这里发出VSync信号，通知GPU给FrameBuffer传数据，完成后，屏幕便可以开始刷新，所以或许称之为**帧同步**更合适。VSYNC**强制帧率和显示器刷新频率同步**，如果当前帧没绘制完，即使下一帧准备好了，也禁止使用下一帧，直到显示器绘制完当前帧，等下次刷新的时候，才会用下一帧。比如：如果显示器的刷新频率是60HZ显示器，开了垂直同步后，显示帧率就会被锁60，即使显卡输出高，也没用。对Android系统而言，垂直同步信号除了强制帧率和显示器刷新频率同步外，还有其他很多作用，VSYNC是APP端重绘、SurfaceFlinger图层合成的触发点，只有收到VSYNC信号，它们才会工作，以上便是个人对引入VSYNC与双缓冲的见解。
-
-** VSYNC在Android中还有个作用，帮助UI线程的渲染任务抢占CPU，在VSYNC到达是，CPU 放下手中的任务，优先处理UI绘制**
+ 
+# 双缓冲  ：配合垂直同步
 
 It does this by preventing the GPU from doing anything to the display memory until the monitor has concluded its current refresh cycle — effectively not feeding it any more information until it’s ready for it. Through a combination of double buffering and page flipping, VSync synchronizes the drawing of frames onto the display only when it has finished a refresh cycle, so you shouldn’t ever see tears when VSync is enabled.
 
 
+![image.png](https://upload-images.jianshu.io/upload_images/1460468-30ac3ea4118e9390.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+屏幕刷新从左到右水平扫描（Horizontal Scanning），从上到下垂直扫描Vertical Scanning，**垂直扫描完成则整个屏幕刷新完毕，这便是告诉外界可以绘制下一帧的时机**，在这里发出VSync信号，通知GPU给FrameBuffer传数据，完成后，屏幕便可以开始刷新，所以或许称之为**帧同步**更合适。VSYNC**强制帧率和显示器刷新频率同步**，如果当前帧没绘制完，即使下一帧准备好了，也禁止使用下一帧，直到显示器绘制完当前帧，等下次刷新的时候，才会用下一帧。比如：如果显示器的刷新频率是60HZ显示器，开了垂直同步后，显示帧率就会被锁60，即使显卡输出高，也没用。对Android系统而言，垂直同步信号除了强制帧率和显示器刷新频率同步外，还有其他很多作用，VSYNC是APP端重绘、SurfaceFlinger图层合成的触发点，只有收到VSYNC信号，它们才会工作，以上便是个人对引入VSYNC与双缓冲的见解。
+
+** VSYNC在Android中还有个作用，帮助UI线程的渲染任务抢占CPU，在VSYNC到达是，CPU 放下手中的任务，优先处理UI绘制**
+
+
+
 VSync cannot improve your resolution, colors, or brightness levels like HDR. It’s a preventative technology that’s focused on stopping a specific problem rather than making improvements. It also tends to harm performance.
 
-# 单缓冲：
 
-CPU处理完，GPU处理，串联的模型，效率低一个处理完，另一个处理
-
-
-
-
-# 双缓冲  ：配合垂直同步
 
 
 
