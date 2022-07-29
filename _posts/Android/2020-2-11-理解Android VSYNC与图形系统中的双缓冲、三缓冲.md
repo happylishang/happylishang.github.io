@@ -85,17 +85,6 @@ Jelly Bean之前VSYNC仅用在最后的图像显示阶段，防止屏幕撕裂�
 * Android已经采用了双缓冲，双缓冲不仅仅是两份存储，它是一个概念，双缓冲是一条链路，不是某一个环节，是整个系统采用的一个机制，需要各个环节的支持，从APP到SurfaceFlinger、到图像显示都要参与协作
 * 三缓冲在UI复杂情况下能保证画面的连续性，提高柔韧性
 
-
-
-
-![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/4e95445860a447ee82a610bcb025a65f~tplv-k3u1fbpfcp-watermark.image?)
-
-
-Sets 1, 2 and 3 represent the operation of single, double and triple buffering, respectively, with vertical synchronization (vsync) enabled. In each graph, time flows from left to right. Note that 3 shows a swap chain with three buffers; the original definition of triple buffering would throw away frame C as soon as frame D finished, and start drawing frame E into buffer 1 with no delay. Set 4 shows what happens when a frame (B, in this case) takes longer than normal to draw. In this case, a frame update is missed. In time-sensitive implementations such as video playback, the whole frame may be dropped. With a three-buffer swap chain in set 5, drawing of frame B can start without having to wait for frame A to be copied to video memory, reducing the chance of a delayed frame missing its vertical retrace.
-
-拷贝的时间，你可以做的别的，GPU的时间，CPU可以做别的
-
-
 # 参考文档
 
 [Google I/O 2012 - For Butter or Worse: Smoothing Out Performance in Android UIs
