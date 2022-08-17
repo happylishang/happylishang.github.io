@@ -30,23 +30,20 @@
  sudo pip install frida
  
  
-杀死特定进程
+杀死特定进程，并启动frida
 
-ps -A | grep frida
-
-kill -9 <process>
-
-2187582319
-
-
-frida -U -f com.tencent.k12gy -l D:\ADB\fridascript.js --no-paus
+	ps -A | grep frida
+	
+	kill -9 <process>
+	
+	frida -U -f com.tencent.k12gy -l D:\ADB\fridascript.js --no-paus
 
 
 主要是环境配置 python3  pip  等，环境好了直接就跑起来了
 
-cd /Users/personal/prj/Github/camille/
-
- python /Users/personal/prj/Github/camille/camille.py com.netease.yanxuan
+	cd /Users/personal/prj/Github/camille/
+	
+	 python /Users/personal/prj/Github/camille/camille.py com.netease.yanxuan
 
 
 ### 如何查看APK是否调用了系统限定的API
