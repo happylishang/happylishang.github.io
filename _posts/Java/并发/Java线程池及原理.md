@@ -115,6 +115,15 @@ JAVA通过Executors工厂类提供了四种线程池，单线程化线程池(new
 * maximumPoolSize线程池中最大的存活线程数，对于超出corePoolSize部分的线程，如果处于空闲状态，都会超时机制，超时时间keepAliveTime*unit。
 * keepAliveTime  unit 共同定义超时时间
 * workQueue【BlockingQueue】作用就是让暂时无法获取线程的任务进入队列，等待执行，当调用**execute【最终调用】**方法时，如果线程池中没有空闲可用线程，任务就会入队。
+
+		ArrayBlockingQueue	一个由数组结构组成的有界阻塞队列。
+		LinkedBlockingQueue	一个由链表结构组成的有界阻塞队列。
+		SynchronousQueue	一个不存储元素的阻塞队列，即直接提交给线程不保持它们。
+		PriorityBlockingQueue	一个支持优先级排序的无界阻塞队列。
+		DelayQueue	一个使用优先级队列实现的无界阻塞队列，只有在延迟期满时才能从中提取元素。
+		LinkedTransferQueue	一个由链表结构组成的无界阻塞队列。与SynchronousQueue类似，还含有非阻塞方法。
+		LinkedBlockingDeque	一个由链表结构组成的双向阻塞队列。
+
 * threadFactory 【ThreadFactory】线程工厂类，一般都是默认Executors.defaultThreadFactory()
 * handler【RejectedExecutionHandler】 这个参数是用来执行拒绝策略的，当提交任务时既没有空闲线程，任务队列也满了【有些BlockingQueue可以设置数量上限】，就会执行拒绝操作。
 
