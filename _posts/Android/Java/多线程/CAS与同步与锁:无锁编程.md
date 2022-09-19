@@ -370,6 +370,8 @@ ReentrantLock的Condition用来处理生产者-消费者（producer-consumer）�
 	
 
 
+## notify() 方法随机唤醒对象的等待池中的一个线程，进入锁池；notifyAll() 唤醒对象的等待池中的所有线程，进入锁池。
+
 ## synchronized锁的实现
 
 
