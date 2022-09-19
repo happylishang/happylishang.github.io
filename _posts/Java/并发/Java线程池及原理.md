@@ -41,7 +41,8 @@ JAVA通过Executors工厂类提供了四种线程池，单线程化线程池(new
  
 ###  利用ThreadPoolExecutor直接定制创建
  
- 
+
+
  
     /**
      * Creates a new {@code ThreadPoolExecutor} with the given initial
@@ -97,7 +98,26 @@ JAVA通过Executors工厂类提供了四种线程池，单线程化线程池(new
     }
 
  
- ThreadPoolExecutor有7个参数，
+ ThreadPoolExecutor有7个参数，参数之间可能会有影响：
+ 
+* corePoolSize核心线程池大小，默认情况下，即使它们处于idle状态也不销毁，除非用户设置了allowCoreThreadTimeOut，设置后，核心线程允许超时，超时时间就是keepAliveTime*unit，在这种情况下，核心线程数量可以缩减，甚至为0。
+
+	      public void allowCoreThreadTimeOut(boolean value) {
+	        if (value && keepAliveTime <= 0)
+	            throw new IllegalArgumentException("Core threads must have nonzero keep alive times");
+	        if (value != allowCoreThreadTimeOut) {
+	            allowCoreThreadTimeOut = value;
+	            if (value)
+	                interruptIdleWorkers();
+	        }
+	    }
+	    
+* maximumPoolSize线程池中最大的存活线程数，对于超出corePoolSize部分的线程，如果处于空闲状态，都会超时机制，超时时间keepAliveTime*unit。
+* keepAliveTime  unit 共同定义超时时间
+* workQueue【BlockingQueue】作用就是让暂时无法获取线程的任务进入队列，等待执行，当调用**execute【最终调用】**方法时，如果线程池中没有空闲可用线程，任务就会入队。
+* threadFactory 【ThreadFactory】线程工厂类，一般都是默认Executors.defaultThreadFactory()
+* handler【RejectedExecutionHandler】 这个参数是用来执行拒绝策略的，当提交任务时既没有空闲线程，任务队列也满了【有些BlockingQueue可以设置数量上限】，就会执行拒绝操作。
+
 
 线程池在程序结束的时候要关闭。使用shutdown()方法关闭线程池的时候，它会等待正在执行的任务先完成，然后再关闭。shutdownNow()会立刻停止正在执行的任务，awaitTermination()则会等待指定的时间让线程池关闭。
 
