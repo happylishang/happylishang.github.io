@@ -3,47 +3,16 @@ Java语言虽然内置了多线程支持，启动一个新线程非常方便，�
 ## 使用
 
 
-JAVA中创建线程池主要有两类方法，一类是通过**Executors工厂类**提供的方法，该类提供了4种不同的线程池可供使用。另一类是通过**ThreadPoolExecutor实现类**进行自定义创建。
-
-JAVA通过Executors工厂类提供了四种线程池，单线程化线程池(newSingleThreadExecutor)、可控最大并发数线程池(newFixedThreadPool)、可回收缓存线程池(newCachedThreadPool)、支持定时与周期性任务的线程池(newScheduledThreadPool)
-
-
-### 利用Executors工厂创建的线程池有如下三种
-
-* FixedThreadPool：线程数固定的线程池；
-* CachedThreadPool：线程数根据任务动态调整的线程池； 理论上无限大
-* SingleThreadExecutor：仅单线程执行的线程池。
-
-上面三种内部用的都是ThreadPoolExecutor
-
-    public static ExecutorService newSingleThreadExecutor() {
-        return new FinalizableDelegatedExecutorService
-            (new ThreadPoolExecutor(1, 1,
-                                    0L, TimeUnit.MILLISECONDS,
-                                    new LinkedBlockingQueue<Runnable>()));
-    }
-
-
-不过用FinalizableDelegatedExecutorService封装了一下
-
-
-    static class FinalizableDelegatedExecutorService
-        extends DelegatedExecutorService {
-        FinalizableDelegatedExecutorService(ExecutorService executor) {
-            super(executor);
-        }
-        protected void finalize() {
-            super.shutdown();
-        }
-    }
-    
- 应该是JVM为了防止浪费，在GC前利用   finalize将线程池关闭，回收资源。
+JAVA中创建线程池主要有两类方法，一类是通过**Executors工厂类**提供的方法，该类提供了4种不同的线程池可供使用。另一类是通过**ThreadPoolExecutor实现类**进行自定义创建，而Exectores工厂类最终也是创建ThreadPoolExecutor，所以先看看ThreadPoolExecutor：
  
-###  利用ThreadPoolExecutor直接定制创建
- 
+###  利用ThreadPoolExecutor创建线程池
+  
+ThreadPoolExecutor 继承与 AbstractExecutorService，ExecutorService其实就是Executor体系里最核心的玩意儿，而ThreadPoolExecutor本身可以直观上看做线程池的本体。Executor执行器体系  
 
+![](https://s2.51cto.com/images/blog/202107/09/0b45d217c971425c8b3a276e6d7f4e89.png?x-oss-process=image/watermark,size_16,text_QDUxQ1RP5Y2a5a6i,color_FFFFFF,t_30,g_se,x_10,y_10,shadow_20,type_ZmFuZ3poZW5naGVpdGk=)
 
- 
+直接看下ThreadPoolExecutor构造函数
+  
     /**
      * Creates a new {@code ThreadPoolExecutor} with the given initial
      * parameters.
@@ -114,15 +83,15 @@ JAVA通过Executors工厂类提供了四种线程池，单线程化线程池(new
 	    
 * maximumPoolSize线程池中最大的存活线程数，对于超出corePoolSize部分的线程，如果处于空闲状态，都会超时机制，超时时间keepAliveTime*unit。
 * keepAliveTime  unit 共同定义超时时间
-* workQueue【BlockingQueue】作用就是让暂时无法获取线程的任务进入队列，等待执行，当调用**execute【最终调用】**方法时，如果线程池中没有空闲可用线程，任务就会入队。
+* workQueue【BlockingQueue】作用就是让暂时无法获取线程的任务进入队列，等待执行，当调用**execute【最终调用】**方法时，如果线程池中没有空闲可用线程，任务就会入队，采用的队列不同，发生的效果也不同
 
-		ArrayBlockingQueue	一个由数组结构组成的有界阻塞队列。
-		LinkedBlockingQueue	一个由链表结构组成的有界阻塞队列。
-		SynchronousQueue	一个不存储元素的阻塞队列，即直接提交给线程不保持它们。
-		PriorityBlockingQueue	一个支持优先级排序的无界阻塞队列。
-		DelayQueue	一个使用优先级队列实现的无界阻塞队列，只有在延迟期满时才能从中提取元素。
-		LinkedTransferQueue	一个由链表结构组成的无界阻塞队列。与SynchronousQueue类似，还含有非阻塞方法。
-		LinkedBlockingDeque	一个由链表结构组成的双向阻塞队列。
+> 		ArrayBlockingQueue	一个由数组结构组成的有界阻塞队列。
+> 		LinkedBlockingQueue	一个由链表结构组成的可选有界阻塞队列。
+> 		SynchronousQueue	一个不存储元素的阻塞队列，即直接提交给线程不保持它们。
+> 		PriorityBlockingQueue	一个支持优先级排序的无界阻塞队列。
+> 		DelayQueue	一个使用优先级队列实现的无界阻塞队列，只有在延迟期满时才能从中提取元素。
+> 		LinkedTransferQueue	一个由链表结构组成的无界阻塞队列。与SynchronousQueue类似，还含有非阻塞方法。
+> 		LinkedBlockingDeque	一个由链表结构组成的双向阻塞队列。
 
 * threadFactory 【ThreadFactory】线程工厂类，一般都是默认Executors.defaultThreadFactory()
 * handler【RejectedExecutionHandler】 这个参数是用来执行拒绝策略的，当提交任务时既没有空闲线程，任务队列也满了【有些BlockingQueue可以设置数量上限】，就会执行拒绝操作。
@@ -132,10 +101,82 @@ JAVA通过Executors工厂类提供了四种线程池，单线程化线程池(new
 
 
 
-Executor执行器体系  
 
-![](https://s2.51cto.com/images/blog/202107/09/0b45d217c971425c8b3a276e6d7f4e89.png?x-oss-process=image/watermark,size_16,text_QDUxQ1RP5Y2a5a6i,color_FFFFFF,t_30,g_se,x_10,y_10,shadow_20,type_ZmFuZ3poZW5naGVpdGk=)
 
+### 利用Executors工厂创建的线程池有如下三种
+
+* FixedThreadPool：线程数固定的线程池；
+* CachedThreadPool：线程数根据任务动态调整的线程池； 理论上无限大
+* SingleThreadExecutor：仅单线程执行的线程池。
+
+上面三种内部用的都是ThreadPoolExecutor
+
+    /**
+     * Creates an Executor that uses a single worker thread operating
+     * off an unbounded queue, and uses the provided ThreadFactory to
+     * create a new thread when needed. Unlike the otherwise
+     * equivalent {@code newFixedThreadPool(1, threadFactory)} the
+     * returned executor is guaranteed not to be reconfigurable to use
+     * additional threads.
+     *
+     * @param threadFactory the factory to use when creating new
+     * threads
+     *
+     * @return the newly created single-threaded Executor
+     * @throws NullPointerException if threadFactory is null
+     */
+    public static ExecutorService newSingleThreadExecutor() {
+        return new FinalizableDelegatedExecutorService
+            (new ThreadPoolExecutor(1, 1,
+                                    0L, TimeUnit.MILLISECONDS,
+                                    new LinkedBlockingQueue<Runnable>()));
+    }
+
+
+不过用FinalizableDelegatedExecutorService封装了一下
+
+
+    static class FinalizableDelegatedExecutorService
+        extends DelegatedExecutorService {
+        FinalizableDelegatedExecutorService(ExecutorService executor) {
+            super(executor);
+        }
+        protected void finalize() {
+            super.shutdown();
+        }
+    }
+    
+ 应该是JVM为了防止浪费，在GC前利用   finalize将线程池关闭，回收资源。
+ 
+     /**
+     * Creates a thread pool that creates new threads as needed, but
+     * will reuse previously constructed threads when they are
+     * available.  These pools will typically improve the performance
+     * of programs that execute many short-lived asynchronous tasks.
+     * Calls to {@code execute} will reuse previously constructed
+     * threads if available. If no existing thread is available, a new
+     * thread will be created and added to the pool. Threads that have
+     * not been used for sixty seconds are terminated and removed from
+     * the cache. Thus, a pool that remains idle for long enough will
+     * not consume any resources. Note that pools with similar
+     * properties but different details (for example, timeout parameters)
+     * may be created using {@link ThreadPoolExecutor} constructors.
+     *
+     * @return the newly created thread pool
+     */
+    public static ExecutorService newCachedThreadPool() {
+        return new ThreadPoolExecutor(0, Integer.MAX_VALUE,
+                                      60L, TimeUnit.SECONDS,
+                                      new SynchronousQueue<Runnable>());
+    }
+
+
+ 
+ 
+
+　　因为SynchronousQueue队列不保持它们，直接提交给线程，相当于队列大小为0，而最大线程数为Integer.MAX_VALUE，所以线程不足时，会一直创建新线程，等到线程空闲时，又有60秒存活时间，从而实现了一个可缓存的线程池。
+　　
+　　
 
 参考文档
 

@@ -320,9 +320,60 @@ tryRelease的实现在ReetrantLock中，因为ReetrantLock是可重入锁，所�
 	            LockSupport.unpark(s.thread);
 	    }       
 可以看到最终调用的是 LockSupport.unpark(s.thread)将线程唤起。到这里ReentrantLock基本用法的分析就结束了，可以看到它基本是依靠Unsafe的CAS操作+LockSupport的park/unpark实现了锁同步。从上述分析也可以窥探AbstractQueuedSynchronizer框架的一部分，AbstractQueuedSynchronizer实现了线程队列与唤起的基本框架，将lock/unlock的能力交给外部进行定制，只需要实现AbstractQueuedSynchronizer定制的模板，就可以获得不同的锁，但是核心的阻塞/唤起框架已经定了：靠Node队列+CAS更新操作+Unsafe的睡眠/唤起能力实现。	    
+### ReentrantLock的Condition
+
+ReentrantLock的Condition用来处理生产者-消费者（producer-consumer）问题，即有界缓冲区（bounded-buffer问题，一个是生产者，一个是消费者，除了临界资源的使用，还牵扯缓冲区空与满的处理，如果没有Condition，则只有临界区的概念，producer-consumer模型就不够清晰，这个模型会**根据身份与缓存的状态，选择性睡眠与唤醒**，而ReentrantLock是无差别的。
+
+* 当缓冲区已经满了，生产者还想放入新的数据，生产者应该休眠，等待消费者从缓冲区中取走数据后再唤醒它。
+* 当缓冲区已经空了，消费者还想去取消息，可以让消费者进行休眠，待生产者放数据再唤醒它。
+
+很明显这个时候，单纯靠ReentrantLock处理是不友善的
+
+	class BoundedBuffer {
+	   final Lock lock = new ReentrantLock();//锁
+	   final Condition notFull  = lock.newCondition();//写条件 
+	   final Condition notEmpty = lock.newCondition();//读条件 
+	
+	   final Object[] items = new Object[100];//缓存队列
+	   int putptr/*写索引*/, takeptr/*读索引*/, count/*队列中存在的数据个数*/;
+	
+	   public void put(Object x) throws InterruptedException {
+	     lock.lock();
+	     try {
+	       while (count == items.length)//如果队列满了 
+	         notFull.await();//阻塞写线程
+	       items[putptr] = x;//赋值 
+	       if (++putptr == items.length) putptr = 0;//如果写索引写到队列的最后一个位置了，那么置为0
+	       ++count;//个数++
+	       notEmpty.signal();//唤醒读线程
+	     } finally {
+	       lock.unlock();
+	     }
+	   }
+	
+	   public Object take() throws InterruptedException {
+	     lock.lock();
+	     try {
+	       while (count == 0)//如果队列为空
+	         notEmpty.await();//阻塞读线程
+	       Object x = items[takeptr];//取值 
+	       if (++takeptr == items.length) takeptr = 0;//如果读索引读到队列的最后一个位置了，那么置为0
+	       --count;//个数--
+	       notFull.signal();//唤醒写线程
+	       return x;
+	     } finally {
+	       lock.unlock();
+	     }
+	   } 
+	 }
+	 
+	
 
 
 ## synchronized锁的实现
+
+
+**多个线程访问同一段代码**的时候，如果需要互斥访问某些资源，则需要同步 ，如果只是一个线程访问，无需
 
 synchronized 内置锁 是一种 对象锁（锁的是对象而非引用变量），作用粒度是对象 ，可以用来实现对 临界资源的同步互斥访问 ，是 可重入 的
 
