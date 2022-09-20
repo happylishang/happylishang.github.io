@@ -372,6 +372,7 @@ ReentrantLock的Condition用来处理生产者-消费者（producer-consumer）�
 
 ## notify() 方法随机唤醒对象的等待池中的一个线程，进入锁池；notifyAll() 唤醒对象的等待池中的所有线程，进入锁池。
 
+在Condition上调用 await() 方法使线程等待，其他线程调用signal() 或 signalAll() 方法唤醒等待的线程  wait一般用于Synchronized中，而await只能用于ReentrantLock锁中
 
 1.Condition中的await()方法相当于Object的wait()方法，Condition中的signal()方法相当于Object的notify()方法，Condition中的signalAll()相当于Object的notifyAll()方法。
 不同的是，Object中的这些方法是和同步锁捆绑使用的；而Condition是需要与互斥锁/共享锁捆绑使用的。
