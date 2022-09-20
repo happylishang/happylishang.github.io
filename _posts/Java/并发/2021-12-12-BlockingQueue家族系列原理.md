@@ -473,3 +473,4 @@ DelayQueue是一个无界有序的BlockingQueue，用于放置实现了Delayed�
 * LinkBlockQueue有两个锁
 * PriorityBlockQueue支持优先级
 * SynchronousQueue没有存储随到随消费
+* BlockingQueue的核心ReetrantLock
