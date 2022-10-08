@@ -322,9 +322,7 @@ tryRelease的实现在ReetrantLock中，因为ReetrantLock是可重入锁，所�
 	    }       
 	    
 可以看到最终调用的是 LockSupport.unpark(s.thread)将线程唤起。到这里ReentrantLock基本用法的分析就结束了，可以看到它基本是**依靠Unsafe的CAS操作+LockSupport的park/unpark实现了锁同步**。从上述分析也可以窥探AbstractQueuedSynchronizer框架的一部分，**AbstractQueuedSynchronizer实现了线程队列与唤起的基本框架**，将lock/unlock的能力交给外部进行定制，只需要实现AbstractQueuedSynchronizer定制的模板，就可以获得不同的锁，但是核心的阻塞/唤起框架已经定了：**靠Node队列+CAS更新操作+Unsafe的睡眠/唤起能力实现**。
- 
- 
- 
+  
 ## CAS的ABA问题
 
 ## AtomicInteger中volatile value作用
@@ -392,26 +390,26 @@ tryRelease的实现在ReetrantLock中，因为ReetrantLock是可重入锁，所�
 
 ### 防止指令重排
 
-public class NoVisibility {
-    private static boolean ready = false;
-    private static int number = 0;
-
-    private static class ReaderThread extends Thread {
-        @Override
-        public void run() {
-            while (!ready) {
-                Thread.yield(); //交出CPU让其它线程工作
-            }
-            System.out.println(number);
-        }
-    }
-
-    public static void main(String[] args) {
-        new ReaderThread().start();
-        number = 42;
-        ready = true;
-    }
-}
+	public class NoVisibility {
+	    private static boolean ready = false;
+	    private static int number = 0;
+	
+	    private static class ReaderThread extends Thread {
+	        @Override
+	        public void run() {
+	            while (!ready) {
+	                Thread.yield(); //交出CPU让其它线程工作
+	            }
+	            System.out.println(number);
+	        }
+	    }
+	
+	    public static void main(String[] args) {
+	        new ReaderThread().start();
+	        number = 42;
+	        ready = true;
+	    }
+	}
 
 在单一线程中，只要重排序不会影响到程序的执行结果，那么就不能保证其中的操作一定按照程序写定的顺序执行，即使重排序可能会对其它线程产生明显的影响。
 
