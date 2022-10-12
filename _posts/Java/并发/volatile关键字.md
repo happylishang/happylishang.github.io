@@ -1,6 +1,8 @@
 volatile - 保证可见性和有序性
 
 ### 可见性
+
+一个线程对共享变量的修改，另一个线程可以感知到，我们称其为可见性。
 	
 ### 有序性性
 	
@@ -41,3 +43,5 @@ volatile - 保证可见性和有序性
 ## 	参考文档
 
 https://www.cnblogs.com/dolphin0520/p/3920373.html
+
+[Java中的双重检查锁（double checked locking）](https://www.cnblogs.com/xz816111/p/8470048.html)
