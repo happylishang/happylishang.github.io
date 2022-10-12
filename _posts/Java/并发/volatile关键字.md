@@ -2,6 +2,7 @@ volatile - 保证可见性和有序性
 
 ### 可见性
 
+![](https://images0.cnblogs.com/blog/288799/201408/212219343783699.jpg)
 一个线程对共享变量的修改，另一个线程可以感知到，我们称其为可见性。
 	
 ### 有序性性
@@ -12,14 +13,14 @@ volatile - 保证可见性和有序性
 	    private Singleton() {
 	    }
 	
-	    public Singleton getInstance() {
+	    public synchronized Singleton getInstance() {
 	        if (null == uniqueSingleton) {
 	            uniqueSingleton = new Singleton();
 	        }
 	        return uniqueSingleton;
 	    }
 	}
-	
+		
 
 
 	 public class Singleton {
