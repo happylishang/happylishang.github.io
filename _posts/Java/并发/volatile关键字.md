@@ -1,6 +1,43 @@
-1. 上架crash及魅族推送问题
-1.  联合会员开卡用户换绑手机号限制临时策略
-1.   URS 修改密码回调
-1.   隐私合规与commonbase库升级
-1.   面试及专利三方沟通
-1.   登陆及渠道包问题修改
+volatile - 保证可见性和有序性
+
+### 可见性
+	
+### 有序性性
+	
+	public class Singleton {
+	    private static Singleton uniqueSingleton;
+	
+	    private Singleton() {
+	    }
+	
+	    public Singleton getInstance() {
+	        if (null == uniqueSingleton) {
+	            uniqueSingleton = new Singleton();
+	        }
+	        return uniqueSingleton;
+	    }
+	}
+	
+
+
+	 public class Singleton {
+	    private volatile static Singleton uniqueSingleton;
+	
+	    private Singleton() {
+	    }
+	
+	    public Singleton getInstance() {
+	        if (null == uniqueSingleton) {
+	            synchronized (Singleton.class) {
+	                if (null == uniqueSingleton) {
+	                    uniqueSingleton = new Singleton();
+	                }
+	            }
+	        }
+	        return uniqueSingleton;
+	    }
+	}
+	
+## 	参考文档
+
+https://www.cnblogs.com/dolphin0520/p/3920373.html
