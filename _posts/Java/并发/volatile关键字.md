@@ -8,24 +8,38 @@ volatile - 保证可见性和有序性
 	        new Thread(new Runnable() {
 	            @Override
 	            public void run() {
-	                value+=1;
+	            println("start")
+	                if(value==0){
+	                    value+=1;
+	             println("value ="+value)     
+	                }
+
 	            }
 	        }).start();
 	        
 	        new Thread(new Runnable() {
 	            @Override
 	            public void run() {
-	                value+=1;
+	            println("start")
+	                if(value==0){
+	                    value+=1;
+	             println("value ="+value)     
+	                }
 	            }
 	        }).start();
 
-比如上述的代码，假如第一个线程执行完value+=1之后，第二个线程正好开始执行value+=1，第二个线程也不一定能让value=2，因为第一个线程的结果不一定能即可同步到第二个线程。
+比如上述的代码，它的输出可能是
 
+	start
+	value =1
+	start
+	value =1
 
-	        
+在即使第二个线程的代码在第一个线程执行完value+=1之后执行，第二个线程也不一定人为此时的value=1，因为第一个线程的结果不一定能及时同步给第二个线程，这就是缓存一致性带来的问题，如下图：
+
 ![](https://images0.cnblogs.com/blog/288799/201408/212219343783699.jpg)
 
-为了加快运行速度，于是计算机的设计者在 CPU 中加了一个CPU 。这个 CPU 高速缓存的速度介于 CPU 与内存之间，每次需要读取数据的时候，先从内存读取到CPU缓存中，CPU再从CPU缓存中读取
+
 
 
 
