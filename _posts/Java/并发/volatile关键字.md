@@ -1,4 +1,4 @@
-volatile - 保证可见性和有序性
+> volatile - 保证可见性和有序性
 
 ### 可见性与Java的内存模型
 
@@ -40,59 +40,8 @@ volatile - 保证可见性和有序性
 
 ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/afef663c05084bc0af2ed786834d2bb3~tplv-k3u1fbpfcp-watermark.image?)
 
-volatile关键字可以解决这个问题，volatile的特殊规则能保证了新值能被立即同步到主内存，线程在使用volatile变量前都立即从主内存刷新，执行写操作时，会在写操作后加入一条store指令，强迫线程将最新的值刷新到主内存中；而在读操作时，会加入一条load指令，即强迫从主内存中读入变量的值。
+volatile关键字可以解决这个问题，volatile的特殊规则能保证了新值能被立即同步到主内存，线程在使用volatile变量前都立即从主内存刷新，volatile可见性借助了CPU的lock指令。
 
-
-
- Java 内存模型
- 
-* lock：锁定。作用于主内存的变量，把一个变量标识为一条线程独占状态。
-* unlock：解锁。作用于主内存变量，把一个处于锁定状态的变量释放出来，释放后的变量才可以被其他线程锁定。
-* read：读取。作用于主内存变量，把一个变量值从主内存传输到线程的工作内存中，以便随后的load动作使用
-* load：载入。作用于工作内存的变量，它把read操作从主内存中得到的变量值放入工作内存的变量副本中。
-* use：使用。作用于工作内存的变量，把工作内存中的一个变量值传递给执行引擎，每当虚拟机遇到一个需要使用变量的值的字节码指令时将会执行这个操作。
-* assign：赋值。作用于工作内存的变量，它把一个从执行引擎接收到的值赋值给工作内存的变量，每当虚拟机遇到一个给变量赋值的字节码指令时执行这个操作。
-* store：存储。作用于工作内存的变量，把工作内存中的一个变量的值传送到主内存中，以便随后的write的操作。
-* write：写入。作用于主内存的变量，它把store操作从工作内存中一个变量的值传送到主内存的变量中。
-
-	        int value=0;
-	        new Thread(new Runnable() {
-	            @Override
-	            public void run() {
-	            println("start")
-	                if(value==0){
-	                    value+=1;
-	             println("value ="+value)     
-	                }
-	            }
-	        }).start();
-	        
-	        new Thread(new Runnable() {
-	            @Override
-	            public void run() {
-	            println("start")
-	                if(value==0){
-	                    value+=1;
-	             println("value ="+value)     
-	                }
-	            }
-	        }).start();
-
-比如上述的代码，它的输出可能是
-
-	start
-	value =1
-	start
-	value =1
-
-按理说value=1，只能输出一次，但是即使第二个线程的代码在第一个线程执行完value+=1之后执行，第二个线程也不一定人为此时value=1，因为第一个线程对共享变量的修改不一定能及时同步给第二个线程，这就是缓存一致性带来的问题，如下图：
-
-![](https://images0.cnblogs.com/blog/288799/201408/212219343783699.jpg)
-
-
-
-一个线程对共享变量的修改，另一个线程可以感知到，我们称其为可见性。
-	
 ### 有序性性
 	
 	public class Singleton {
@@ -108,8 +57,6 @@ volatile关键字可以解决这个问题，volatile的特殊规则能保证了�
 	        return uniqueSingleton;
 	    }
 	}
-		
-
 
 	 public class Singleton {
 	    private volatile static Singleton uniqueSingleton;
@@ -129,6 +76,67 @@ volatile关键字可以解决这个问题，volatile的特殊规则能保证了�
 	    }
 	}
 	
+	
+		memory =allocate();    //1：分配对象的内存空间 
+	
+	instance =memory;     //3：instance指向刚分配的内存地址，此时对象还未初始化
+	
+	ctorInstance(memory);  //2：初始化对象
+	
+	
+	JMM内存屏障插入策略：
+
+
+在每个volatile写操作的前面插入一个StoreStore屏障。
+
+在每个volatile写操作的后面插入一个StoreLoad屏障。
+
+在每个volatile读操作的后面插入一个LoadLoad屏障。
+
+在每个volatile读操作的后面插入一个LoadStore屏障。
+ 
+
+内存屏障
+
+
+	
+	
+		例子1：A线程指令重排导致B线程出错
+	对于在同一个线程内，这样的改变是不会对逻辑产生影响的，但是在多线程的情况下指令重排序会带来问题。看下面这个情景:
+	
+	在线程A中:
+	
+	context = loadContext();
+	
+	inited = true;
+	
+	 
+	
+	在线程B中:
+	
+	while(!inited ){ //根据线程A中对inited变量的修改决定是否使用context变量
+	
+	   sleep(100);
+	
+	}
+	
+	doSomethingwithconfig(context);
+	
+	 
+	
+	假设线程A中发生了指令重排序:
+	
+	inited = true;
+	
+	context = loadContext();
+	
+	 
+	
+	那么B中很可能就会拿到一个尚未初始化或尚未初始化完成的context,从而引发程序错误。
+	
+	 
+
+
 ## 	参考文档
 
 https://www.cnblogs.com/dolphin0520/p/3920373.html
