@@ -123,63 +123,54 @@ monitor的拥有者线程才能执行 monitorexit指令。
 
 ### 锁升级
 
-synchronized 获取某个对象的锁，无锁 、偏向锁 、 轻量级锁 不存在睡眠跟唤醒的过程。
+synchronized早期完全属于悲观锁，而且完全是重量级锁，一旦牵扯锁竞争，就必定走线程的睡眠与唤醒，这里势必会走内核态与用户态的状态切换，开销非常大，可能睡眠唤醒的代价比代码执行的代价还要高，后期的JDK版本对synchronized进行了优化，有了一个 无锁-->偏向锁-->轻量级锁-->重量级锁的升级过程，除了重量级锁，其他的都不牵扯线程的睡眠唤醒，甚至都可以看做是无锁状态，简单看下各个阶段的表现跟原理。
 
 无锁 -> 偏向锁 -> 轻量级锁 （自旋锁）-> 重量级锁,锁可以升级但是不可以降级
 
-#### 无锁跟偏向锁基本一个意思 
+#### 无锁跟偏向锁
+
+其实个人感觉无锁跟偏向锁基本算是一个意思，作用也基本类似，默认偏向锁的开关是开启的，一个对象被创建后，MarkWord字段应该是无锁状态还是偏向锁状态，跟其创建的时机有一些关系，虚拟机启动前几秒创建的都是non-biasable的，
 	
-	OFF  SZ   TYPE DESCRIPTION               VALUE
-	  0   8        (object header: mark)     0x0000000000000001 (non-biasable; age: 0)
-	  8   4        (object header: class)    0xf80001e5
-	 12   4        (object alignment gap)    
-	Instance size: 16 bytes
-	Space losses: 0 bytes internal + 4 bytes external = 4 bytes total
+* 1  虚拟机启动就创建对象的MarkWord值
+
+
+		OFF  SZ   TYPE DESCRIPTION               VALUE
+		  0   8        (object header: mark)     0x0000000000000001 (non-biasable; age: 0)
+		  8   4        (object header: class)    0xf80001e5
+		 12   4        (object alignment gap)   
+	 
+	 
+* 2 虚拟机启动1s后创建对象的MarkWord值
+
+		OFF  SZ   TYPE DESCRIPTION               VALUE
+		  0   8        (object header: mark)     0x0000000000000001 (non-biasable; age: 0)
+		  8   4        (object header: class)    0xf80001e5
+		 12   4        (object alignment gap)    
+ 
 	
-	偏向锁开启
-	java.lang.Object object internals:
-	OFF  SZ   TYPE DESCRIPTION               VALUE
-	  0   8        (object header: mark)     0x0000000000000001 (non-biasable; age: 0)
-	  8   4        (object header: class)    0xf80001e5
-	 12   4        (object alignment gap)    
-	Instance size: 16 bytes
-	Space losses: 0 bytes internal + 4 bytes external = 4 bytes total
+* 3 虚拟机启动3s后创建对象的MarkWord值
+
+		OFF  SZ   TYPE DESCRIPTION               VALUE
+		  0   8        (object header: mark)     0x0000000000000005 (biasable; age: 0)
+		  8   4        (object header: class)    0xf80001e5
+		 12   4        (object alignment gap)    
+		 
+* 4 虚拟机启动4s后创建对象的MarkWord值
+
+		OFF  SZ   TYPE DESCRIPTION               VALUE
+		  0   8        (object header: mark)     0x0000000000000005 (biasable; age: 0)
+		  8   4        (object header: class)    0xf80001e5
+		 12   4        (object alignment gap)    		 
+
+可以看到挺神奇的表现，对象初始化的状态跟虚拟机的启动时间有关系，前几秒的是non-biasable，后面的都是biasable不过这个并没有太大的影响，无锁跟偏向锁的作用基本是一样，两个状态个人人为基本可以等同不。过在用synchronized获取对象锁后，两者的表现是不一样的，non-biasable对象的锁会升级为轻量级锁，而biasable的会成为偏向锁状态biasable，biasable状态的MarkWord前面会填充线程ID，只要填充色上线程ID，无锁与偏向锁的区别才能体现，没有填充线程ID的biasable与non-biasable是没啥区别。但是non-biasable的会直接升级轻量级锁
 	
-	偏向锁开启
-	java.lang.Object object internals:
-	OFF  SZ   TYPE DESCRIPTION               VALUE
-	  0   8        (object header: mark)     0x0000000000000005 (biasable; age: 0)
-	  8   4        (object header: class)    0xf80001e5
-	 12   4        (object alignment gap)    
-	Instance size: 16 bytes
-	Space losses: 0 bytes internal + 4 bytes external = 4 bytes total
-	
-	偏向锁开启
-	java.lang.Object object internals:
-	OFF  SZ   TYPE DESCRIPTION               VALUE
-	  0   8        (object header: mark)     0x0000000000000005 (biasable; age: 0)
-	  8   4        (object header: class)    0xf80001e5
-	 12   4        (object alignment gap)    
-	Instance size: 16 bytes
-	Space losses: 0 bytes internal + 4 bytes external = 4 bytes total
-	
-	偏向锁开启22
-	java.lang.Object object internals:
-	OFF  SZ   TYPE DESCRIPTION               VALUE
-	  0   8        (object header: mark)     0x0000000000000005 (biasable; age: 0)
-	  8   4        (object header: class)    0xf80001e5
-	 12   4        (object alignment gap)    
-	Instance size: 16 bytes
-	Space losses: 0 bytes internal + 4 bytes external = 4 bytes total
-	
-	偏向锁2开启
-	java.lang.Object object internals:
-	OFF  SZ   TYPE DESCRIPTION               VALUE
-	  0   8        (object header: mark)     0x00007fdf6910d005 (biased: 0x0000001ff7da4434; epoch: 0; age: 0)
-	  8   4        (object header: class)    0xf80001e5
-	 12   4        (object alignment gap)    
-	Instance size: 16 bytes
-	Space losses: 0 bytes internal + 4 bytes external = 4 bytes total
+* 5  synchronized获取对象锁之后，对象的MarkWord值
+ 
+		OFF  SZ   TYPE DESCRIPTION               VALUE
+		  0   8        (object header: mark)     0x00007fdf6910d005 (biased: 0x0000001ff7da4434; epoch: 0; age: 0)
+		  8   4        (object header: class)    0xf80001e5
+		 12   4        (object alignment gap)    
+
 
 
 偏向锁就是在运行过程中，对象的锁偏向某个线程。即在开启偏向锁机制的情况下，某个线程获得锁，当该线程下次再想要获得锁时，**同一个线程再次请求该锁的时候，无需做任何同步 [比如CAS自旋]**，直接就可以执行同步代码，比较适合竞争较少的情况。
