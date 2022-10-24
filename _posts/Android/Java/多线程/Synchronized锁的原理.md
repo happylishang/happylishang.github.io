@@ -127,7 +127,60 @@ synchronized 获取某个对象的锁，无锁 、偏向锁 、 轻量级锁 不
 
 无锁 -> 偏向锁 -> 轻量级锁 （自旋锁）-> 重量级锁,锁可以升级但是不可以降级
 
-偏向锁
+#### 无锁跟偏向锁基本一个意思 
+	
+	OFF  SZ   TYPE DESCRIPTION               VALUE
+	  0   8        (object header: mark)     0x0000000000000001 (non-biasable; age: 0)
+	  8   4        (object header: class)    0xf80001e5
+	 12   4        (object alignment gap)    
+	Instance size: 16 bytes
+	Space losses: 0 bytes internal + 4 bytes external = 4 bytes total
+	
+	偏向锁开启
+	java.lang.Object object internals:
+	OFF  SZ   TYPE DESCRIPTION               VALUE
+	  0   8        (object header: mark)     0x0000000000000001 (non-biasable; age: 0)
+	  8   4        (object header: class)    0xf80001e5
+	 12   4        (object alignment gap)    
+	Instance size: 16 bytes
+	Space losses: 0 bytes internal + 4 bytes external = 4 bytes total
+	
+	偏向锁开启
+	java.lang.Object object internals:
+	OFF  SZ   TYPE DESCRIPTION               VALUE
+	  0   8        (object header: mark)     0x0000000000000005 (biasable; age: 0)
+	  8   4        (object header: class)    0xf80001e5
+	 12   4        (object alignment gap)    
+	Instance size: 16 bytes
+	Space losses: 0 bytes internal + 4 bytes external = 4 bytes total
+	
+	偏向锁开启
+	java.lang.Object object internals:
+	OFF  SZ   TYPE DESCRIPTION               VALUE
+	  0   8        (object header: mark)     0x0000000000000005 (biasable; age: 0)
+	  8   4        (object header: class)    0xf80001e5
+	 12   4        (object alignment gap)    
+	Instance size: 16 bytes
+	Space losses: 0 bytes internal + 4 bytes external = 4 bytes total
+	
+	偏向锁开启22
+	java.lang.Object object internals:
+	OFF  SZ   TYPE DESCRIPTION               VALUE
+	  0   8        (object header: mark)     0x0000000000000005 (biasable; age: 0)
+	  8   4        (object header: class)    0xf80001e5
+	 12   4        (object alignment gap)    
+	Instance size: 16 bytes
+	Space losses: 0 bytes internal + 4 bytes external = 4 bytes total
+	
+	偏向锁2开启
+	java.lang.Object object internals:
+	OFF  SZ   TYPE DESCRIPTION               VALUE
+	  0   8        (object header: mark)     0x00007fdf6910d005 (biased: 0x0000001ff7da4434; epoch: 0; age: 0)
+	  8   4        (object header: class)    0xf80001e5
+	 12   4        (object alignment gap)    
+	Instance size: 16 bytes
+	Space losses: 0 bytes internal + 4 bytes external = 4 bytes total
+
 
 偏向锁就是在运行过程中，对象的锁偏向某个线程。即在开启偏向锁机制的情况下，某个线程获得锁，当该线程下次再想要获得锁时，**同一个线程再次请求该锁的时候，无需做任何同步 [比如CAS自旋]**，直接就可以执行同步代码，比较适合竞争较少的情况。
 
