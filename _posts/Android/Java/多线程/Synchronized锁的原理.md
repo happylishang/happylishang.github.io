@@ -135,7 +135,7 @@ synchronized早期完全属于悲观锁，而且完全是重量级锁，一旦�
 可以看到挺神奇的表现，**对象的初始状态的MarkWord跟虚拟机的存活时间有关系**，启动前几秒的MarkWord是non-biasable，后面的都是biasable，不过这个并没有太大的影响，无锁跟偏向锁的作用基本是一样，两个状态个人认为基本可以等同。不过，在用synchronized获取对象锁后，表现是略不一样，non-biasable对象的锁会升级为轻量级锁，而biasable的会成为偏向锁状态biased，biasable状态的MarkWord前面会填充线程ID，只有填充色上线程ID，无锁与偏向锁的区别才能体现，没有填充线程ID的biasable与non-biasable是没啥区别，其次**可偏向与偏向的差别是是否设置了线程ID**。
 
 
-### 偏向锁与轻量级锁：假设默认从偏向锁开始
+### 偏向锁与轻量级锁：假设默认从偏向锁开始 
 
 偏向锁在运行过程中偏向某个线程，线程获得锁之后，要再次获得锁时，**无需做任何同步 [比如CAS自旋]，CAS开销很低**，就可以再次执行同步代码。这是因为，**偏向锁退出同步块时，其实是没有任何操作的**，偏向锁标记依旧存在，线程ID依旧是当前线程，这就规避了频繁CAS设置，CAS复原。具体加锁、释放可简化为 
 
@@ -162,8 +162,7 @@ non-biasable对象被synchronized利用自旋+CAS的方式来抢锁获取对象�
 		  8   4        (object header: class)    0xf80001e5
 		 12   4        (object alignment gap)   
 
-**获取偏向锁的线程不会主动释放偏向锁，即使是退出同步代码区**，在遇到其他线程尝试竞争锁时，偏向锁线程才会释放锁。如果升级后的轻量级锁，仍然竞争失败，则直接升级为fat lock ，偏向锁感觉是一次性的，升级为轻量级之后，就打破原来的模型，不会再恢复了。
-
+**获取偏向锁的线程不会主动释放偏向锁，即使是退出同步代码区**，在遇到其他线程尝试竞争锁时，偏向锁线程才会释放锁。如果升级后的轻量级锁，仍然竞争失败，则直接升级为fat lock ，偏向锁感觉是一次性的，升级为轻量级之后，就打破原来的模型，不会再恢复了，偏向与轻量级最大的区别是是否主动释放锁。
 
 ### 轻量级锁与重量级锁
 
@@ -179,19 +178,16 @@ non-biasable对象被synchronized利用自旋+CAS的方式来抢锁获取对象�
 
 ![](https://static001.geekbang.org/infoq/81/815c3eccac3dd374194832e3369de89d.png)
 
-轻量级锁的申请过程是：如果是偏向锁状态，则撤销偏向锁升级，或者直接升级为轻量级锁，如上面所述，不过上述在安全节点不需要CAS。如果本身是无锁状态，则升级+获取一体，首先在当前线程栈帧中建立一个Lock Record，用于拷贝锁对象的 Mark Word ，拷贝成功后，利用CAS 尝试将对象的 Mark Word 更新为新的 Lock Record 的指针，并将 Lock Record里的 owner 指针指向对象的 Mark Word，如果成功了，则这个线程就拥有了该对象的锁，并且暂时处于轻量级锁定状态，如果失败，则说明多个线程竞争锁，轻量级锁就要膨胀为重量级锁，锁标志的状态值变为 10 ，Mark Word中存储的就是指向重量级锁的指针，后面等待锁的线程也要进入阻塞状态。
+轻量级锁的申请过程是：如果是偏向锁状态，则撤销偏向锁升级，或者直接升级为轻量级锁，如上面所述，不过上述在安全节点不需要CAS。如果本身是无锁状态，则升级+获取一体，首先在当前线程栈帧中建立一个Lock Record，用于拷贝锁对象的 Mark Word ，拷贝成功后，利用CAS 尝试将对象的 Mark Word 更新为新的 Lock Record 的指针，并将 Lock Record里的 owner 指针指向对象的 Mark Word，如果成功了，则这个线程就拥有了该对象的锁，并且暂时处于轻量级锁定状态，如果失败，则说明多个线程竞争锁，轻量级锁就要膨胀为重量级锁，锁标志的状态值变为 10 ，Mark Word中存储的就是指向重量级锁的指针，后面等待锁的线程也要进入阻塞状态，轻重的最大区别是是否借助系统资源，并涉及内核态及用户态的切换。
 
 ### 轻量级锁的可重入
 
-
 ![](https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy8yNDkyMDgxLWE5MzI2OTU2MmJiZDEyMDQ?x-oss-process=image/format,png)
 
-假设锁的状态是轻量级锁，下图反应了mark word和线程栈中Lock Record的状态，可以看到右边线程栈中包含3个指向当前锁对象的Lock Record。其中栈中最高位的Lock Record为第一次获取锁时分配的。其Displaced Mark word的值为锁对象的加锁前的mark word，之后的锁重入会在线程栈中分配一个Displaced Mark word为null的Lock Record。
-
-假设锁的状态是轻量级锁，下图反应了mark word和线程栈中Lock Record的状态，可以看到右边线程栈中包含3个指向当前锁对象的Lock Record。其中栈中最高位的Lock Record为第一次获取锁时分配的。其Displaced Mark word的值为锁对象的加锁前的mark word，之后的锁重入会在线程栈中分配一个Displaced Mark word为null的Lock Record。
- 
+每次获取轻量级锁，都会新建一个Lock Record，但是只有最开始的Lock Record填充了锁对象的加锁前的mark word，Displaced Mark word有值，之后可重入的分配一个Displaced Mark word为null，因为没必要浪费资源存储无用的东西，最后的哪个退出锁的Displaced Mark word才有用，利用Lock Record列表实现可重入，其实偏向锁也是这么做的，只是偏向锁的Lock Record没有Displaced Mark word。
  
 ###  重量级锁的monitorenter与monitorexit原理
+
  
 ###  锁撤销状态non-biasable
 
