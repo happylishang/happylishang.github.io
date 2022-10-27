@@ -423,7 +423,6 @@ slow_enter，调用cmpxchg进行自旋（cmpxchg），如果成功则返回，�
 
 在锁已经被其它线程拥有的时候，请求锁的线程回进入了对象锁的entry set区域，一旦锁被释放，entryset区域的线程都会抢占锁，只能有任意的一个Thread能取得该锁，其他线程重新等待锁释放。如果调用wait方法，则线程进入Wait Set，等待Notify/notifyAll，线程先转移到wait set，等到锁释放，再竞争，而其enter函数
 
-
 	void ATTR ObjectMonitor::enter(TRAPS) {
 	  Thread * const Self = THREAD ;
 	  void * cur ;
@@ -459,10 +458,10 @@ slow_enter，调用cmpxchg进行自旋（cmpxchg），如果成功则返回，�
 
 
 
-### 为什么wait必须在syncronized中调用
+### ObjectMonitor与wait notify
 
 
-wait是调用的某个锁的wait函数，为了保证能够执行不混乱， 必须在syncronized调用
+为什么wait必须在syncronized中调用，wait是调用的某个锁的wait函数，为了保证能够执行不混乱， 必须在syncronized调用
 
 
 ### 为什么wait会释放锁
@@ -541,6 +540,11 @@ notify方法的底层实现
 * 当ThreadA释放锁M时，它所写过的变量（比如，x和y，存在它工作内存中的）都会同步到主存中，而当ThreadB在申请同一个锁M时
 * ThreadB的工作内存会被设置为无效，然后ThreadB会重新从主存中加载它要访问的变量到它的工作内存中（这时x=1，y=1，是ThreadA中修改过的最新的值）。通过这样的方式来实现ThreadA到ThreadB的线程间的通信。
 
+### 总结
+
+synchronized底层其实跟ReetrantLock核心也差不多，最底层的中量级锁，也是依赖线程睡眠唤醒+队列+CAS操作等实现的
+
+ 
 
 ### 参考文档
 
@@ -551,3 +555,4 @@ https://www.cnblogs.com/hongdada/p/14513036.html
 
 [monitorenter源码](https://www.cnblogs.com/gmt-hao/p/14139341.html)
 [从 Monitorenter 源码看 Synchronized 锁优化的过程](https://juejin.cn/post/7104638789456232478)
+[https://www.cnblogs.com/hongdada/p/14513036.html] (内置锁(ObjectMonitor))
