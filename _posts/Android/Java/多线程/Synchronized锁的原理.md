@@ -89,7 +89,7 @@ synchronized内置锁是一种对象锁,作用粒度是对象，作用在普通�
 可以看到跟普通方法的区别 在  flags: ACC_PUBLIC, ACC_SYNCHRONIZED，多了一个ACC_SYNCHRONIZED标志。方法级别的同步是隐式的，作为方法调用的一部分，当调用一个ACC_SYNCHRONIZED标志的方法，线程也需要先获得monitor锁，然后开始执行方法，方法执行之后再释放monitor锁。如果在方法执行过程中，发生了异常，那么在异常被抛到方法外之前，监视器锁会被自动释放，**同步方法和同步代码块都是通过monitor来实现的**，对象与monitor一对一，线程可以占有或者释放monitor。
 
 
-### 锁升级
+### synchronized锁升级及各种状态
 
 synchronized早期完全属于悲观锁，而且完全是重量级锁，一旦牵扯锁竞争，就必定走线程的睡眠与唤醒，这里势必会走内核态与用户态的状态切换，开销非常大，可能睡眠唤醒的代价比代码执行的代价还要高，后期的JDK版本对synchronized进行了优化，有了一个 无锁-->偏向锁-->轻量级锁-->重量级锁的升级过程，除了重量级锁，其他的都不牵扯线程的睡眠唤醒，甚至都可以看做是无锁状态，这里的实现跟对象的头有很大关系，示意图如下
 
@@ -180,20 +180,362 @@ non-biasable对象被synchronized利用自旋+CAS的方式来抢锁获取对象�
 
 轻量级锁的申请过程是：如果是偏向锁状态，则撤销偏向锁升级，或者直接升级为轻量级锁，如上面所述，不过上述在安全节点不需要CAS。如果本身是无锁状态，则升级+获取一体，首先在当前线程栈帧中建立一个Lock Record，用于拷贝锁对象的 Mark Word ，拷贝成功后，利用CAS 尝试将对象的 Mark Word 更新为新的 Lock Record 的指针，并将 Lock Record里的 owner 指针指向对象的 Mark Word，如果成功了，则这个线程就拥有了该对象的锁，并且暂时处于轻量级锁定状态，如果失败，则说明多个线程竞争锁，轻量级锁就要膨胀为重量级锁，锁标志的状态值变为 10 ，Mark Word中存储的就是指向重量级锁的指针，后面等待锁的线程也要进入阻塞状态，轻重的最大区别是是否借助系统资源，并涉及内核态及用户态的切换。
 
+> tips ：对象的Lock Record 指向哪个线程的栈帧，哪个线程就拥有该轻量级锁。
+ 
 ### 轻量级锁的可重入
 
 ![](https://imgconvert.csdnimg.cn/aHR0cHM6Ly91cGxvYWQtaW1hZ2VzLmppYW5zaHUuaW8vdXBsb2FkX2ltYWdlcy8yNDkyMDgxLWE5MzI2OTU2MmJiZDEyMDQ?x-oss-process=image/format,png)
 
 每次获取轻量级锁，都会新建一个Lock Record，但是只有最开始的Lock Record填充了锁对象的加锁前的mark word，Displaced Mark word有值，之后可重入的分配一个Displaced Mark word为null，因为没必要浪费资源存储无用的东西，最后的哪个退出锁的Displaced Mark word才有用，利用Lock Record列表实现可重入，其实偏向锁也是这么做的，只是偏向锁的Lock Record没有Displaced Mark word。
+
+## monitorenter指令解析
+
+InterpreterRuntime:: monitorenter
+	
+	IRT_ENTRY_NO_ASYNC(void, InterpreterRuntime::monitorenter(JavaThread* thread, BasicObjectLock* elem))
+	#ifdef ASSERT
+	  thread->last_frame().interpreter_frame_verify_monitor(elem);
+	#endif
+	  if (PrintBiasedLockingStatistics) {
+	    Atomic::inc(BiasedLocking::slow_path_entry_count_addr());
+	  }
+	  Handle h_obj(thread, elem->obj());
+	  assert(Universe::heap()->is_in_reserved_or_null(h_obj()),
+	         "must be NULL or an object"); 
+	//如果使用偏向锁，就进入Fast_enter，避免不必要的锁膨胀，如果不是偏向锁，就进入slow_enter,也就是锁升级
+	  if (UseBiasedLocking) {
+	    // Retry fast entry if bias is revoked to avoid unnecessary inflation
+	    ObjectSynchronizer::fast_enter(h_obj, elem->lock(), true, CHECK);
+	  } else {
+	    ObjectSynchronizer::slow_enter(h_obj, elem->lock(), CHECK);
+	  }
+	  assert(Universe::heap()->is_in_reserved_or_null(elem->obj()),
+	         "must be NULL or an object");
+	#ifdef ASSERT
+	  thread->last_frame().interpreter_frame_verify_monitor(elem);
+	#endif
+	IRT_END
+	
+先判断是否使用偏向锁，如果用的话，先进入fast_enter偏向锁逻辑，利用CAS走无锁编程的逻辑，否则走slow_enter。
  
-###  重量级锁的monitorenter与monitorexit原理
+	void ObjectSynchronizer::fast_enter(Handle obj, BasicLock* lock, bool attempt_rebias, TRAPS) {
+	 if (UseBiasedLocking) {
+	     //如果使用偏向锁，那么尝试偏向
+	    if (!SafepointSynchronize::is_at_safepoint()) {
+	        //如果线程不在安全点，那么就尝试BiasedLocking::revoke_and_rebias实现撤销并且重偏向
+	      BiasedLocking::Condition cond = BiasedLocking::revoke_and_rebias(obj, attempt_rebias, THREAD);
+	        //偏向成功，直接返回
+	      if (cond == BiasedLocking::BIAS_REVOKED_AND_REBIASED) {
+	        return;
+	      }
+	    } else {
+	      assert(!attempt_rebias, "can not rebias toward VM thread");
+	        //进入这里说明线程在安全点并且撤销偏向
+	      BiasedLocking::revoke_at_safepoint(obj);
+	    }
+	    assert(!obj->mark()->has_bias_pattern(), "biases should be revoked by now");
+	 }
+	//使用兜底方案，slow_enter
+	 slow_enter (obj, lock, THREAD) ;
+	}
+
+slow_enter，调用cmpxchg进行自旋（cmpxchg），如果成功则返回，说明获得轻量级锁；如果不成功，就进入锁膨胀
+	 
+		 void ObjectSynchronizer::slow_enter(Handle obj, BasicLock* lock, TRAPS) {
+	    //获取上锁对象头部标记信息
+	  markOop mark = obj->mark();
+	  assert(!mark->has_bias_pattern(), "should not see bias pattern here");
+	    //如果对象处于无锁状态
+	  if (mark->is_neutral()) {
+	    //将对象头部保存在lock对象中
+	    lock->set_displaced_header(mark);
+	    //通过cmpxchg进入自旋替换对象头为lock对象地址，如果替换成功则直接返回，表明获得了轻量级锁，不然继续自旋
+	    if (mark == (markOop) Atomic::cmpxchg_ptr(lock, obj()->mark_addr(), mark)) {
+	      TEVENT (slow_enter: release stacklock) ;
+	      return ;
+	    }
+	    // 否则判断当前对象是否上锁，并且当前线程是否是锁的占有者，如果是markword的指针指向栈帧中的LR，则重入
+	  } else
+	  if (mark->has_locker() && THREAD->is_lock_owned((address)mark->locker())) {
+	    assert(lock != mark->locker(), "must not re-lock the same lock");
+	    assert(lock != (BasicLock*)obj->mark(), "don't relock with same BasicLock");
+	    lock->set_displaced_header(NULL);
+	    return;
+	  }
+	​
+	#if 0
+	  // The following optimization isn't particularly useful.
+	  if (mark->has_monitor() && mark->monitor()->is_entered(THREAD)) {
+	    lock->set_displaced_header (NULL) ;
+	    return ;
+	  }
+	#endif
+	​
+	  // 代码执行到这里，说明有多个线程竞争轻量级锁，轻量级锁通过`inflate`进行膨胀升级为重量级锁
+	  lock->set_displaced_header(markOopDesc::unused_mark());
+	  ObjectSynchronizer::inflate(THREAD, obj())->enter(THREAD);
+	}
+ 这里轻量级锁是通过BasicLock对象来实现的，在线程JVM栈中产生一个LR（lock Record）的栈桢，然后他们两个CAS竞争锁，成功的，就会在Markword中记录一个指针（62位），这个指针指向竞争成功的线程的LR，另外一个线程CAS自旋继续竞争，等到前面线程用完了，才进入。这就是自旋锁的由来。
+
+	ObjectSynchronizer::inflate(THREAD, obj())->enter(THREAD);则是进行锁膨胀，升级为重量级锁。主要分为两部，其中inflate用于获取监视器monitor，enter用于抢占锁
+	
+	ObjectMonitor * ATTR ObjectSynchronizer::inflate (Thread * Self, oop object) {
+	  // Inflate mutates the heap ...
+	  // Relaxing assertion for bug 6320749.
+	  assert (Universe::verify_in_progress() ||
+	          !SafepointSynchronize::is_at_safepoint(), "invariant") ;
+	​
+	  for (;;) { //通过无意义的循环实现自旋操作
+	      const markOop mark = object->mark() ;
+	      assert (!mark->has_bias_pattern(), "invariant") ;
+	​
+	      if (mark->has_monitor()) {//has_monitor是markOop.hpp中的方法，如果为true表示当前锁已经是重量级锁了
+	          ObjectMonitor * inf = mark->monitor() ;//获得重量级锁的对象监视器直接返回
+	          assert (inf->header()->is_neutral(), "invariant");
+	          assert (inf->object() == object, "invariant") ;
+	          assert (ObjectSynchronizer::verify_objmon_isinpool(inf), "monitor is invalid");
+	          return inf ;
+	      }
+	​
+	      if (mark == markOopDesc::INFLATING()) {//膨胀等待，表示存在线程正在膨胀，通过continue进行下一轮的膨胀
+	         TEVENT (Inflate: spin while INFLATING) ;
+	         ReadStableMark(object) ;
+	         continue ;
+	      }
+	​
+	      if (mark->has_locker()) {//表示当前锁为轻量级锁，以下是轻量级锁的膨胀逻辑
+	          ObjectMonitor * m = omAlloc (Self) ;//获取一个可用的ObjectMonitor
+	          // Optimistically prepare the objectmonitor - anticipate successful CAS
+	          // We do this before the CAS in order to minimize the length of time
+	          // in which INFLATING appears in the mark.
+	          m->Recycle();
+	          m->_Responsible  = NULL ;
+	          m->OwnerIsThread = 0 ;
+	          m->_recursions   = 0 ;
+	          m->_SpinDuration = ObjectMonitor::Knob_SpinLimit ;   // Consider: maintain by type/class
+	          /**将object->mark_addr()和mark比较，如果这两个值相等，则将object->mark_addr()
+	          改成markOopDesc::INFLATING()，相等返回是mark，不相等返回的是object->mark_addr()**/
+	                     markOop cmp = (markOop) Atomic::cmpxchg_ptr (markOopDesc::INFLATING(), object->mark_addr(), mark) ;
+	          if (cmp != mark) {//CAS失败
+	             omRelease (Self, m, true) ;//释放监视器
+	             continue ;       // 重试
+	          }
+	​
+	          markOop dmw = mark->displaced_mark_helper() ;
+	          assert (dmw->is_neutral(), "invariant") ;
+	​
+	          //CAS成功以后，设置ObjectMonitor相关属性
+	          m->set_header(dmw) ;
+	​
+	​
+	          m->set_owner(mark->locker());
+	          m->set_object(object);
+	          // TODO-FIXME: assert BasicLock->dhw != 0.
+	​
+	​
+	          guarantee (object->mark() == markOopDesc::INFLATING(), "invariant") ;
+	          object->release_set_mark(markOopDesc::encode(m));
+	​
+	​
+	          if (ObjectMonitor::_sync_Inflations != NULL) ObjectMonitor::_sync_Inflations->inc() ;
+	          TEVENT(Inflate: overwrite stacklock) ;
+	          if (TraceMonitorInflation) {
+	            if (object->is_instance()) {
+	              ResourceMark rm;
+	              tty->print_cr("Inflating object " INTPTR_FORMAT " , mark " INTPTR_FORMAT " , type %s",
+	                (void *) object, (intptr_t) object->mark(),
+	                object->klass()->external_name());
+	            }
+	          }
+	          return m ; //返回ObjectMonitor
+	      }
+	      //如果是无锁状态
+	      assert (mark->is_neutral(), "invariant");
+	      ObjectMonitor * m = omAlloc (Self) ; ////获取一个可用的ObjectMonitor
+	      //设置ObjectMonitor相关属性
+	      m->Recycle();
+	      m->set_header(mark);
+	      m->set_owner(NULL);
+	      m->set_object(object);
+	      m->OwnerIsThread = 1 ;
+	      m->_recursions   = 0 ;
+	      m->_Responsible  = NULL ;
+	      m->_SpinDuration = ObjectMonitor::Knob_SpinLimit ;       // consider: keep metastats by type/class
+	      /**将object->mark_addr()和mark比较，如果这两个值相等，则将object->mark_addr()
+	          改成markOopDesc::encode(m)，相等返回是mark，不相等返回的是object->mark_addr()**/
+	      if (Atomic::cmpxchg_ptr (markOopDesc::encode(m), object->mark_addr(), mark) != mark) {
+	          //CAS失败，说明出现了锁竞争，则释放监视器重行竞争锁
+	          m->set_object (NULL) ;
+	          m->set_owner  (NULL) ;
+	          m->OwnerIsThread = 0 ;
+	          m->Recycle() ;
+	          omRelease (Self, m, true) ;
+	          m = NULL ;
+	          continue ;
+	          // interference - the markword changed - just retry.
+	          // The state-transitions are one-way, so there's no chance of
+	          // live-lock -- "Inflated" is an absorbing state.
+	      }
+	​
+	      if (ObjectMonitor::_sync_Inflations != NULL) ObjectMonitor::_sync_Inflations->inc() ;
+	      TEVENT(Inflate: overwrite neutral) ;
+	      if (TraceMonitorInflation) {
+	        if (object->is_instance()) {
+	          ResourceMark rm;
+	          tty->print_cr("Inflating object " INTPTR_FORMAT " , mark " INTPTR_FORMAT " , type %s",
+	            (void *) object, (intptr_t) object->mark(),
+	            object->klass()->external_name());
+	        }
+	      }
+	      return m ; //返回ObjectMonitor对象
+	  }
+	}
+ 
+可以都看到返回值是ObjectMonitor，
+
+
+###  ObjectMonitor对象锁的原理
+
+重量级MarkWord锁标识位为10，指针指向的是 monitor 对象的起始地址，monitor对象可以与对象一起创建销毁，或者当线程试图获取对象锁时自动生成，一旦某个monitor被某个线程持有后，monitor便处于锁定状态，实现以是ObjectMonitor。ObjectMonitor的实现可以简单看下：
+
+	//结构体如下
+	ObjectMonitor::ObjectMonitor() {  
+	  _header       = NULL;  
+	  _count       = 0;  
+	  _waiters      = 0,  
+	  _recursions   = 0;       //线程重入次数
+	  _object       = NULL;  
+	  _owner        = NULL;    //拥有该monitor的线程
+	  _WaitSet      = NULL;    //等待线程组成的双向循环链表，_WaitSet是第一个节点
+	  _WaitSetLock  = 0 ;  
+	  _Responsible  = NULL ;  
+	  _succ         = NULL ;  
+	  _cxq          = NULL ;    //多线程竞争锁进入时的单向链表
+	  FreeNext      = NULL ;  
+	  _EntryList    = NULL ;    //_owner从该双向循环链表中唤醒线程结点，_EntryList是第一个节点
+	  _SpinFreq     = 0 ;  
+	  _SpinClock    = 0 ;  
+	  OwnerIsThread = 0 ;  
+	} 
+
+* 	监控区（Entry Set）：  锁已被其他线程获取，等待获取锁的线程就进入Monitor对象的监控区
+* 	待授权区（Wait Set）：获取到锁，但是调用了wait方法进入待授权区[必须等待Notify重新进去监控区]
+
+在锁已经被其它线程拥有的时候，请求锁的线程回进入了对象锁的entry set区域，一旦锁被释放，entryset区域的线程都会抢占锁，只能有任意的一个Thread能取得该锁，其他线程重新等待锁释放。如果调用wait方法，则线程进入Wait Set，等待Notify/notifyAll，线程先转移到wait set，等到锁释放，再竞争，而其enter函数
+
+
+	void ATTR ObjectMonitor::enter(TRAPS) {
+	  Thread * const Self = THREAD ;
+	  void * cur ;
+	  //通过CAS操作尝试把monitor的_owner字段设置为当前线程
+	  cur = Atomic::cmpxchg_ptr (Self, &_owner, NULL) ;
+	  //获取锁失败
+	  if (cur == NULL) {
+	     assert (_recursions == 0   , "invariant") ;
+	     assert (_owner      == Self, "invariant") ;
+	     return ;
+	  }
+	//如果之前的_owner指向该THREAD，那么该线程是重入，_recursions++
+	  if (cur == Self) {
+	     _recursions ++ ;
+	     return ;
+	  }
+	//如果当前线程是第一次进入该monitor，设置_recursions为1，_owner为当前线程
+	  if (Self->is_lock_owned ((address)cur)) {
+	  <!--这里其他线程进不来-->
+	    assert (_recursions == 0, "internal state error");
+	    _recursions = 1 ;   //_recursions标记为1
+	    _owner = Self ;     //设置owner
+	    OwnerIsThread = 1 ;
+	    return ;
+	  }
+	  
+	  <!--否则竞争失败挂起自己-->
+	  ...
+	    jt->java_suspend_self();
+
+
+主要是通过**CAS判断当前线程的指针和监视器的_owner比较替换**，如果成功了直接返回，如果失败了就判断当前线程是不是占用了监视器，如果是，则是重入的，次数加1，再开始竞争，竞争的方式有自旋竞争（TrySpin）和等待竞争(EnterI)。
+
+
+
+### 为什么wait必须在syncronized中调用
+
+
+wait是调用的某个锁的wait函数，为了保证能够执行不混乱， 必须在syncronized调用
+
+
+### 为什么wait会释放锁
+
+	  //1.调用ObjectSynchronizer::wait方法
+	void ObjectSynchronizer::wait(Handle obj, jlong millis, TRAPS) {
+	  /*省略 */
+	  //2.获得Object的monitor对象(即内置锁)
+	  ObjectMonitor* monitor = ObjectSynchronizer::inflate(THREAD, obj());
+	  DTRACE_MONITOR_WAIT_PROBE(monitor, obj(), THREAD, millis);
+	  //3.调用monitor的wait方法
+	  monitor->wait(millis, true, THREAD);
+	  /*省略*/
+	}
+	  //4.在wait方法中调用addWaiter方法
+	  inline void ObjectMonitor::AddWaiter(ObjectWaiter* node) {
+	  /*省略*/
+	  if (_WaitSet == NULL) {
+	    //_WaitSet为null，就初始化_waitSet
+	    _WaitSet = node;
+	    node->_prev = node;
+	    node->_next = node;
+	  } else {
+	    //否则就尾插
+	    ObjectWaiter* head = _WaitSet ;
+	    ObjectWaiter* tail = head->_prev;
+	    assert(tail->_next == head, "invariant check");
+	    tail->_next = node;
+	    head->_prev = node;
+	    node->_next = head;
+	    node->_prev = tail;
+	  }
+	}
+	  //5.然后在ObjectMonitor::exit释放锁，接着 thread_ParkEvent->park  也就是wait
+
+总结：通过object获得内置锁(objectMonitor)，通过内置锁将Thread封装成OjectWaiter对象，然后addWaiter将它插入以_waitSet为首结点的等待线程链表中去，最后释放锁。
+
+notify方法的底层实现
+	
+	  //1.调用ObjectSynchronizer::notify方法
+	    void ObjectSynchronizer::notify(Handle obj, TRAPS) {
+	    /*省略*/
+	    //2.调用ObjectSynchronizer::inflate方法
+	    ObjectSynchronizer::inflate(THREAD, obj())->notify(THREAD);
+	}
+	    //3.通过inflate方法得到ObjectMonitor对象
+	    ObjectMonitor * ATTR ObjectSynchronizer::inflate (Thread * Self, oop object) {
+	    /*省略*/
+	     if (mark->has_monitor()) {
+	          ObjectMonitor * inf = mark->monitor() ;
+	          assert (inf->header()->is_neutral(), "invariant");
+	          assert (inf->object() == object, "invariant") ;
+	          assert (ObjectSynchronizer::verify_objmon_isinpool(inf), "monitor is inva;lid");
+	          return inf 
+	      }
+	    /*省略*/ 
+	      }
+	    //4.调用ObjectMonitor的notify方法
+	    void ObjectMonitor::notify(TRAPS) {
+	    /*省略*/
+	    //5.调用DequeueWaiter方法移出_waiterSet第一个结点
+	    ObjectWaiter * iterator = DequeueWaiter() ;
+	    //6.后面省略是将上面DequeueWaiter尾插入_EntrySet的操作
+	    /**省略*/
+	  }
+总结：通过object获得内置锁(objectMonitor)，调用内置锁的notify方法，通过_waitset结点移出等待链表中的首结点，将它置于_EntrySet中去，等待获取锁。注意：notifyAll根据policy不同可能移入_EntryList或者_cxq队列中，此处不详谈。
 
  
-###  锁撤销状态non-biasable
+###  Monitorexit 与锁的释放
 
-轻量级锁、重量级锁使用完毕之后，都会释放，并恢复到non-biasable的无锁状态。
+可释放的锁都会锁撤到non-biasable状态。轻量级锁、重量级锁使用完毕之后，都会释放，并恢复到non-biasable的无锁状态，偏向锁无法恢复。
 
-
+ 
 ### monitor监视器
 
 montor到底是什么呢？我们接下来剥开Synchronized的第三层，monitor是什么？ 它可以理解为一种同步工具，或者说是同步机制，它通常被描述成一个对象。操作系统的管程是概念原理，ObjectMonitor是它的原理实现。
@@ -448,3 +790,8 @@ monitor的拥有者线程才能执行 monitorexit指令。
 
 
 https://www.cnblogs.com/sunddenly/articles/15106247.html
+
+https://www.cnblogs.com/hongdada/p/14513036.html
+
+[monitorenter源码](https://www.cnblogs.com/gmt-hao/p/14139341.html)
+[从 Monitorenter 源码看 Synchronized 锁优化的过程](https://juejin.cn/post/7104638789456232478)
