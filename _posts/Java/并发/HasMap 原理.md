@@ -39,19 +39,38 @@
 	    return h & (length-1);
 	}
 	
-并在对应的位置插入Entry，同时便利查找ke，有则覆盖，无则添加。
+并在对应的位置插入Entry，同时遍历查找key，有则覆盖，无则添加,JDK7中，新增结点是使用头插法，但在JDK8中，在链表使用尾插法，将待新增结点追加到链表末尾。
 
 ###  扩容
 
 扩容后大小是扩容前的2倍；数据搬迁，从旧table迁到扩容后的新table。 为避免碰撞过多，先决策是否需要对每个Entry链表结点重新hash，然后根据hash值计算得到bucket下标，然后使用头插法做结点迁移。
+
+## ConcurrentModificationException
+
+ConcurrentModificationException是在使用HashMap常遇到的多线程问题，主要是多个线程同时修改HashMap，并且没有做任何同步，有时候，就会有ConcurrentModificationException异常抛出，其依据就是modCount是否在使用中一直保持不变。
+
+    /**
+     * The number of times this HashMap has been structurally modified
+     * Structural modifications are those that change the number of mappings in
+     * the HashMap or otherwise modify its internal structure (e.g.,
+     * rehash).  This field is used to make iterators on Collection-views of
+     * the HashMap fail-fast.  (See ConcurrentModificationException).
+     */
+    transient int modCount;
+    
+这些操作基本是在遍历与修改等操作时候发生，只要HashMap被修改modCount就会发生变更。modCount 实现hashMap中的fail-fast，在对Map的做迭代(Iterator)操作时，会将modCount域变量赋值给expectedModCount局部变量。在迭代过程中，用于做内容修改次数的一致性校验。若此时有其他线程或本线程的其他操作对此Map做了内容修改时，那么就会导致modCount和expectedModCount不一致，立即抛出异常ConcurrentModificationException。
+
+## ConcurrentHashMap
+
+相比于单纯的HashMap，ConcurrentHashMap增加了同步机制，
+
 
 ## LinkHashMap
 
 
 有
 
-## ConcurrentModificationException
+## 参考文档 
 
-
-## ConcurrentHashMap
+[https://juejin.cn/post/6844904013909983245](https://juejin.cn/post/6844904013909983245)
 
