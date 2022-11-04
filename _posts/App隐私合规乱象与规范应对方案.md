@@ -25,6 +25,11 @@
 
 在第一个隐私策略同意之前不许搜集任何信息，其实也不许做任何上报类的操作
 
+
+## Frida 用法
+
+
+
 /data/local/tmp/frida-server   
 
  sudo pip install frida
@@ -44,6 +49,10 @@
 	cd /Users/personal/prj/Github/camille/
 	
 	 python /Users/personal/prj/Github/camille/camille.py com.netease.yanxuan
+
+
+ 
+
 
 
 ### 如何查看APK是否调用了系统限定的API
