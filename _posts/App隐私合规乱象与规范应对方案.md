@@ -28,22 +28,23 @@
 
 ## Frida 用法
 
+* 安装python3 ,安装Frida
+* root的手机上安装frida-server   ，比如下载的这个版本必须和PC环境 Frida --v 相同 比如./frida-server-16.0.2-android-arm 
+* 手机上启动server ./data/local/tmp/frida-server-16.0.2-android-arm 
+* PC 启动 python /Users/personal/prj/Github/camille/camille.py com.netease.yanxuan  Frida及脚本
 
 
-/data/local/tmp/frida-server   
 
- sudo pip install frida
+![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ad19028439cc4368bbd3ac234cc67177~tplv-k3u1fbpfcp-watermark.image?)
+
  
  
-杀死特定进程，并启动frida
+如果端口绑定，则杀死特定进程，并启动frida
 
 	ps -A | grep frida
 	
 	kill -9 <process>
 	
-	frida -U -f com.tencent.k12gy -l D:\ADB\fridascript.js --no-paus
-
-
 主要是环境配置 python3  pip  等，环境好了直接就跑起来了
 
 	cd /Users/personal/prj/Github/camille/
