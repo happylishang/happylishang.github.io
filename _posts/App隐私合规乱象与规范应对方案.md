@@ -51,11 +51,9 @@
 	
 	 python /Users/personal/prj/Github/camille/camille.py com.netease.yanxuan
 
-
- 
-
-
-
+    xlwt插
+    pip3  install xlwt 
+   
 ### 如何查看APK是否调用了系统限定的API
 
 你想APP，用jadx直接看就可以，后者自己通过dex2jar换成jar，再换成java，好像效果类似
@@ -79,3 +77,5 @@ dex2jar 再将jar换成java
 
 或者扫描Smali代码  **https://juejin.cn/post/7039512844768903198**
 
+
+adb shell am start -W  -d "yanxuan://yxwebview?url=https://test.yx.mail.netease.com/vip-app/index.html#/coredata?tab=xiaoshou"  -a  android.intent.action.VIEW
