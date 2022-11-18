@@ -28,16 +28,21 @@
 
 ## Frida 用法
 
-* 安装python3 ,安装Frida
-* root的手机上安装frida-server   ，比如下载的这个版本必须和PC环境 Frida --v 相同 比如./frida-server-16.0.2-android-arm 
-* 手机上启动server ./data/local/tmp/frida-server-16.0.2-android-arm 
-* PC 启动 python /Users/personal/prj/Github/camille/camille.py com.netease.yanxuan  Frida及脚本
+* 安装python3 ，安装Python3 安装python3 配套的pip
+*  安装Frida    	pip install frida frida-tools Frida --v 可查看安装的版本
+* root的手机上安装frida-server  ,并修改权限 chmod 777 frida-server   ，比如下载的这个版本必须和PC环境 Frida --v 相同 比如./frida-server-16.0.2-android-arm 
+* 手机上启动server /data/local/tmp/frida-server-16.0.2-android-arm 
+* PC 启动 **python3**  /Users/personal/prj/Github/camille/camille.py com.netease.yanxuan   Frida及脚本,
+* adb shell '/data/local/tmp/*frida* --version'
 
+tips注意如果你用的是python3，这里都是python3  pip3 ，他们是一套，正确启动如下
 
+	git clone https://github.com/zhengjim/camille.git
+	cd camille
+	pip3 install -r requirements.txt
+	python3 camille.py -h
 
-![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ad19028439cc4368bbd3ac234cc67177~tplv-k3u1fbpfcp-watermark.image?)
-
- 
+![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/c171971a37e2471c8dec6c59771076d7~tplv-k3u1fbpfcp-watermark.image?)
  
 如果端口绑定，则杀死特定进程，并启动frida
 
@@ -79,3 +84,6 @@ dex2jar 再将jar换成java
 
 
 adb shell am start -W  -d "yanxuan://yxwebview?url=https://test.yx.mail.netease.com/vip-app/index.html#/coredata?tab=xiaoshou"  -a  android.intent.action.VIEW
+
+
+ 
