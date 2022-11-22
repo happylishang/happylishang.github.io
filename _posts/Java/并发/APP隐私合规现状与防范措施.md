@@ -79,9 +79,41 @@ APP隐私合规指简单说就是：用户隐私的收集、存储、使用、�
 
 用户敏感信息的获取都是通过调用系统API来实现的，所以目前的做法基本都是HOOK掉系统API，让后将调用的堆栈输出，看看在当前节点是否符合合规需求，比如在用户统一隐私策略前，任何调用敏感API的操作都是属于不合规的，开发过程中怎么处理呢？以Android系统为例，对于系统API的HOOK，有多种方案，比如XPOSED框架、Frida框架等，针对这两个的使用分别介绍下：
 
-XPOSED 本身是一个HOOK框架，
+* **XPOSED框架方式**
 
+XPOSED本身是一个HOOK框架，它通过污染zygote进程，来HOOK整个系统中所有的进程，开发人员将ROOT过的手机安卓XPOSED框架后，就可以自定义HOOK规则，在隐私合规审查的场景中，针对所有的合规API添加钩子函数，在调用前打印出调用堆栈即可，之后将自己开发模块安装到XPOSED框架中，即可实时看到敏感API的调用情况。
 
+	public class CheckPlugin implements IXposedHookLoadPackage {
+	try {
+	    XposedHelpers.findAndHookMethod(
+	            TelephonyManager.class.getName(),
+	            lpparam.classLoader,
+	            "getImei",
+	            String.class,
+	            new XC_MethodHook() {
+	                @Override
+	                protected void beforeHookedMethod(MethodHookParam param) {
+	                    if (!TextUtils.isEmpty(packaname) && !packaname.equals(lpparam.packageName)) {
+	                        return;
+	                    }
+	                    Log.e(TAG, lpparam.packageName + " 调用getImei获取了IMEI");
+	                    collectionExceptionAllinformation(param);
+	                }
+	            }
+	    );
+	} catch (Throwable ignored) {
+	}
+
+* **Frida框架方式**
+
+同XPOSED框架相比，Frida更灵活一些，不需要安装什么框架，只需要在Root的手机上运行Frida-server即可[参考](https://zhuanlan.zhihu.com/p/519649671)，它可以通过编写JS、Python代码来和frida_server进行交互，Frida使用的是动态二进制插桩技术（DBI），在程序运行时实时地插入额外代码和数据，它能够
+
+* （1）访问进程的内存
+* （2）在应用程序运行时覆盖一些功能
+* （3）从导入的类中调用函数
+* （4）在堆上查找对象实例并使用这些对象实例
+* （5）Hook，跟踪和拦截函数等等
+ 
 
 
 
