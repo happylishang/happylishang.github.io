@@ -81,7 +81,7 @@ APP隐私合规指简单说就是：用户隐私的收集、存储、使用、�
 
 * **XPOSED框架方式**
 
-XPOSED本身是一个HOOK框架，它通过污染zygote进程，来HOOK整个系统中所有的进程，开发人员将ROOT过的手机安卓XPOSED框架后，就可以自定义HOOK规则，在隐私合规审查的场景中，针对所有的合规API添加钩子函数，在调用前打印出调用堆栈即可，之后将自己开发模块安装到XPOSED框架中，即可实时看到敏感API的调用情况。
+XPOSED本身是一个HOOK框架，它通过污染zygote进程，来HOOK整个系统中所有的进程，开发人员将ROOT过的手机安卓XPOSED框架后，就可以自定义HOOK规则，在隐私合规审查的场景中，针对所有的合规API添加钩子函数，在调用前打印出调用堆栈即可，之后将自己开发的模块安装到XPOSED框架中，通过日志即可实时看到敏感API的调用情况。
 
 	public class CheckPlugin implements IXposedHookLoadPackage {
 	try {
@@ -103,22 +103,48 @@ XPOSED本身是一个HOOK框架，它通过污染zygote进程，来HOOK整个系
 	    );
 	} catch (Throwable ignored) {
 	}
+		    ...
+	    <!--其他合规API-->
+	}
+	
+该方式主要的工作在于编写XPOSED模块，实现代码为Java，可以在Android Studio中直接开发，对于Android开发来说，实现比较简单，但是每次修改都要重新部署到手机上，并且需要重启设备才能生效，开发初期效率可能比较低，但是固化下来之后，还是比较方便的。
+
 
 * **Frida框架方式**
 
-同XPOSED框架相比，Frida更灵活一些，不需要安装什么框架，只需要在Root的手机上运行Frida-server即可[参考](https://zhuanlan.zhihu.com/p/519649671)，它可以通过编写JS、Python代码来和frida_server进行交互，Frida使用的是动态二进制插桩技术（DBI），在程序运行时实时地插入额外代码和数据，它能够
-
-* （1）访问进程的内存
-* （2）在应用程序运行时覆盖一些功能
-* （3）从导入的类中调用函数
-* （4）在堆上查找对象实例并使用这些对象实例
-* （5）Hook，跟踪和拦截函数等等
+同XPOSED框架相比，Frida更灵活一些，不需要安装什么框架，只需要在Root的手机上运行Frida-server即可[参考](https://zhuanlan.zhihu.com/p/519649671)，它可以通过编写JS、Python代码来和frida_server进行交互，Frida使用的是动态二进制插桩技术（DBI），在程序运行时实时地插入额外代码和数据，从而达到跟踪和拦截函数的功能。Hook脚本写法：
  
 
+	Java.perform(function(){
+	
+	 var macAddress = Java.use("android.net.wifi.WifiInfo");
+	    macAddress.getMacAddress.overload().implementation = function () {
+	        console.log("getMacAddress()");
+	        this.private_func();
+	    };
+	    ...
+	    <!--其他合规API-->
+	
+	});
+
+该方式的虽然说比较灵活，但是使用起来稍微有些不便，每次都要直接或者间接的方式，通过命令启动脚本注入
+
+	frida -U -l  privacy.js -f com.netease.yanxuan
 
 
 
-### 如何应对隐私合规
+两种方式的对比：
+
+> XPOSED框架在手机改造上比较麻烦，，除了ROOT，还要安装XPOSED，XPOSED的兼容性较差，但是后续的收益比较方便
+> XPOSED早期开发效率低，但是一旦Module固定后，后期几乎没有成本
+> Frida的配置比较简单，只需要ROOT
+> Frida开发比较灵活，适合灵活变动的API检测，但是后续每次检测都要通过命令行启动，稍微麻烦一些
+
+
+
+### APP隐私合规整改
+
+
 
 * 合理披露
 * 不提前获取
