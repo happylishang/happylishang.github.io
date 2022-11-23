@@ -107,7 +107,7 @@ XPOSED本身是一个HOOK框架，它通过污染zygote进程，来HOOK整个系
 	    <!--其他合规API-->
 	}
 	
-该方式主要的工作在于编写XPOSED模块，实现代码为Java，可以在Android Studio中直接开发，对于Android开发来说，实现比较简单，但是每次修改都要重新部署到手机上，并且需要重启设备才能生效，开发初期效率可能比较低，但是固化下来之后，还是比较方便的。
+该方式主要的工作在于编写XPOSED模块，实现代码为Java，可以在Android Studio中直接开发，对于Android开发来说，实现比较简单，但是每次修改都要重新部署到手机上，并且需要重启设备才能生效，开发初期效率可能比较低，但是固化下来之后，还是比较方便的。[安装参考 P以上用Magisk+ruri+ LSposed](https://www.droidwin.com/how-to-install-xposed-framework-on-android-13/)
 
 
 * **Frida框架方式**
@@ -138,7 +138,7 @@ XPOSED本身是一个HOOK框架，它通过污染zygote进程，来HOOK整个系
 > XPOSED框架在手机改造上比较麻烦，，除了ROOT，还要安装XPOSED，XPOSED的兼容性较差，但是后续的收益比较方便
 > XPOSED早期开发效率低，但是一旦Module固定后，后期几乎没有成本
 > Frida的配置比较简单，只需要ROOT
-> Frida开发比较灵活，适合灵活变动的API检测，但是后续每次检测都要通过命令行启动，稍微麻烦一些
+> Frida开发比较灵活，适合灵活变动的API检测，但是后续每次检测都要通过**命令行启动，**稍微麻烦一些
 
 
 
