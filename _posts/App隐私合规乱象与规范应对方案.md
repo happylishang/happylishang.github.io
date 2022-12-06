@@ -89,3 +89,13 @@ adb shell am start -W  -d "yanxuan://yxwebview?url=https://test.yx.mail.netease.
 
 
  
+
+
+
+
+### 在线隐私合规审查平台的搭建
+
+ ...
+ 
+	 adb tcpip 5555
+	 adb connect [网络IP]10.221.139.186:5555
