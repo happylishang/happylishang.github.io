@@ -1,7 +1,326 @@
-协程的不阻塞当前线程执行
+协程的基本使用
 
 
-## 将Block或者说函数体抽象成对象
+### kotlin runBlocking与Delay执行原理
+
+runBlocking 的官方解释是：
+
+> Runs a new coroutine and blocks the current thread interruptibly until its completion. This function should not be used from a coroutine. It is designed to bridge regular blocking code to libraries that are written in suspending style, to be used in main functions and in tests.
+
+
+大意是：在当前线程启动一个可中断的协程，runBlocking会保证协程中的任务完成后才返回，不过runBlocking一般是用来测试代码的，不应该在正常的编码中使用。runBlocking默认使用 CoroutineDispatcher使用模型是一个Loop，也可以选择其他，先看看简单使用：
+
+	fun main() {
+	    runBlocking {
+	        delay(500)
+	        println("Current Thread ++ " + Thread.currentThread().name)
+	    }
+	}
+
+runBlocking的实现在Builders.kt中
+
+	    public fun <T> runBlocking(context: CoroutineContext = EmptyCoroutineContext, block: suspend CoroutineScope.() -> T): T {
+	        //当前线程
+	       val currentThread = Thread.currentThread()
+	        //先看有没有拦截器
+	       val contextInterceptor = context[ContinuationInterceptor]
+	       val eventLoop: EventLoop?
+	       val newContext: CoroutineContext
+	        //----------①
+	        if (contextInterceptor == null) {
+	
+	            //不特别指定的话没有拦截器，使用loop构建Context
+	            <!--默认是当前线程的，没有loop构建loop-->
+	            eventLoop = ThreadLocalEventLoop.eventLoop
+	            newContext = GlobalScope.newCoroutineContext(context + eventLoop)
+	        } else {
+	            eventLoop = (contextInterceptor as? EventLoop)?.takeIf { it.shouldBeProcessedFromContext() }
+	                ?: ThreadLocalEventLoop.currentOrNull()
+	            newContext = GlobalScope.newCoroutineContext(context)
+	       }
+	       //BlockingCoroutine 顾名思义，阻塞的协程
+	        val coroutine = BlockingCoroutine<T>(newContext, currentThread, eventLoop)
+	        //开启
+	        coroutine.start(CoroutineStart.DEFAULT, coroutine, block)
+	        //等待协程执行完成----------②
+	        return coroutine.joinBlocking()
+	   }
+    
+**coroutine.joinBlocking()**会阻塞等待所有的任务完成才会结束，执行runBlocking后面的。 包括自己内部的直接协程，还有子协程，当然delay负责挂起协程，真正负责阻塞的是joinBlocking自身，而不是delay函数自身， delay只是将协程体挂起而已，等待被某个契机唤醒，runblock有自己的唤醒手段。
+    
+    @Suppress("UNCHECKED_CAST")
+    fun joinBlocking(): T {
+        registerTimeLoopThread()
+        try {
+            eventLoop?.incrementUseCount()
+            try {
+                while (true) {
+                    @Suppress("DEPRECATION")
+                    if (Thread.interrupted()) throw InterruptedException().also { cancelCoroutine(it) }
+                    val parkNanos = eventLoop?.processNextEvent() ?: Long.MAX_VALUE
+                    // note: process next even may loose unpark flag, so check if completed before parking
+                    if (isCompleted) break
+                    parkNanos(this, parkNanos)
+                }
+            } finally { // paranoia
+                eventLoop?.decrementUseCount()
+            }
+        } finally { // paranoia
+            unregisterTimeLoopThread()
+        }
+        // now return result
+        val state = this.state.unboxState()
+        (state as? CompletedExceptionally)?.let { throw it.cause }
+        return state as T
+    }
+
+
+
+看一下反编译后的生成Java代码，携程block本地会被转化成SuspendLambda   Function2 对象，这步依靠kotlin编译插件完成，kotlin最终还是在Java的肩膀上跳舞，没有任何超越java框架的东西：
+
+![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/84bb1d18f73c47f09e3c777efe68f987~tplv-k3u1fbpfcp-watermark.image?)
+
+而block会被转化成Function2 的实现类，封装了block的执行代码，runBlocking启动的协程代码快，当然也包含核心的suspend状态机，suspendlambda本质就是一个ContinuationImpl对象。
+		
+	final class RunBlockingTestKt$main$1 extends  implements Function2<CoroutineScope, Continuation<? super Unit>, Object> {
+	    int label;
+	
+	    RunBlockingTestKt$main$1(Continuation<? super RunBlockingTestKt$main$1> continuation) {
+	        super(2, continuation);
+	    }
+	
+	    @Override // kotlin.coroutines.jvm.internal.BaseContinuationImpl
+	    public final Continuation<Unit> create(Object obj, Continuation<?> continuation) {
+	        return new RunBlockingTestKt$main$1(continuation);
+	    }
+	
+	    public final Object invoke(CoroutineScope coroutineScope, Continuation<? super Unit> continuation) {
+	        return ((RunBlockingTestKt$main$1) create(coroutineScope, continuation)).invokeSuspend(Unit.INSTANCE);
+	    }
+	
+	    @Override // kotlin.coroutines.jvm.internal.BaseContinuationImpl
+	    public final Object invokeSuspend(Object obj) {
+	    <!--封装了block中的代码逻辑，当然核心的就是状态机-->
+	        Object coroutine_suspended = IntrinsicsKt.getCOROUTINE_SUSPENDED();
+	        int i = this.label;
+	        if (i == 0) {
+	            ResultKt.throwOnFailure(obj);
+	            this.label = 1;
+	            if (DelayKt.delay(500, this) == coroutine_suspended) {
+	                return coroutine_suspended;
+	            }
+	        } else if (i == 1) {
+	            ResultKt.throwOnFailure(obj);
+	        } else {
+	            throw new IllegalStateException("call to 'resume' before 'invoke' with coroutine");
+	        }
+	        System.out.println((Object) Intrinsics.stringPlus("Current Thread ++ ", Thread.currentThread().getName()));
+	        return Unit.INSTANCE;
+	    }
+	}
+
+kotlin库代码也会可被转化为Java方式，main中的调用实现在BuildersKt__BuildersKt中：
+
+	public final /* synthetic */ class BuildersKt__BuildersKt {
+	    public static /* synthetic */ Object runBlocking$default(CoroutineContext coroutineContext, Function2 function2, int i, Object obj) throws InterruptedException {
+	        if ((i & 1) != 0) {
+	            coroutineContext = EmptyCoroutineContext.INSTANCE;
+	        }
+	        return BuildersKt.runBlocking(coroutineContext, function2);
+	    }
+	
+	    public static final <T> T runBlocking(CoroutineContext coroutineContext, Function2<? super CoroutineScope, ? super Continuation<? super T>, ? extends Object> function2) throws InterruptedException {
+	        CoroutineContext coroutineContext2;
+	        EventLoop eventLoop;
+	        <!--找到当前线程-->
+	        Thread currentThread = Thread.currentThread();
+	        <!--找当前continuationInterceptor EmptyCoroutineContext就是null -->
+	        ContinuationInterceptor continuationInterceptor = (ContinuationInterceptor) coroutineContext.get(ContinuationInterceptor.Key);
+	        <!--查找eventLoop 不存在就构建   new BlockingEventLoop(Thread.currentThread())  -->
+	        if (continuationInterceptor == null) {
+	        <!--这里的Loop其实就是BlockingEventLoop-->
+	            eventLoop = ThreadLocalEventLoop.INSTANCE.getEventLoop$kotlinx_coroutines_core();
+	            <!--构建coroutineContext2-->
+	            coroutineContext2 = CoroutineContextKt.newCoroutineContext(GlobalScope.INSTANCE, coroutineContext.plus(eventLoop));
+	        } else {
+	            EventLoop eventLoop2 = null;
+	            EventLoop eventLoop3 = continuationInterceptor instanceof EventLoop ? (EventLoop) continuationInterceptor : null;
+	            if (eventLoop3 != null && eventLoop3.shouldBeProcessedFromContext()) {
+	                eventLoop2 = eventLoop3;
+	            }
+	            eventLoop = eventLoop2 == null ? ThreadLocalEventLoop.INSTANCE.currentOrNull$kotlinx_coroutines_core() : eventLoop2;
+	            coroutineContext2 = CoroutineContextKt.newCoroutineContext(GlobalScope.INSTANCE, coroutineContext);
+	        }
+	        <!--构建BlockingCoroutine-->
+	        BlockingCoroutine blockingCoroutine = new BlockingCoroutine(coroutineContext2, currentThread, eventLoop);
+	        <!--blockingCoroutine准备启动function2，将function2对象加入 function2就是个block的封装，利用CoroutineStart.DEFAULT启动->
+	        blockingCoroutine.start(CoroutineStart.DEFAULT, blockingCoroutine, function2);
+	        <!--等啊-->
+	        return (T) blockingCoroutine.joinBlocking();
+	    }
+	}
+	
+blockingCoroutine.start(CoroutineStart.DEFAULT, blockingCoroutine, function2)调用的是CoroutineStart.DEFAULT的invoke函数，最终调用CancellableKt的startCoroutineCancellable进行处理
+	
+	public final class CancellableKt {
+	    public static final <T> void startCoroutineCancellable(Function1<? super Continuation<? super T>, ? extends Object> function1, Continuation<? super T> continuation) {
+	        try {
+	            Continuation intercepted = IntrinsicsKt.intercepted(IntrinsicsKt.createCoroutineUnintercepted(function1, continuation));
+	            Result.Companion companion = Result.Companion;
+	            DispatchedContinuationKt.resumeCancellableWith$default(intercepted, Result.m4247constructorimpl(Unit.INSTANCE), null, 2, null);
+	        } catch (Throwable th) {
+	            dispatcherFailure(continuation, th);
+	        }
+	    }
+
+ 而在这里会调用之前Function的create构造BaseContinuationImpl
+ 
+	     public static final <T> Continuation<Unit> createCoroutineUnintercepted(Function1<? super Continuation<? super T>, ? extends Object> function1, Continuation<? super T> continuation) {
+	        Intrinsics.checkNotNullParameter(function1, "<this>");
+	        Intrinsics.checkNotNullParameter(continuation, "completion");
+	        Continuation<?> probeCoroutineCreated = DebugProbesKt.probeCoroutineCreated(continuation);
+	        if (function1 instanceof BaseContinuationImpl) {
+	            return ((BaseContinuationImpl) function1).create(probeCoroutineCreated);
+	        }
+	        CoroutineContext context = probeCoroutineCreated.getContext();
+	        if (context == EmptyCoroutineContext.INSTANCE) {
+	            return new IntrinsicsKt__IntrinsicsJvmKt$createCoroutineUnintercepted$$inlined$createCoroutineFromSuspendFunction$IntrinsicsKt__IntrinsicsJvmKt$1(probeCoroutineCreated, function1);
+	        }
+	        return new IntrinsicsKt__IntrinsicsJvmKt$createCoroutineUnintercepted$$inlined$createCoroutineFromSuspendFunction$IntrinsicsKt__IntrinsicsJvmKt$2(probeCoroutineCreated, context, function1);
+	    }
+    
+   后续调用 DispatchedContinuationKt.resumeCancellableWith$default处理 ，continuation其实封装了之前的封装任务
+   
+     public static final <T> void resumeCancellableWith(Continuation<? super T> continuation, Object obj, Function1<? super Throwable, Unit> function1) {
+        boolean z;
+        UndispatchedCoroutine<?> undispatchedCoroutine;
+        if (continuation instanceof DispatchedContinuation) {
+            DispatchedContinuation dispatchedContinuation = (DispatchedContinuation) continuation;
+            Object state = CompletionStateKt.toState(obj, function1);
+            if (dispatchedContinuation.dispatcher.isDispatchNeeded(dispatchedContinuation.getContext())) {
+                dispatchedContinuation._state = state;
+                dispatchedContinuation.resumeMode = 1;
+                dispatchedContinuation.dispatcher.dispatch(dispatchedContinuation.getContext(), dispatchedContinuation);
+                return;
+            }
+            DebugKt.getASSERTIONS_ENABLED();
+            EventLoop eventLoop$kotlinx_coroutines_core = ThreadLocalEventLoop.INSTANCE.getEventLoop$kotlinx_coroutines_core();
+            if (eventLoop$kotlinx_coroutines_core.isUnconfinedLoopActive()) {
+                dispatchedContinuation._state = state;
+                dispatchedContinuation.resumeMode = 1;
+                eventLoop$kotlinx_coroutines_core.dispatchUnconfined(dispatchedContinuation);
+                return;
+            }
+            DispatchedContinuation dispatchedContinuation2 = dispatchedContinuation;
+            eventLoop$kotlinx_coroutines_core.incrementUseCount(true);
+            try {
+                Job job = (Job) dispatchedContinuation.getContext().get(Job.Key);
+                if (job == null || job.isActive()) {
+                    z = false;
+                } else {
+                    CancellationException cancellationException = job.getCancellationException();
+                    dispatchedContinuation.cancelCompletedResult$kotlinx_coroutines_core(state, cancellationException);
+                    Result.Companion companion = Result.Companion;
+                    dispatchedContinuation.resumeWith(Result.m4247constructorimpl(ResultKt.createFailure(cancellationException)));
+                    z = true;
+                }
+                if (!z) {
+                    Continuation<T> continuation2 = dispatchedContinuation.continuation;
+                    Object obj2 = dispatchedContinuation.countOrElement;
+                    CoroutineContext context = continuation2.getContext();
+                    Object updateThreadContext = ThreadContextKt.updateThreadContext(context, obj2);
+                    if (updateThreadContext != ThreadContextKt.NO_THREAD_ELEMENTS) {
+                        undispatchedCoroutine = CoroutineContextKt.updateUndispatchedCompletion(continuation2, context, updateThreadContext);
+                    } else {
+                        UndispatchedCoroutine undispatchedCoroutine2 = null;
+                        undispatchedCoroutine = null;
+                    }
+                    try {
+                        dispatchedContinuation.continuation.resumeWith(obj);
+                        Unit unit = Unit.INSTANCE;
+                    } finally {
+                        if (undispatchedCoroutine == null || undispatchedCoroutine.clearThreadContext()) {
+                            ThreadContextKt.restoreThreadContext(context, updateThreadContext);
+                        }
+                    }
+                }
+                do {
+                } while (eventLoop$kotlinx_coroutines_core.processUnconfinedEvent());
+            } catch (Throwable th) {
+                eventLoop$kotlinx_coroutines_core.decrementUseCount(true);
+                throw th;
+            }
+            eventLoop$kotlinx_coroutines_core.decrementUseCount(true);
+            return;
+        }
+        continuation.resumeWith(obj);
+    }     
+ 
+ 如果不需要派发，可以直接执行continuation.resumeWith【invokeSuspend】，否则可能就要走dispatchedContinuation.dispatcher.dispatch(dispatchedContinuation.getContext(), dispatchedContinuation);进行派发，
+ 
+     public final override fun resumeWith(result: Result<Any?>) {
+        // This loop unrolls recursion in current.resumeWith(param) to make saner and shorter stack traces on resume
+        var current = this
+        var param = result
+        while (true) {
+            // Invoke "resume" debug probe on every resumed continuation, so that a debugging library infrastructure
+            // can precisely track what part of suspended callstack was already resumed
+            probeCoroutineResumed(current)
+            with(current) {
+                val completion = completion!! // fail fast when trying to resume continuation without completion
+                val outcome: Result<Any?> =
+                    try {
+                        val outcome = invokeSuspend(param)
+                        if (outcome === COROUTINE_SUSPENDED) return
+                        Result.success(outcome)
+                    } catch (exception: Throwable) {
+                        Result.failure(exception)
+                    }
+                releaseIntercepted() // this state machine instance is terminating
+                if (completion is BaseContinuationImpl) {
+                    // unrolling recursion via loop
+                    current = completion
+                    param = outcome
+                } else {
+                    // top-level completion reached -- invoke and return
+                    completion.resumeWith(outcome)
+                    return
+                }
+            }
+        }
+    }
+
+再看下当前调用堆栈  
+
+ ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b3c7d075470a431d99a36bb89e3f6fde~tplv-k3u1fbpfcp-watermark.image?)
+     
+    
+main函数传递的context是EmptyCoroutineContext单利，Function就是新建的RunBlockingTestKt$main$1  Function2对象，
+
+再看下调用堆栈  
+
+![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/544b5a3218e04a6194d9f46cb9bc1713~tplv-k3u1fbpfcp-watermark.image?)
+
+coroutine.joinBlocking()调用之后会立刻执行EventLoopImplBase 的processNextEvent , 都在调用线程中执行【可能是main】，执行到delay的时候，会再次添加一个任务，这样processNextEvent中下次就会执行，甚至挂起，或者说阻塞，
+
+## kotlin的delay原理 ：Delay只会挂起自己所处的协程
+
+Delay 不会阻塞线程？个人感觉这个说法不完全正确，如果协程是在UI线程，那么UI线程其实也会阻塞的
+
+
+
+
+
+
+	public final class RunBlockingTestKt {
+	    public static final void main() {
+	        Object unused = BuildersKt__BuildersKt.runBlocking$default(null, new RunBlockingTestKt$main$1(null), 1, null);
+	    }
+	}
+ 
+    
+## 将Block或者函数体抽象成对象
+
 
 
 Kotlin协程不是线程，本质上是一个线程封装框架，但协程的实现还是离不开线程，协程最大的作用感觉是讲耗时任务的回调转变成了同步的调用，或者说：更加方便的写阻塞任务。
@@ -52,100 +371,6 @@ kotlin的协程看起来是个新概念，其核心实现还是Java的封装，�
             Log.e("TAG", " uiThread....   [当前线程为：${Thread.currentThread().name}]")
         }
 
-### kotlin协程封装原理runBlocking阻塞等待任务完成
-
-用runBlocking顶层函数来创建协程，这种方式是线程阻塞的，适用于单元测试，一般业务开发不会使用这种，示例代码如下所示：
-
-		fun main() {
-		<!--会阻塞等待完成-->
-		  runBlocking {   
-		     delay(2000L)
-		    println("Hello,") // 主线程中的代码会立即执行
-		}
-		}
-
-main等待runBlocking中的协程等待完成
-
-	    #Builders.kt
-
-    public fun <T> runBlocking(context: CoroutineContext = EmptyCoroutineContext, block: suspend CoroutineScope.() -> T): T {
-
-        //当前线程
-
-        val currentThread = Thread.currentThread()
-
-        //先看有没有拦截器
-
-        val contextInterceptor = context[ContinuationInterceptor]
-
-        val eventLoop: EventLoop?
-
-        val newContext: CoroutineContext
-
-        //----------①
-
-        if (contextInterceptor == null) {
-
-            //不特别指定的话没有拦截器，使用loop构建Context
-            <!--默认是当前线程的，没有loop构建loop-->
-            
-            eventLoop = ThreadLocalEventLoop.eventLoop
-            newContext = GlobalScope.newCoroutineContext(context + eventLoop)
-
-        } else {
-
-            eventLoop = (contextInterceptor as? EventLoop)?.takeIf { it.shouldBeProcessedFromContext() }
-
-                ?: ThreadLocalEventLoop.currentOrNull()
-
-            newContext = GlobalScope.newCoroutineContext(context)
-
-        }
-
-        //BlockingCoroutine 顾名思义，阻塞的协程
-
-        val coroutine = BlockingCoroutine<T>(newContext, currentThread, eventLoop)
-
-        //开启
-
-        coroutine.start(CoroutineStart.DEFAULT, coroutine, block)
-
-        //等待协程执行完成----------②
-
-        return coroutine.joinBlocking()
-
-    }
-    
-**coroutine.joinBlocking()**会阻塞等待所有的任务完成才会结束，执行runBlocking后面的。 包括自己内部的直接协程，还有子协程，当然delay负责挂起协程，真正负责阻塞的是joinBlocking自身，而不是delay函数自身， delay只是将协程体挂起而已，等待被某个契机唤醒，runblock有自己的唤醒手段。
-    
-    @Suppress("UNCHECKED_CAST")
-    fun joinBlocking(): T {
-        registerTimeLoopThread()
-        try {
-            eventLoop?.incrementUseCount()
-            try {
-                while (true) {
-                    @Suppress("DEPRECATION")
-                    if (Thread.interrupted()) throw InterruptedException().also { cancelCoroutine(it) }
-                    val parkNanos = eventLoop?.processNextEvent() ?: Long.MAX_VALUE
-                    // note: process next even may loose unpark flag, so check if completed before parking
-                    if (isCompleted) break
-                    parkNanos(this, parkNanos)
-                }
-            } finally { // paranoia
-                eventLoop?.decrementUseCount()
-            }
-        } finally { // paranoia
-            unregisterTimeLoopThread()
-        }
-        // now return result
-        val state = this.state.unboxState()
-        (state as? CompletedExceptionally)?.let { throw it.cause }
-        return state as T
-    }
-    
-
-    
 
 ### GlobalScope.launch 这种方式为什么有时候不会主线程不会阻塞等待完成
 
@@ -172,7 +397,7 @@ main不会等待  GlobalScope.launch 的协程阻塞完成，为什么呢，因�
 	    return coroutine
 	}
 
-对比之下你会发现，同runblock相比，缺少了coroutine.joinBlocking()，当然如若你需要等待，其实可以主动join
+对比之下你会发现，同runblock相比，缺少了coroutine.joinBlocking()，当然如若你需要等待，其实可以主动join。 
 
 
 
@@ -707,8 +932,126 @@ jadx可以直观看到java代码
 	
 suspend函数被抽象成静态函数 + ContinuationImpl对象，所有的ContinuationImpl对象的模板都一致，**通过invokeSuspend调用自己**，达到状态机执行的目的。状态机通过label+break跳转实现层层剥离，这里都是通过label的层次来搞的
 
-## kotlin的delay原理 ：Delay只会挂起自己所处的协程
 
-Delay 不会阻塞线程的，只会延时当前协程，delay的任务会被加入到EventLoopImplBase的Queue中
+
+### Dispatchers.Default的实现：看起来像是一个线程池，或者说是个执行器
+
+    public actual val Default: CoroutineDispatcher = DefaultScheduler
+    ↓
+    internal object DefaultScheduler : SchedulerCoroutineDispatcher(
+    ↓
+    internal open class SchedulerCoroutineDispatcher(
+    <!--线程池参数-->
+	    private val corePoolSize: Int = CORE_POOL_SIZE,
+	    private val maxPoolSize: Int = MAX_POOL_SIZE,
+	    private val idleWorkerKeepAliveNs: Long = IDLE_WORKER_KEEP_ALIVE_NS,
+	    private val schedulerName: String = "CoroutineScheduler",
+	) : ExecutorCoroutineDispatcher(){
+	
+	    override val executor: Executor
+        get() = coroutineScheduler
+        
+          private var coroutineScheduler = createScheduler()
+          	<!--CoroutineScheduler多像一个线程池-->
+              private fun createScheduler() =
+      		  CoroutineScheduler(corePoolSize, maxPoolSize, idleWorkerKeepAliveNs, schedulerName)
+
+	}
+    ↓
+	public abstract class ExecutorCoroutineDispatcher: CoroutineDispatcher(), Closeable {
+	
+	    public abstract val executor: Executor
+ 
+### Dispatchers.Main的实现：它背后不是线程池
+
+已经存在一个Loop线程，依靠上去就可以了，lifecycleScope都是直接在里面调用的
+
 
  
+###  LifecycleOwner.lifecycleScope: LifecycleCoroutineScope的实现
+
+LifecycleOwner.lifecycleScope是个扩展属性，只有在LifecycleOwner中才能用
+
+    get() = lifecycle.coroutineScope
+    
+	public val Lifecycle.coroutineScope: LifecycleCoroutineScope
+	    get() {
+	        while (true) {
+	            val existing = mInternalScopeRef.get() as LifecycleCoroutineScopeImpl?
+	            if (existing != null) {
+	                return existing
+	            }
+	            val newScope = LifecycleCoroutineScopeImpl(
+	                this,
+	                SupervisorJob() + Dispatchers.Main.immediate
+	            )
+	            if (mInternalScopeRef.compareAndSet(null, newScope)) {
+	                newScope.register()
+	                return newScope
+	            }
+	        }
+	    }
+	    
+LifecycleCoroutineScopeImpl采用的CoroutineContext是SupervisorJob() + Dispatchers.Main.immediate 
+
+	   public actual val Main: MainCoroutineDispatcher get() = MainDispatcherLoader.dispatcher
+	   
+	    @JvmField
+    val dispatcher: MainCoroutineDispatcher = loadMainDispatcher()
+
+    private fun loadMainDispatcher(): MainCoroutineDispatcher {
+        return try {
+            val factories = if (FAST_SERVICE_LOADER_ENABLED) {
+                FastServiceLoader.loadMainDispatcherFactory()
+            } else {
+                  ServiceLoader.load(
+                        MainDispatcherFactory::class.java,
+                        MainDispatcherFactory::class.java.classLoader
+                ).iterator().asSequence().toList()
+            }
+            @Suppress("ConstantConditionIf")
+            factories.maxByOrNull { it.loadPriority }?.tryCreateDispatcher(factories)
+                ?: createMissingDispatcher()
+        } catch (e: Throwable) {
+            // Service loader can throw an exception as well
+            createMissingDispatcher(e)
+        }
+    }	   
+    
+Android平台
+    
+    internal class AndroidDispatcherFactory : MainDispatcherFactory {
+
+    override fun createDispatcher(allFactories: List<MainDispatcherFactory>): MainCoroutineDispatcher {
+        val mainLooper = Looper.getMainLooper() ?: throw IllegalStateException("The main looper is not available")
+        return HandlerContext(mainLooper.asHandler(async = true))
+    }
+
+    override fun hintOnError(): String = "For tests Dispatchers.setMain from kotlinx-coroutines-test module can be used"
+
+    override val loadPriority: Int
+        get() = Int.MAX_VALUE / 2
+	}
+
+
+最终 内含Handler的HandlerContext构建成功
+
+	internal class HandlerContext private constructor(
+	    private val handler: Handler,
+	    private val name: String?,
+	    private val invokeImmediately: Boolean
+	) : HandlerDispatcher(), Delay {
+	    /**
+	     * Creates [CoroutineDispatcher] for the given Android [handler].
+	     *
+	     * @param handler a handler.
+	     * @param name an optional name for debugging.
+	     */
+	    constructor(
+	        handler: Handler,
+	        name: String? = null
+	    ) : this(handler, name, false)
+	
+	    @Volatile
+	    private var _immediate: HandlerContext? = if (invokeImmediately) this else null
+	 
