@@ -1,0 +1,3 @@
+### StatelessWidget VS StatefulWidget
+
+StatelessWidget利用build函数直接构建Widget，而StatefulWidget不是，StatefulWidget是利用State构建Widget，StatefulWidget的核心是利用createState构建一个State，而State再根据自身的状态构建Widget。
