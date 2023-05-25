@@ -43,8 +43,6 @@ Thread共享的内存： Heap： GC 垃圾回收的主站场、Method Area：方
 #### mark-compact 标记-整理（也称标记-压缩）法
 #### generation-collect 分代收集算法 
 
-org.gradle.jvmargs=-Xmx4608M -XX:MaxPermSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
-
 
 
 ### 参考文档
