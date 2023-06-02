@@ -7,3 +7,6 @@
 * 4：无需自己通过VelocityTracker统计速度，GestureDetector够用
 * 5：底部顶部可以加入可滚动判断，提前结束fling，反正跳帧
 * 6：不的状态记得对确定状态校准，防止抖动
+
+## NestScrollView与ScrollView都是依赖全展开的基础上的
+
