@@ -151,3 +151,55 @@ NestedScrollingParent一般而言无需自己处理Touch事件，NestedScrolling
     }
     
 不过同onInterceptTouchEvent相比，NestScroll框架更灵活，毕竟NestScroll可以在两侧同时处理自己需要的操作，而onInterceptTouchEvent往往之能依赖Parent，child的空间太小。不过对于fling的衔接，NestScroll也只能定制，因为target: View在衔接的时候，是变化的。
+
+### 一种很狗的NestedScrollingParent写法：利用NestedScrollingChild做NestedScrollingParent
+
+	 override fun dispatchNestedPreScroll(
+	        dx: Int,
+	        dy: Int,
+	        consumed: IntArray?,
+	        offsetInWindow: IntArray?,
+	        type: Int
+	    ): Boolean {
+	        var consumedSelf = false
+	        if (type == ViewCompat.TYPE_TOUCH) {
+	            // up
+	            if (dy > 0) {
+	                if (!canScrollVertically(1)) {
+	                    val target = fetchNestedChild()
+	                    target?.apply {
+	                        this.scrollBy(0, dy)
+	
+	                        consumed?.let {
+	                            it[1] = dy
+	                        }
+	
+	                        consumedSelf = true
+	                    }
+	                }
+	            }
+	            // down
+	            if (dy < 0) {
+	                val target = fetchNestedChild()
+	                target?.apply {
+	                    if (this.canScrollVertically(-1)) {
+	                        this.scrollBy(0, dy)
+	
+	                        consumed?.let {
+	                            it[1] = dy
+	                        }
+	
+	                        consumedSelf = true
+	                    }
+	                }
+	            }
+	        }
+	
+	        // Now let our nested parent consume the leftovers
+	        val parentScrollConsumed = mParentScrollConsumed
+	        val parentConsumed = super.dispatchNestedPreScroll(dx, dy - (consumed?.get(1)?:0), parentScrollConsumed, offsetInWindow, type)
+	        consumed?.let {
+	            consumed[1] += parentScrollConsumed[1]
+	        }
+	        return consumedSelf || parentConsumed
+	    }
