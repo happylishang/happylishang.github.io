@@ -1,3 +1,5 @@
+## 使用onInterceptTouchEvent实现嵌套滚动
+
 如果自己实现一个支持嵌套滚动的框架，需要注意的是：全局拦截+保持唯一
 
 *  TotalDragDistance 通过一个滚动距离全局控制子View的scroll表现
@@ -9,20 +11,8 @@
 * 6：不的状态记得对确定状态校准，防止抖动
 *  7： OverScroller fling之后，注意即可invalid否则可能无法触发compute
 
-## NestScrollView与ScrollView都是依赖全展开的基础上的
 
-NestScrollView作为嵌套滚动的父容器不是一个很好的选择，作为子容器还行
-
-
-## NestScroll特点
-
-### 父类
-//垂直滚动的ScrollView嵌套recyvleview
-//FrameLayout对于自定垂直的布局很方便
-//自定义父类其实也要拦截底部的，不然不好处理fling，或者说，也是类似的拦截，尤其衔接的问题，
-// target越界了，先放的第二任衔接的不是原来的target如何处理衔接问题呢，没有子target可给了
-//很少有万能的自定义View，看场景实现吧
-
+## 使用NestScroll完成嵌套滚动：更灵活
 
 ### 如何自定义一个NestedScrollingChild类
 
@@ -67,13 +57,97 @@ NestedScrollingChild并不是直接实现一个NestedScrollingChild3就可以了
             }
         })
   
-  如果是View，那么只能onTouchEvent处理，但是写法类似，down的时候start，drag的时候，dispatchNestedPreScroll，其实并非要实现所有方法，基本上只有两个，一个是drag一个是fling、
+ 如果是View，那么只能onTouchEvent处理，但是写法类似，down的时候start，drag的时候，dispatchNestedPreScroll，其实并非要实现所有方法，基本上只有两个，一个是drag一个是fling，通常来讲，在真正的业务中，子View只负责scrollBy或者scrollTo就可以了，自身不需要处理fling之类的操作，全部由NestedScrollingParent来协同。
         
 ### 如何自定义一个NestedScrollingParent类
 
- * Touch处理仍旧无法省略，必须计算滚动距离，dispatchTouchEvent或者onTouch都行，dispatchTouchEvent好一些
- * GestureDetector用于传递fling
- * NestedScrollingChildHelper用于处理拖动传递
- * 不过好处是跟父控件都可以省略intercept之类的逻辑
- * ACTION_MOVE
+NestedScrollingParent一般而言无需自己处理Touch事件，NestedScrollingParent属于被动响应类型的ViewGroup，所有的事件可以认为来自子View，因为你一旦选择用NestedScroll框架，势必要child/parent配合，所有NestedScrollingParent一般不需要重写dispatchTouchEvent，但是为了处理未完成的fling，一般在down的时候，需要将OverScroller停止，
+
+    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
+        if (ev?.action == MotionEvent.ACTION_DOWN)
+            overScrollerNest.abortAnimation()
+        return super.dispatchTouchEvent(ev)
+    }
+
+一般我们不会像NestScrollView一样将View整个展开，那样基本上也就失去了意义，比如将recyclerview全展开，recyclerview就无法复用，浪费资源，一般可使用FrameLayout作为自定义NestedScrollingParent的父类，所有的View都可以获取到最大延展布局，方便测量与布局，NestedScrollingParent种计算可便宜的高度，与控制子View的滚动距离仍旧是不可避免的，当NestedScrollingChild传递dispatchNestedPreScroll将scroll信息传递过来的时候，NestedScrollingParent需要判断子View是否可以滚动，如果不可以就自己滚动，同时也要处理滚动过界让后一个View衔接的问题。在drag结束，还需要处理NestedScrollingChild的dispatchNestedPreFling，一般而言，这个时候不能让自View自己fling，衔接会有问题，所以NestedScrollingParent可以直接接管，整体处理。
+
+     override fun onNestedPreFling(target: View, velocityX: Float, velocityY: Float): Boolean {
+        mLastOverScrollerValue = 0
+        overScrollerNest.fling(
+            0, 0, velocityX.toInt(),
+            velocityY.toInt(), 0, 0, -totalHeight * 10, totalHeight * 10
+        )
+        //  这里必须加上，不然可能无法触发
+        invalidate()
+        return true
+    }
  
+ 在处理滚动时候，可以认为NestedScrollingParent消耗了所有的滚动，屏蔽NestedScrollingChild自己滚动的能力
+ 
+     override fun onNestedPreScroll(target: View, dx: Int, dy: Int, consumed: IntArray, type: Int) {
+        overScrollerNest.abortAnimation()
+        scrollInner(dy)
+        consumed[1] = dy
+    }
+
+ 全部交给NestedScrollingParent控制滚动距离，其实这等同于onInterceptTouchEvent的拦截方式，并没有多大的提升，就Google框架而言，其实也没有很好的NestedScrollingParent例子，NestScrollView应该是个失败的例子，全展开，跟ScrollView有什么区别。
+ 
+     private fun scrollInner(dy: Int) {
+        var pConsume: Int = 0
+        var cConsume: Int = 0
+        if (dy > 0) {
+            if (scrollY in 1 until measuredHeight) {
+                pConsume = Math.min(dy, measuredHeight - scrollY)
+                scrollBy(0, pConsume)
+                cConsume = dy - pConsume
+                if (bottomView.canScrollVertically(cConsume)) {
+                    bottomView.scrollBy(0, cConsume)
+                }
+                upView.scrollTo(0, measuredHeight)
+            } else if (scrollY == 0) {
+                bottomView.scrollTo(0, 0)
+                if (upView.canScrollVertically(dy)) {
+                    upView.scrollBy(0, dy)
+                } else {
+                    if (canScrollVertically(dy)) {
+                        scrollBy(0, dy)
+                    }
+                }
+            } else if (scrollY == measuredHeight) {
+                upView.scrollTo(0, measuredHeight)
+                if (bottomView.canScrollVertically(dy)) {
+                    bottomView.scrollBy(0, dy)
+                } else {
+                    if (canScrollVertically(dy)) {
+                        scrollBy(0, dy)
+                    }
+                }
+            }
+        } else {
+            if (scrollY in 1 until measuredHeight) {
+                pConsume = Math.max(dy, -scrollY)
+                scrollBy(0, pConsume)
+                cConsume = dy - pConsume
+                upView.scrollTo(0, measuredHeight)
+                if (bottomView.canScrollVertically(cConsume)) {
+                    bottomView.scrollBy(0, cConsume)
+                }
+            } else if (scrollY == measuredHeight) {
+                upView.scrollTo(0, measuredHeight)
+                if (bottomView.canScrollVertically(dy)) {
+                    bottomView.scrollBy(0, dy)
+                } else {
+                    if (canScrollVertically(dy)) {
+                        scrollBy(0, dy)
+                    }
+                }
+            } else {
+                if (upView.canScrollVertically(dy)) {
+                    upView.scrollBy(0, dy)
+                }
+                bottomView.scrollTo(0, 0)
+            }
+        }
+    }
+    
+不过同onInterceptTouchEvent相比，NestScroll框架更灵活，毕竟NestScroll可以在两侧同时处理自己需要的操作，而onInterceptTouchEvent往往之能依赖Parent，child的空间太小
