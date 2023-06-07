@@ -209,6 +209,5 @@ NestedScrollingParent一般而言无需自己处理Touch事件，NestedScrolling
 	    
 ##  嵌套滚动中RecyclerView万能：RecyclerView原则只能嵌套一个可滚动的东西，
 
-哪怕是RecyclerView嵌套RecyclerView，只要外层的RecyclerView是高度有限的，内层就很好控制，
-
-向上外层先开始滚动，向下的话，先判断是不是内层可滚动，如果不可在滚动外层，这些是策略
+哪怕是RecyclerView嵌套RecyclerView，只要外层的RecyclerView是高度有限的，内层就很好控制，向上外层先开始滚动，向下的话，先判断是不是内层可滚动，如果不可在滚动外层，这些是策略
+RecyclerView里面就没必要用ScrollVIew了，或者说有了RecyclerView，ScrollVIew可以退出历史舞台了。
