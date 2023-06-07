@@ -150,4 +150,4 @@ NestedScrollingParent一般而言无需自己处理Touch事件，NestedScrolling
         }
     }
     
-不过同onInterceptTouchEvent相比，NestScroll框架更灵活，毕竟NestScroll可以在两侧同时处理自己需要的操作，而onInterceptTouchEvent往往之能依赖Parent，child的空间太小
+不过同onInterceptTouchEvent相比，NestScroll框架更灵活，毕竟NestScroll可以在两侧同时处理自己需要的操作，而onInterceptTouchEvent往往之能依赖Parent，child的空间太小。不过对于fling的衔接，NestScroll也只能定制，因为target: View在衔接的时候，是变化的。
