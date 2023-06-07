@@ -150,9 +150,11 @@ NestedScrollingParent一般而言无需自己处理Touch事件，NestedScrolling
         }
     }
     
-不过同onInterceptTouchEvent相比，NestScroll框架更灵活，毕竟NestScroll可以在两侧同时处理自己需要的操作，而onInterceptTouchEvent往往之能依赖Parent，child的空间太小。不过对于fling的衔接，NestScroll也只能定制，因为target: View在衔接的时候，是变化的。
+不过同onInterceptTouchEvent相比，NestScroll框架更灵活，毕竟NestScroll可以在两侧同时处理自己需要的操作，而onInterceptTouchEvent往往之能依赖Parent，child的空间太小。不过对于fling的衔接，NestScroll也只能定制，因为target: View在衔接的时候，是变化的
 
 ### 一种很狗的NestedScrollingParent写法：利用NestedScrollingChild做NestedScrollingParent
+
+思路有时候生活的单纯的技术。
 
 	 override fun dispatchNestedPreScroll(
 	        dx: Int,
@@ -203,3 +205,10 @@ NestedScrollingParent一般而言无需自己处理Touch事件，NestedScrolling
 	        }
 	        return consumedSelf || parentConsumed
 	    }
+	    
+	    
+##  嵌套滚动中RecyclerView万能：RecyclerView原则只能嵌套一个可滚动的东西，
+
+哪怕是RecyclerView嵌套RecyclerView，只要外层的RecyclerView是高度有限的，内层就很好控制，
+
+向上外层先开始滚动，向下的话，先判断是不是内层可滚动，如果不可在滚动外层，这些是策略
