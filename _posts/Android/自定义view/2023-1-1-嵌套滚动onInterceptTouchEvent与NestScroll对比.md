@@ -214,9 +214,11 @@ RecyclerView里面就没必要用ScrollVIew了，或者说有了RecyclerView，S
 
 
 
-### 嵌套滚动尽量采用rawY
+### 嵌套滚动尽量采用rawY  禁止自己处理MOVE，这样能防止抖动
 
 一边滚动，一遍处理嵌套滚动的时候，rawY优于Y  Y 是相对于当前View的位置， rawY可以计算绝对偏移
 
 
 ### NestScroll在处理协同滚动的时候比较合理
+
+比如吸顶
