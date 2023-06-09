@@ -154,7 +154,7 @@ NestedScrollingParent一般而言无需自己处理Touch事件，NestedScrolling
 
 ### 一种很狗的NestedScrollingParent写法：利用NestedScrollingChild做NestedScrollingParent
 
-思路有时候生活的单纯的技术。
+思路有时候胜过单纯的技术，RecyclerView自己继承自己的典范，拦截后，多余的交给自己，有点类似于自己做自己的父布局，先看看消费不消费，之后交给子View，或者交给自己的后续处理流程
 
 	 override fun dispatchNestedPreScroll(
 	        dx: Int,
@@ -212,6 +212,7 @@ NestedScrollingParent一般而言无需自己处理Touch事件，NestedScrolling
 哪怕是RecyclerView嵌套RecyclerView，只要外层的RecyclerView是高度有限的，内层就很好控制，向上外层先开始滚动，向下的话，先判断是不是内层可滚动，如果不可在滚动外层，这些是策略
 RecyclerView里面就没必要用ScrollVIew了，或者说有了RecyclerView，ScrollVIew可以退出历史舞台了。
 
+思路有时候胜过单纯的技术，RecyclerView自己继承自己的典范，拦截后，多余的交给自己，有点类似于自己做自己的父布局，先看看消费不消费，之后交给子View，或者交给自己的后续处理流程
 
 
 ### 嵌套滚动尽量采用rawY  禁止自己处理MOVE，这样能防止抖动
