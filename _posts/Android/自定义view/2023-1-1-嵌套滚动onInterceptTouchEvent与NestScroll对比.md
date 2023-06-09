@@ -222,3 +222,8 @@ RecyclerView里面就没必要用ScrollVIew了，或者说有了RecyclerView，S
 ### NestScroll在处理协同滚动的时候比较合理
 
 比如吸顶
+
+
+### 内外层获取MotionEvent不是统一的，中间有层层处理，获取的fling速度不一定一样，最好还是外层统一处理fling比较稳妥，这样也可以避免上下两个View衔接的时候，不同的fling问题，可以保持fling速度一致，
+
+或者父View只计算速度，目前来看外部父容器自己统一处理fling是比较好的操作，不同子View的位置可以灵活自己控制。嵌套只处理拖动
