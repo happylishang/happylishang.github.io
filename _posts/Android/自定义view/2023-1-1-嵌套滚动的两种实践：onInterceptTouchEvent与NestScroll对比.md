@@ -18,8 +18,6 @@
         maxScrollHeight = totalHeight - measuredHeight
     }
 
-
-
 上述交互有两种比较常用的方式，一种是onInterceptTouchEvent全局拦击Touch事件来实现拖动与Fling的处理，另一种是借助后期推出的NestedScroll框架来实现。先简单看下传统的onInterceptTouchEvent拦截的方式：核心的处理事两个操作，一个是拖动、一个是UP后的Fling，onInterceptTouchEvent首先要确定拦截的时机：判断有效拖动
  
      @Override
@@ -62,11 +60,14 @@
 
 自行处理拖拽与fling需要注意衔接准备好GestureDetector，用于将来的fling，建议放在dispatchTouchEvent整体处理事件的消费
 
-    private GestureDetector gestureDetector = new GestureDetector(getContext(), new GestureDetector.SimpleOnGestureListener() {
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
         gestureDetector.onTouchEvent(event);
+        <!--如果开始拖动，则直接处理拖动即可，有些喜欢在onTouchEvent处理，不过注意gestureDetector.onTouchEvent如果在这里可能丢Down事件-->
+        if (mBeDraging  && event.getActionMasked() == MotionEvent.ACTION_MOVE) {
+            drag(event);
+        }
         return super.dispatchTouchEvent(event);
     }
 
@@ -83,7 +84,21 @@
         }
     }
 
+    private GestureDetector gestureDetector = new GestureDetector(getContext(), new GestureDetector.SimpleOnGestureListener() {
 
+        @Override
+        public boolean onFling(@NonNull MotionEvent e1, @NonNull MotionEvent e2, float velocityX, float velocityY) {
+            if (!(Math.abs(e1.getX() - e2.getX()) > mTouchSlop && Math.abs(velocityX) > Math.abs(velocityY))) {
+           	    <!--衔接滚动-->
+                mScroller.fling(0, 0, 0, (int) velocityY, 0, 0, -10 * ScreenUtil.getDisplayHeight(), 10 * ScreenUtil.getDisplayHeight());
+                <!--必须触发一次-->
+                postInvalidate();
+            }
+            return super.onFling(e1, e2, velocityX, velocityY);
+        }
+    });
+    
+    
 onInterceptTouchEvent实现嵌套滚动
 
 如果自己实现一个支持嵌套滚动的框架，需要注意的是：全局拦截+保持唯一
