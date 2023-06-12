@@ -2,17 +2,89 @@
 
 ![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/5462bff1df454fa78f0f3154cc9cfae9~tplv-k3u1fbpfcp-watermark.image?)
 
+## 实现：onInterceptTouchEvent或者NestedScroll
 
-## 嵌套滚动的View必须要处理衔接，
+按照上下两部分构建父布局，父ViewGroup建议继承FrameLayout/RelativeLayout来实现，方便处理测量[无需复写]与布局，在计算出全部View高度后，可以计算最大父布局滚动距离：
 
-尽管每个可滚动的View都有fling的能力，但是无法保证每个View fling采用的Scroller是相同的表现，也就是其速度可能存在衔接问题，所以，fling必须要在外部容器统一处理算是比较好的选择方案
+    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+        var top = t
+        var bottom = b
+        for (i in 0 until childCount) {
+            getChildAt(i).layout(l, top, r, bottom)
+            top += getChildAt(i).measuredHeight
+            bottom += getChildAt(i).measuredHeight
+            totalHeight += getChildAt(i).measuredHeight
+        }
+        maxScrollHeight = totalHeight - measuredHeight
+    }
 
-### 嵌套滚动NestedScrollingChild、NestedScrollingParent
-
-个人感觉是处理两个嵌套滚动的问题，一对一，比较好，牵扯到多个NestedScrollingChild的时候，这套框架在处理衔接上就力不从心，存在NestedScrollingChild-> NestedScrollingParent-> NestedScrollingChild2的问题无法处理，target不好动态更改！
 
 
-## 使用onInterceptTouchEvent实现嵌套滚动
+上述交互有两种比较常用的方式，一种是onInterceptTouchEvent全局拦击Touch事件来实现拖动与Fling的处理，另一种是借助后期推出的NestedScroll框架来实现。先简单看下传统的onInterceptTouchEvent拦截的方式：核心的处理事两个操作，一个是拖动、一个是UP后的Fling，onInterceptTouchEvent首先要确定拦截的时机：判断有效拖动
+ 
+     @Override
+    public boolean onInterceptTouchEvent(MotionEvent event) {
+
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+	             //一些校准操作校准初始值
+                mScroller.abortAnimation();
+                mLastY = event.getY();
+                mBeDraging = false;
+                 break;
+            case MotionEvent.ACTION_MOVE:
+                if (isVerticalGesture(event)) {
+                    return true;
+                } else {
+                    mLastY = event.getY();
+                }
+                break;
+            default:
+                break;
+        }
+        return super.onInterceptTouchEvent(event);
+    }
+    
+一般而言垂直滚动超过某个TouchSlop，并且垂直拖动距离超过横向拖动距离，则认为垂直拖动有效
+
+    /**
+     * 判断有效拖动
+     */
+    boolean isVerticalGesture(MotionEvent event) {
+        return mBeDraging
+                || (mVerticalGestureFlag = Math.abs(event.getY() - mDownY) > Math.abs(event.getX() - mDownX)
+                && Math.abs(event.getY() - mDownY) > mTouchSlop);
+    }
+
+拖动开始，便是全局拦截Move事件的开始，子View后续无法获取到Touch事件，其实大多数场景而言，父布局接管之后，也没有必要再给子View分发事件，之后父布局自行处理拖拽与fling。
+
+## onInterceptTouchEvent方式处理拖拽与fling
+
+自行处理拖拽与fling需要注意衔接准备好GestureDetector，用于将来的fling，建议放在dispatchTouchEvent整体处理事件的消费
+
+    private GestureDetector gestureDetector = new GestureDetector(getContext(), new GestureDetector.SimpleOnGestureListener() {
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        gestureDetector.onTouchEvent(event);
+        return super.dispatchTouchEvent(event);
+    }
+
+滚动的控制方式：自己计算出可滚动的距离，可以利用View自身的canScrollVertically
+
+    public boolean canScrollVertically(int direction) {
+        final int offset = computeVerticalScrollOffset();
+        final int range = computeVerticalScrollRange() - computeVerticalScrollExtent();
+        if (range == 0) return false;
+        if (direction < 0) {
+            return offset > 0;
+        } else {
+            return offset < range - 1;
+        }
+    }
+
+
+onInterceptTouchEvent实现嵌套滚动
 
 如果自己实现一个支持嵌套滚动的框架，需要注意的是：全局拦截+保持唯一
 
@@ -24,6 +96,24 @@
 * 5：底部顶部可以加入可滚动判断，提前结束fling，反正跳帧
 * 6：不的状态记得对确定状态校准，防止抖动
 *  7： OverScroller fling之后，注意即可invalid否则可能无法触发compute
+
+
+## 利用NestedScroll框架实现：只处理拖动[target无法改变]，fling全交给Parent处理
+
+必须有NestedScrollingChild、NestedScrollingParent的配对实现，
+
+
+## 如何优化
+
+
+## 嵌套滚动的View必须要处理衔接，
+
+尽管每个可滚动的View都有fling的能力，但是无法保证每个View fling采用的Scroller是相同的表现，也就是其速度可能存在衔接问题，所以，fling必须要在外部容器统一处理算是比较好的选择方案
+
+### 嵌套滚动NestedScrollingChild、NestedScrollingParent
+
+个人感觉是处理两个嵌套滚动的问题，一对一，比较好，牵扯到多个NestedScrollingChild的时候，这套框架在处理衔接上就力不从心，存在NestedScrollingChild-> NestedScrollingParent-> NestedScrollingChild2的问题无法处理，target不好动态更改！
+
 
 
 ## 使用NestScroll完成嵌套滚动：更灵活
@@ -244,3 +334,6 @@ RecyclerView里面就没必要用ScrollVIew了，或者说有了RecyclerView，S
 MotionEvent在传递的时候，中间有层层处理，获取的fling速度不一定一样，最好还是外层统一处理fling比较稳妥，这样也可以避免上下两个View衔接的时候，不同的fling问题，可以保持fling速度一致，
 
 或者父View只计算速度，目前来看外部父容器自己统一处理fling是比较好的操作，不同子View的位置可以灵活自己控制。嵌套只处理拖动
+
+
+MotionEvent.getRawY 与MotionEvent.getY有区别，如果是onInterceptTouchEvent由于是外层拦截，其实没差别，如果是嵌套，拖动的时候使用了内存MotionEvent.getY，那可能会有问题，外层动了，内存otionEvent.getY可能还是不变的。
