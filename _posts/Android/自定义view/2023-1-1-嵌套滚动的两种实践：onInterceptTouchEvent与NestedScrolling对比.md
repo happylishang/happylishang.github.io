@@ -304,7 +304,7 @@ Android5.0推出了嵌套滑动机制NestedScrolling，让**父View和子View在
 ## 注意点
 
 1.   fling：尽量不使用内层GestureDetector来获取，因为内外侧获取MotionEvent不是统一的，所以内外层获取的fling初始速度可能不同，衔接易出问题，还是统一给外层自己做
-2.  move：尽量使用rawY，因为MotionEvent获取的Y在嵌套滚动时候不如rawY直观，rawY始终是相对屏幕，而Y是相对自己View
+2.   move：尽量使用rawY，因为MotionEvent获取的Y在嵌套滚动时候不如rawY直观，rawY始终是相对屏幕，而Y是相对自己View
 3. 
 
 
