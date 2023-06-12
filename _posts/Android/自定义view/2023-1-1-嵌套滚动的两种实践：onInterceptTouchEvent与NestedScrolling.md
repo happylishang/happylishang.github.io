@@ -154,7 +154,7 @@ Android5.0推出了嵌套滑动机制NestedScrolling，让**父View和子View在
 
 ![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/306ad9ff52e24df1aeb7da0f9e011728~tplv-k3u1fbpfcp-watermark.image?)
 
-## NestedScrolling只处理拖动[target无法改变]，Fling交给Parent处理
+### NestedScrolling只处理拖动[target无法改变]，Fling交给Parent处理
 
 在这个框架中，**子View必须主动启动嵌套滑动**、并且在Move的时候**主动请求父ViewGroup进行处理**，这样才能完成协同，并非简单的打开开关，所有的定制逻辑仍旧需要开发者自己处理，只是替代了onInterceptTouchEvent，提供了子View回传事件给父View的能力，不用父View主动拦截，也能获取接管子View事件的能力。
 
@@ -301,17 +301,16 @@ Android5.0推出了嵌套滑动机制NestedScrolling，让**父View和子View在
 
 可以看到，在这个框架下，可以比较灵活的接管拖动，不用自己拦截，而且消费多少，可以父子协商，关于Fling，可以处理成一致，而且有两个滚动布局衔接的时候，交给外部统一处理应该也是最合理的做法，防止两个View的Scroller不一致，而且嵌套滑动也无法处理target切换的问题。
 
-## 注意点
+### NestedScrolling 使用注意点
 
-1.   fling：尽量不使用内层GestureDetector来获取，因为内外侧获取MotionEvent不是统一的，所以内外层获取的fling初始速度可能不同，衔接易出问题，还是统一给外层自己做
-2.   move：尽量使用rawY，因为MotionEvent获取的Y在嵌套滚动时候不如rawY直观，rawY始终是相对屏幕，而Y是相对自己View
-3. 
+1.    fling处理：尽量不使用内层GestureDetector来获取，因为内外侧获取MotionEvent不是统一的，所以内外层获取的fling初始速度可能不同，衔接易出问题，还是统一给外层自己做
+2.   **move处理拖拽：尽量使用rawY**，因为MotionEvent获取的Y在嵌套滚动时候不如rawY直观，rawY始终是相对屏幕，而Y是相对自己View，在父View进行滚动的时候，target的Y几乎是不动的
 
+## 强大且万能的RecyclerView
 
-## 强大且万能的Recycleview
+**RecyclerView适配一切**，所有的嵌套滑动都能用RecyclerView来处理，
 
- 
-### 一种很狗的NestedScrollingParent写法：利用NestedScrollingChild做NestedScrollingParent
+一种很狗的NestedScrollingParent写法：利用NestedScrollingChild做NestedScrollingParent
 
 思路有时候胜过单纯的技术，RecyclerView自己继承自己的典范，拦截后，多余的交给自己，有点类似于自己做自己的父布局，先看看消费不消费，之后交给子View，或者交给自己的后续处理流程
 
