@@ -1,3 +1,14 @@
+## 嵌套滚动的View必须要处理衔接，
+
+尽管每个可滚动的View都有fling的能力，但是无法保证每个View fling采用的Scroller是相同的表现，也就是其速度可能存在衔接问题，所以，fling必须要在外部容器统一处理算是比较好的选择方案
+
+
+### 嵌套滚动NestedScrollingChild、NestedScrollingParent
+
+个人感觉是处理两个嵌套滚动的问题，一对一，比较好，牵扯到多个NestedScrollingChild的时候，这套框架在处理衔接上就力不从心，存在NestedScrollingChild-> NestedScrollingParent-> NestedScrollingChild2的问题无法处理，target不好动态更改！
+
+
+
 ## 使用onInterceptTouchEvent实现嵌套滚动
 
 如果自己实现一个支持嵌套滚动的框架，需要注意的是：全局拦截+保持唯一
