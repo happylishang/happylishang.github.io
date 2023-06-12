@@ -1,12 +1,15 @@
+嵌套滚动：指内外两层均可滚动，比如上半部分是一个有限的列表，下半部分是WebView，在上半部分展示到底的时候，外部父布局滚动内部View，将底部WevView拉起来，滚动到顶部之后再将滚动交给内部WebView，之后滚动的就是内部WebView，如下图：
+
+![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/5462bff1df454fa78f0f3154cc9cfae9~tplv-k3u1fbpfcp-watermark.image?)
+
+
 ## 嵌套滚动的View必须要处理衔接，
 
 尽管每个可滚动的View都有fling的能力，但是无法保证每个View fling采用的Scroller是相同的表现，也就是其速度可能存在衔接问题，所以，fling必须要在外部容器统一处理算是比较好的选择方案
 
-
 ### 嵌套滚动NestedScrollingChild、NestedScrollingParent
 
 个人感觉是处理两个嵌套滚动的问题，一对一，比较好，牵扯到多个NestedScrollingChild的时候，这套框架在处理衔接上就力不从心，存在NestedScrollingChild-> NestedScrollingParent-> NestedScrollingChild2的问题无法处理，target不好动态更改！
-
 
 
 ## 使用onInterceptTouchEvent实现嵌套滚动
