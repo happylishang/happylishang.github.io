@@ -392,3 +392,9 @@ Android5.0推出了嵌套滑动机制NestedScrolling，让**父View和子View在
 	                    }
 
 处理方式就是内部不可fling之后，主动通过startNestedScroll(ViewCompat.SCROLL_AXIS_VERTICAL)与 dispatchNestedFling再次交给父布局。
+
+
+
+### 总结
+
+流畅交互靠微调
