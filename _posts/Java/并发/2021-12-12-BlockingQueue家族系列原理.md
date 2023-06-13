@@ -354,7 +354,45 @@ LinkBlockQueue可以设置容量，如果不设置，就是默认Integer.MAX_VAL
 	            signalNotEmpty();
 	    }
 	
-同offer方法不同的是，这里也会检查容量，如果熔炼满则通过notFull.await阻塞等待，相应的take方法也是如此，只不过take方法用的是另一个锁，两个锁相互独立，而且得益于链表一个操作头，一个操作尾，写跟读可以完全并行，提高了Queue的效率。
+同offer方法不同的是，这里也会检查容量，如果熔炼满则通过notFull.await阻塞等待，相应的take方法也是如此，只不过take方法用的是另一个锁，两个锁相互独立，而且得益于链表一个操作头，一个操作尾，写跟读可以完全并行，提高了Queue的效率，为什么两个锁还能保持队列的安全？
+
+* 1、一个操作的是头、一个操作的是尾部，操作的对象一般不会冲突
+* 2、最多是一对一的take+put
+* 3：take操作以count.get()>0为前提，**必须有一个插入成功了才会take**，只有自己一个线程会getAndDecrement，保证了Head的原子性，在take期间不会有人操作Head以及Head后的一个元素。
+* 4：AtomicInteger count ，原子操作性保证了count值的准确性 ，count值更新时候不会出现混乱、覆盖
+* 5 ：初始化的时候 last = head = new Node(null) count =0 保证了take/put不会撞头，理论上说AtomicInteger的更新逻辑里应该有CAS可能还有自旋的存在。
+* 6： put操作的是last，在put的时候take永远动不到last,两者之间必定有一个有效数据，否则take不运行
+
+put/take锁保证了同一时刻最多只有一个take与一个put，那么要处理的就是这两个是否存在安全问题，如果两者完全岔开肯定没问题，如果同时操作在put的同时take会如何
+    
+    public void put(E e) throws InterruptedException {
+   		 ...
+
+            enqueue(node);
+            c = count.getAndIncrement();
+            if (c + 1 < capacity)
+                notFull.signal();
+                
+enqueue后更新count.getAndIncrement，如果在更新前take，由于count.get还是旧的，数量一定还是0，
+
+	    public E take() throws InterruptedException {
+	        final E x;
+	        final int c;
+	        final AtomicInteger count = this.count;
+	        final ReentrantLock takeLock = this.takeLock;
+	        takeLock.lockInterruptibly();
+	        try {
+	            while (count.get() == 0) {
+	                notEmpty.await();
+	            }
+	            x = dequeue();
+	            c = count.getAndDecrement();
+	            if (c > 1)
+	                notEmpty.signal();
+	        }
+	        
+take就会阻塞等c = count.getAndIncrement();完成，之后  signalNotEmpty();即使恰好被用了，signalNotEmpty也不会有什么问题。
+    
 
 ### PriorityBlockingQueue	一个支持优先级排序的无界阻塞队列
 
