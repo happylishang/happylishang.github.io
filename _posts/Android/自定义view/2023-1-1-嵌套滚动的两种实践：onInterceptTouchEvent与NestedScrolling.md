@@ -307,84 +307,88 @@ Android5.0推出了嵌套滑动机制NestedScrolling，让**父View和子View在
 1.    fling处理：尽量不使用内层GestureDetector来获取，因为内外侧获取MotionEvent不是统一的，所以内外层获取的fling初始速度可能不同，衔接易出问题，还是统一给外层自己做
 2.   **move处理拖拽：尽量使用rawY**，因为MotionEvent获取的Y在嵌套滚动时候不如rawY直观，rawY始终是相对屏幕，而Y是相对自己View，在父View进行滚动的时候，target的Y几乎是不动的
 
-## 强大的万能RecyclerView
+## 强大的RecyclerView
 
-**RecyclerView适配一切**，所有的嵌套滑动都能用RecyclerView来处理，RecyclerView本身实现了NestedScrollingChild3，所以它本身可以看做是一个支持嵌套滑动的Child，不过它自身并没有做NestedScrollingParent的能力，但是在NestedScrolling框架中一般NestedScrollingChild在Move事件中会**直接调用dispatchNestedPreScroll**，在dispatchNestedPreScroll内部才会区分是否启用嵌套滑动，普通的应用场景只有一个dispatchNestedPreScroll已经足够。可以采用一种很萎缩的做法：**继承RecyclerView，复写dispatchNestedPreScroll**，这个时候仅仅实现NestedScrollingChild3的RecyclerView其实可以在一定程度上看做NestedScrollingParent，继承类先RecyclerView获取事件处理的优先权。
+**RecyclerView适配一切**，利用RecyclerView内嵌WebView也能实现上述效果：**但需要主动控制内部可滚动Item**。RecyclerView自身实现了onInterceptTouchEvent逻辑，理论上内部子View是无法获取到拦截之后的事件，只能依赖外部主动控制，否则WebView被拖到顶部就结束了，内部无法继续拖拽。但是RecyclerView本身实现了NestedScrollingChild3，可以看做是一个支持嵌套滑动的Child，在NestedScrolling框架中Move事件时一般会**直接调用dispatchNestedPreScroll**，之后dispatchNestedPreScroll会区分是否能启用嵌套滑动。因此除了借助 onInterceptTouchEvent逻辑，还可以借助dispatchNestedPreScroll来处理，一种很猥琐的做法：**继承RecyclerView，复写dispatchNestedPreScroll**，这个时候**继承类先父类RecyclerView获取事件处理的优先权**，在一定程度上看做实现了onInterceptTouchEvent的NestedScrollingChild，在复写的dispatchNestedPreScroll种处理子View的滚动。即可自身滚动，也能控制内部可滚动View的滚动，**但很难做到那么通用**。不过在做业务的时候，思路有时候胜过单纯的技术，尤其嵌套滑动，不需要过分追求通用型控件。
 
+对于上述交互场景，只需在dispatchNestedPreScroll做如下处理：**只需要主动接手内部子View的操控，外部的操控无需处理**
 
-
-思路有时候胜过单纯的技术，RecyclerView自己继承自己的典范，拦截后，多余的交给自己，有点类似于自己做自己的父布局，先看看消费不消费，之后交给子View，或者交给自己的后续处理流程
-
-	 override fun dispatchNestedPreScroll(
-	        dx: Int,
-	        dy: Int,
-	        consumed: IntArray?,
-	        offsetInWindow: IntArray?,
-	        type: Int
+	 override fun dispatchNestedPreScroll( dx: Int,  dy: Int,  consumed: IntArray?,  offsetInWindow: IntArray?,  type: Int
 	    ): Boolean {
-	        var consumedSelf = false
-	        if (type == ViewCompat.TYPE_TOUCH) {
-	            // up
-	            if (dy > 0) {
-	                if (!canScrollVertically(1)) {
-	                    val target = fetchNestedChild()
-	                    target?.apply {
-	                        this.scrollBy(0, dy)
-	
-	                        consumed?.let {
-	                            it[1] = dy
-	                        }
-	
-	                        consumedSelf = true
-	                    }
-	                }
-	            }
-	            // down
-	            if (dy < 0) {
-	                val target = fetchNestedChild()
-	                target?.apply {
-	                    if (this.canScrollVertically(-1)) {
-	                        this.scrollBy(0, dy)
-	
-	                        consumed?.let {
-	                            it[1] = dy
-	                        }
-	
-	                        consumedSelf = true
-	                    }
-	                }
-	            }
-	        }
-	
-	        // Now let our nested parent consume the leftovers
-	        val parentScrollConsumed = mParentScrollConsumed
-	        val parentConsumed = super.dispatchNestedPreScroll(dx, dy - (consumed?.get(1)?:0), parentScrollConsumed, offsetInWindow, type)
-	        consumed?.let {
-	            consumed[1] += parentScrollConsumed[1]
-	        }
-	        return consumedSelf || parentConsumed
+		    var consumedSelf = false
+		    // 先让父布局处理，还是后处理？
+		    val parentScrollConsumed = mParentScrollConsumed
+		    val parentConsumed = super.dispatchNestedPreScroll(    dx,  dy,   parentScrollConsumed,   offsetInWindow,   type
+		    )
+		    consumed?.let {
+		        consumed[1] += parentScrollConsumed[1]
+		    }
+		    <!--再交给自己已处理-->
+		    if (type == ViewCompat.TYPE_TOUCH) {
+			            <!--对于向上滚动，如果自身可是滚动就直接滚动自身，说明还没到顶部RecyclerView会自己处理，自己拦截过了无需外部干预，如果自身不能滚，就滚动内部的可滚动target-->
+	                if (!canScrollVertically(1)) {//外部自身的操控无需处理
+	                		<!--fetchNestedChild是用来获取内部的可滚动View，这个看具体业务操作-->
+		        val remain = dy - (consumed?.get(1) ?: 0)
+		        if (remain > 0) {
+		            //  已经到顶了
+		            if (!canScrollVertically(1)) {
+		                val target = fetchBottomNestedScrollChild()
+		                target?.apply {
+		                    this.scrollBy(0, remain)
+		                    consumed?.let {
+		                        it[1] += remain
+		                    }
+		                    consumedSelf = true
+		                }
+		            }
+		        }
+		        // down 其实还是自己控制，而不是底层控制
+		        if (remain < 0) {
+		            val target = fetchBottomNestedScrollChild()
+		            target?.apply {
+		                if (this.canScrollVertically(-1)) {
+		                    this.scrollBy(0, remain)
+		                    //   消耗完，不给底层机会
+		                    consumed?.let {
+		                        it[1] += remain
+		                    }
+		                    consumedSelf = true
+		                }
+		            }
+		        }
+		    }
+		    return consumedSelf || parentConsumed
+	}
+
+拖拽是比较容易处理的，比较棘手的是对于fling的处理，fling是一次性的，如果Recycleview继承类dispatchNestedPreFling自己处理了fling后，父布局就获取不到，衔接就比较麻烦
+
+	   override fun dispatchNestedPreFling(velocityX: Float, velocityY: Float): Boolean {
+	        fling(velocityY)
+	        return true
 	    }
-	    
-	    
-##  嵌套滚动中RecyclerView万能：RecyclerView原则只能嵌套一个可滚动的东西，
 
-哪怕是RecyclerView嵌套RecyclerView，只要外层的RecyclerView是高度有限的，内层就很好控制，向上外层先开始滚动，向下的话，先判断是不是内层可滚动，如果不可在滚动外层，这些是策略
-RecyclerView里面就没必要用ScrollVIew了，或者说有了RecyclerView，ScrollVIew可以退出历史舞台了。
+如果Recycleview自身通过OverScroller处理完毕后，还有盈余，就需要将盈余给外部，先处理内部，还是先处理外部都是可选的，看用户自己
 
-思路有时候胜过单纯的技术，RecyclerView自己继承自己的典范，拦截后，多余的交给自己，有点类似于自己做自己的父布局，先看看消费不消费，之后交给子View，或者交给自己的后续处理流程
+	override fun computeScroll() {
+	    if (overScroller.computeScrollOffset()) {
+	        val current = overScroller.currY
+	        val dy = current - mCurrentFling
+	        mCurrentFling = current
+	
+	        val target = fetchBottomNestedScrollChild()
+	        if (dy > 0) {
+	            if (canScrollVertically(1)) {
+	                scrollBy(0, dy)
+	            } else {
+	                if (target?.canScrollVertically(1) == true) {
+	                    target.scrollBy(0, dy)
+	                } else {
+	                    if (!overScroller.isFinished) {
+	                        overScroller.abortAnimation()
+	                        // fling 先内部，给上面接管一部分
+			       startNestedScroll(ViewCompat.SCROLL_AXIS_VERTICAL)
+		   		 dispatchNestedFling(0f, overScroller.currVelocity, false)
+		    		stopNestedScroll()
+	                    }
 
- 
-
-### NestScroll在处理协同滚动的时候比较合理，尤其是多个部位，滚动速度不一致的时候也许比较合适 A滚动B的2被动时候，A隐藏，顶部隐藏
-
-比如吸顶
-
-
-### 内外层获取MotionEvent不是统一的
-
-MotionEvent在传递的时候，中间有层层处理，获取的fling速度不一定一样，最好还是外层统一处理fling比较稳妥，这样也可以避免上下两个View衔接的时候，不同的fling问题，可以保持fling速度一致，
-
-或者父View只计算速度，目前来看外部父容器自己统一处理fling是比较好的操作，不同子View的位置可以灵活自己控制。嵌套只处理拖动
-
-
-MotionEvent.getRawY 与MotionEvent.getY有区别，如果是onInterceptTouchEvent由于是外层拦截，其实没差别，如果是嵌套，拖动的时候使用了内存MotionEvent.getY，那可能会有问题，外层动了，内存otionEvent.getY可能还是不变的。
+处理方式就是内部不可fling之后，主动通过startNestedScroll(ViewCompat.SCROLL_AXIS_VERTICAL)与 dispatchNestedFling再次交给父布局。
