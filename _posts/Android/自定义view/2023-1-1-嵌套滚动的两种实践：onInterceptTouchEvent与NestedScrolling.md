@@ -152,7 +152,8 @@
 
 Android5.0推出了嵌套滑动机制NestedScrolling，让**父View和子View在滑动时相互协调配合**，为了向前兼容又抽离了NestedScrollingChild、NestedScrollingParent、NestedScrollingChildHelper、NestedScrollingParentHelper等支持类，不过在23年的场景下基本不需要使用这些辅助类了。NestedScrolling的核心是子View一直能收到Move事件，在自己处理之前先交给父View消费，父View处理完之后，再将余量还给子View，让子View自己处理，可以看出这套框架必须**父子配合**，也就是NestedScrollingChild、NestedScrollingParent是配套的。5.0之后View与ViewGroup本身就实现了NestedScrollingChild+NestedScrollingParent的框架，自定义布局的时候只需要定制与启用，也就是必须进行二次开发，目前Google提供的最好用的就是RecyclerView。有张图很清晰的描述NestedScrolling框架是如何工作的：
 
-![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/67a57dcd3a4a40c99f472d95b6b1ec04~tplv-k3u1fbpfcp-watermark.image?)
+
+![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/40267fb2882b45dd8fc3612f3b4be9e6~tplv-k3u1fbpfcp-watermark.image?)
 
 ### NestedScrolling只处理拖动[target无法改变]，Fling交给Parent处理
 
@@ -394,7 +395,6 @@ Android5.0推出了嵌套滑动机制NestedScrolling，让**父View和子View在
 处理方式就是内部不可fling之后，主动通过startNestedScroll(ViewCompat.SCROLL_AXIS_VERTICAL)与 dispatchNestedFling再次交给父布局。
 
 
-
 ### 总结
 
-流畅交互靠微调
+**流畅交互全靠微调**
