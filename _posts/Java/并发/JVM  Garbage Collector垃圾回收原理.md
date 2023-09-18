@@ -9,15 +9,15 @@ Thread共享的内存： Heap： GC 垃圾回收的主站场、Method Area：方
 
 除了 PC Register 区不会抛出 StackOverflowError 或 OutOfMemoryError ，其它 5 个区域，当请求分配的内存不足时，均会抛出 OutOfMemoryError（即：OOM），其中 thread 独立的 JVM Stack 区及 Native Method Stack 区还会抛出 StackOverflowError
 
-### **如何判断一个Java对象是可回收的? **
+## **如何判断一个Java对象是可回收的? **
 
 ![](https://static001.infoq.cn/resource/image/e3/71/e36c624e8b4300775123f95a34b86571.png)
 
-####  引用计数法  
+###  引用计数法  
 
 无法解决循环引用的问题，A引用B，B同时引用A，AB都无用的时候，两者无法回收。
 
-#### 可达性分析法：对象是否可达
+### 可达性分析法：对象是否可达
 
 目前的虚拟机基本都是采用可达性分析算法来判断对象是否存活，这种算法以GC Root对象为起点，遍历出所有的引用子节点，再以子节点为起点，引出此节点指向的下一个结点，直到所有的结点都遍历完毕,任何在在这个引用链上的节点都可以认为是可达的，否则就是不可达的。那么GC ROOT是怎么定义呢：
 
@@ -25,7 +25,7 @@ Thread共享的内存： Heap： GC 垃圾回收的主站场、Method Area：方
 
 上图中的A 以及 AA的静态变量都可以作为GC root，它们引出的强引用链都是可达的对象。而GG GG2没有在GC Root的引用链上，就可以被回收。哪些对象可以作为GC ROOT。
 
-##### 常见的GC Root种类 ：两栈两方法 
+### 常见的GC Root种类 ：两栈两方法 
 
 > GC Root：A garbage collection root is an object that is accessible from outside the heap. 
 
@@ -36,13 +36,12 @@ Thread共享的内存： Heap： GC 垃圾回收的主站场、Method Area：方
 * 类静态属性、或者常量引用的对象
 * 虚拟机内部的引用，比如系统类加载器加载的对象等
 
-### 如何回收
+## 如何回收
 
 #### mark-sweep 标记清除法
 #### mark-copy 标记复制法
 #### mark-compact 标记-整理（也称标记-压缩）法
 #### generation-collect 分代收集算法 
-
 
 
 ### 参考文档
