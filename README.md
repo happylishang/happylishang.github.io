@@ -1,6 +1,4 @@
-# 码志
-
-我的个人博客：http://elephanty.top/
+个人博客：http://elephanty.top/
  
 ## 效果预览
 
