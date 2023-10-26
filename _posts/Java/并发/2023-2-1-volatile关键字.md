@@ -200,7 +200,7 @@ volatile可以保证uniqueSingleton赋值前的指令不能重排，就避免了
 
 ## 	参考文档
 
-https://www.cnblogs.com/dolphin0520/p/3920373.html
+
 
 [Java中的双重检查锁（double checked locking）](https://www.cnblogs.com/xz816111/p/8470048.html)
 
