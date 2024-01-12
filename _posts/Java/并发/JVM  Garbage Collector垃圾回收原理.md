@@ -25,7 +25,7 @@ Thread共享的内存： Heap： GC 垃圾回收的主站场、Method Area：方
 
 上图中的A 以及 AA的静态变量都可以作为GC root，它们引出的强引用链都是可达的对象。而GG GG2没有在GC Root的引用链上，就可以被回收。哪些对象可以作为GC ROOT。
 
-### 常见的GC Root种类 ：两栈两方法 
+### 常见的GC Root种类 ：两栈两方法
 
 > GC Root：A garbage collection root is an object that is accessible from outside the heap. 
 
@@ -33,7 +33,7 @@ Thread共享的内存： Heap： GC 垃圾回收的主站场、Method Area：方
 
 * 运行线程栈上引用的对象
 * 运行线程上Native方法栈中JNI引用的对象
-* 类静态属性、或者常量引用的对象
+* 类**静态属性变量引用的对象**、或者**常量引用的对象**
 * 虚拟机内部的引用，比如系统类加载器加载的对象等
 
 ## 如何回收
