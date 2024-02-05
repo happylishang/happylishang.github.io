@@ -43,10 +43,12 @@ Thread共享的内存： Heap： GC 垃圾回收的主站场、Method Area：方
 #### mark-compact 标记-整理（也称标记-压缩）法
 #### generation-collect 分代收集算法 
 
+## Android GC 
+
+
 
 ### 参考文档
 
 [GC Roots 是什么？哪些对象可以作为 GC Root？看完秒懂！](https://blog.csdn.net/weixin_38007185/article/details/108093716)
-
-
+[Android R常见GC类型与问题案例](https://blog.csdn.net/feelabclihu/article/details/120574383)
 [一文看懂 JVM 内存布局及 GC 原理](https://www.infoq.cn/article/3wyretkqrhivtw4frmr3)
