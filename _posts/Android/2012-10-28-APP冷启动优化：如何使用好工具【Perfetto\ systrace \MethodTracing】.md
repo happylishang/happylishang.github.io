@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "APP冷启动优化：如何使用好工具【Perfetto\ systrace \MethodTracing】"
+title: "APP冷启动优化：如何使用好工具【Perfetto、 systrace 、MethodTracing】"
 category: Android
 
 
