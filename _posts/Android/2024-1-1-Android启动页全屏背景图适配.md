@@ -1,4 +1,4 @@
-Android启动页的背景主要指冷启动时windowBackground配置的背景图，这个阶段业务还未加载，配置的背景主要用在StartWindow上，与闪屏复用，一来是防止白屏、二来是品牌宣传。最简单的做法是为windowBackground直接配置一张图
+Android启动页的背景主要指冷启动时windowBackground配置的背景图，这个阶段业务还未加载，配置的主要用在StartWindow上，与闪屏复用，一来是防止白屏、二来是品牌宣传。最简单的做法是为windowBackground直接配置一张图
 
         <item name="android:windowBackground">@drawable/bg_splash_logo</item>
 
@@ -13,9 +13,9 @@ Android启动页的背景主要指冷启动时windowBackground配置的背景图
 	    </item>
 	</layer-list>
 
-一般来说简约背景+slogon的场景都能满足，但还是有些需求无法满足，启动页背景一般可分两类，一类是slogon标语+纯色或渐变色背景，一类是全屏图的做法，全屏图一般都要求禁止拉伸，这种场景稍微麻烦一点点。
+一般来说简约背景+slogon的场景都能满足，但还是有些需求无法满足，启动页背景一般可分两类，一类是slogon标语+纯色或渐变色背景，一类是全屏图的做法，全屏图一般都要求禁止拉伸，这种场景稍微麻烦一点点，windowBackground不支持等比例缩放，也就不存在centerCrop类的选项，需要额外处理下。
 
-## slogon标语类启动背景
+## slogon标语+纯色或者渐变色背景
 
 这类处理起来比较简单，只需要将slogon切出来，配合layer-list即可
 
@@ -40,9 +40,9 @@ Android启动页的背景主要指冷启动时windowBackground配置的背景图
 		</layer-list>
 		
 		
-##  全屏图片类
+##  全屏背景图+禁止拉伸
 
-Android启动背景里的drawable 或者bitmap仅支持
+Android启动背景里的drawable或者bitmap仅支持
 
 * 水平填充满 [不能垂直等比例拉伸]
 * 垂直填充满 [不能水平等比例拉伸]
@@ -72,5 +72,5 @@ Android启动背景里的drawable 或者bitmap仅支持
 	            android:src="@mipmap/bg_splash_top" />
 	    </item>
 	</layer-list>
-		
+	
 如此就可以完成不拉伸全屏启动图适配。		
