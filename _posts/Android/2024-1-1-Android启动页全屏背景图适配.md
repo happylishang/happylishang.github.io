@@ -1,11 +1,19 @@
-启动页的背景这里主要指冷启动，业务还未加载配置在StartWindow上的背景，其实也与闪屏复用，一来是防止白屏、二来是品牌宣传。
+Android启动页的背景主要指冷启动时windowBackground配置的背景图，这个阶段业务还未加载，配置的背景主要用在StartWindow上，与闪屏复用，一来是防止白屏、二来是品牌宣传。最简单的做法是为windowBackground直接配置一张图
 
-windowBackground为启动图，来避免冷启动时的黑屏，但是如果放一张尺寸的图在某些屏幕上就会出现拉伸，并且windowBackground还不能centerCrop，
+        <item name="android:windowBackground">@drawable/bg_splash_logo</item>
 
-一般做法，
+但是这种方式在不同的屏幕上就会出现不同程度的拉伸，所以后面出现了可以用layer-list配合bitmap灵活控制，
 
+	<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+	    <item android:drawable="@color/white" />
+	    <item>
+	        <bitmap
+	            android:gravity="center"
+	            android:src="@mipmap/bg_splash" />
+	    </item>
+	</layer-list>
 
-启动页背景一般两类，一类是slogon标语+纯色或渐变色背景，一类是全屏图。
+一般来说简约背景+slogon的场景都能满足，但还是有些需求无法满足，启动页背景一般可分两类，一类是slogon标语+纯色或渐变色背景，一类是全屏图的做法，全屏图一般都要求禁止拉伸，这种场景稍微麻烦一点点。
 
 ## slogon标语类启动背景
 
@@ -65,3 +73,4 @@ Android启动背景里的drawable 或者bitmap仅支持
 	    </item>
 	</layer-list>
 		
+如此就可以完成不拉伸全屏启动图适配。		
