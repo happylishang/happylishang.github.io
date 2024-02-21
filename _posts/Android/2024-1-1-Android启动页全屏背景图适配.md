@@ -58,11 +58,15 @@ Android启动背景里的drawable或者bitmap仅支持
 
 正常情况下 默认densityDpi 3.0625 ，修改显示大小后，densityDpi 2.75 ，从而dp数增多，变成360 * (3/2.75)  x  640 *(3/2.75) ,那么XXH文件夹下的图就不够用了，必须准备1200 * 2140才够用，所以说，要让图足够宽，足够长，如下所示
 
-![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/221417c71e554550abda154f07b512fe~tplv-k3u1fbpfcp-jj-mark:0:0:0:0:q75.image#?w=558&h=970&s=44107&e=png&b=bfffff)
+
+
+![image.png](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/0dec778b1fac470b93fc5efca7a070bb~tplv-k3u1fbpfcp-jj-mark:0:0:0:0:q75.image#?w=558&h=970&s=48093&e=png&b=bfffff)
 
 如果有些手机是1080*2200这种非标准屏幕，那也要注意留的足够长。如果是以顶部居中为标准，那就变成如下示意，裁底部：
 
-![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7aea59f1995f4d1d9d56967e0082fff6~tplv-k3u1fbpfcp-jj-mark:0:0:0:0:q75.image#?w=558&h=970&s=39455&e=png&b=bfffff)
+ 
+
+![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/979f24e5f16848278b73bbb9d23e1ce9~tplv-k3u1fbpfcp-jj-mark:0:0:0:0:q75.image#?w=558&h=972&s=44650&e=png&b=bfffff)
 
 首先能保证1080*1920的主流机型不会存在问题，其次冗余边缘区域为其他的尺寸留足了兼容空间，当然也没必要过大，太大的图会拖慢启动速度。
 
