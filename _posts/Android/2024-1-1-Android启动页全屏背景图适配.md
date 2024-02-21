@@ -64,7 +64,6 @@ Android启动背景里的drawable或者bitmap仅支持
 
 如果有些手机是1080*2200这种非标准屏幕，那也要注意留的足够长。如果是以顶部居中为标准，那就变成如下示意，裁底部：
 
- 
 
 ![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/979f24e5f16848278b73bbb9d23e1ce9~tplv-k3u1fbpfcp-jj-mark:0:0:0:0:q75.image#?w=558&h=972&s=44650&e=png&b=bfffff)
 
