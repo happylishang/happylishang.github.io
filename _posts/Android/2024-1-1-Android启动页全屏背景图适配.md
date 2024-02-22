@@ -77,4 +77,19 @@ Android启动背景里的drawable或者bitmap仅支持
 	    </item>
 	</layer-list>
 	
+如果担心更加极端的显示大小，可以铺一个纯色背景兜底，
+
+
+	<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+	    <!-- 防止设置的显示大小过小-->
+    <item android:drawable="@color/white">
+    
+	    <item>
+	        <bitmap
+	            android:gravity="top|center_horizontal"
+	            android:src="@mipmap/bg_splash_top" />
+	    </item>
+	</layer-list>
+	
+	
 如此就可以完成不拉伸全屏启动图适配。		
