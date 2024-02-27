@@ -38,6 +38,7 @@ Worker接口会生成真正的操作系统级别的线程。所以这里的webwo
 
 android 的UI线程相当于  把Js线程跟渲染线程统一了，js中既然是互斥，为何不统一成一个线程呢？
 
+curl -X DELETE -u  happylishang  https://api.github.com/repos/happylishang/bilibili-backup
 
 #### 其他线程
 
