@@ -44,10 +44,6 @@ Thread共享的内存： Heap： GC 垃圾回收的主站场、Method Area：方
 * 该类所有的实例都已经被回收，也就是Java堆中不存在该类的任何实例；
 * 加载该类的ClassLoader已经被回收；
 * 该类对应的java.lang.Class对象没有在任何地方被引用，无法在任何地方通过反射访问该类的方法。
-
- 
-
-
  
 ## **如何处理回收**
 
@@ -89,8 +85,79 @@ Thread共享的内存： Heap： GC 垃圾回收的主站场、Method Area：方
 
 ## Android GC ：页表是虚拟内存与物理内存的映射关键
 
-Android的堆包含Active堆+Zygote堆，采用的是copy-on-write机制，在写Active堆的时候，才会引发缺页中断，真正的为Activie堆分配内存，至于Zygote堆，它的页表是固定的，对应的物理内存也是固定的，不会改变。 
+* Android的堆包含Active堆+Zygote堆，采用的是copy-on-write机制，在写Active堆的时候，才会引发缺页中断，真正的为Activie堆分配内存，至于Zygote堆，它的页表是固定的，对应的物理内存也是固定的，不会改变。 
 
+* 在Java堆分配内存前后，要对Java堆进行加锁和解锁，避免多个线程同时对Java堆进行操作。这分别是通过函数dvmLockHeap和dvmunlockHeap来实现的
+
+
+早期Android四种类的GC：
+	
+	/* Not enough space for an "ordinary" Object to be allocated. */  //分配内存不足导致的GC
+	extern const GcSpec *GC_FOR_MALLOC;  
+	  
+	/* Automatic GC triggered by exceeding a heap occupancy threshold. */   //超过堆占用阈值触发自动GC
+	extern const GcSpec *GC_CONCURRENT;  
+	  
+	/* Explicit GC via Runtime.gc(), VMRuntime.gc(), or SIGUSR1. */    //Runtime.gc(), VMRuntime.gc() 主动触发的GC
+	extern const GcSpec *GC_EXPLICIT;  
+	  
+	/* Final attempt to reclaim memory before throwing an OOM. */  
+	extern const GcSpec *GC_BEFORE_OOM;  
+
+GC_FOR_MALLOC、GC_CONCURRENT和GC_BEFORE_OOM三种类型的GC都是在分配对象的过程触发的，根据是否回收软引用，执行的GC不同
+
+	static void gcForMalloc(bool clearSoftReferences)  
+	{  
+	    ......  
+	  
+	    const GcSpec *spec = clearSoftReferences ? GC_BEFORE_OOM : GC_FOR_MALLOC;  
+	    dvmCollectGarbageInternal(spec);  
+	}  
+
+dvmHeapSourceAlloc成功地在Active堆上分配到一个对象之后，就会检查Active堆当前已经分配的内存（heap->bytesAllocated）是否大于预设的阀值（heap->concurrentStartBytes）如果大于，那么就会通过条件变量gHs->gcThreadCond唤醒GC线程进行垃圾回收。预设的阀值（heap->concurrentStartBytes）是一个比指定的堆最小空闲内存小128K的数值。也就是说，当堆的空闲内不足时，就会触发GC_CONCURRENT类型的GC
+
+GC线程是Dalvik虚拟机启动的过程中创建的，它的执行体函数是gcDaemonThread，实现如下所示：   dvmCollectGarbageInternal(GC_CONCURRENT);  
+
+	static void *gcDaemonThread(void* arg)  
+	{  
+	    dvmChangeStatus(NULL, THREAD_VMWAIT);  
+	    dvmLockMutex(&gHs->gcThreadMutex);  
+	    while (gHs->gcThreadShutdown != true) {  
+	        bool trim = false;  
+	        if (gHs->gcThreadTrimNeeded) {  
+	            int result = dvmRelativeCondWait(&gHs->gcThreadCond, &gHs->gcThreadMutex,  
+	                    HEAP_TRIM_IDLE_TIME_MS, 0);  
+	            if (result == ETIMEDOUT) {  
+	                /* Timed out waiting for a GC request, schedule a heap trim. */  
+	                trim = true;  
+	            }  
+	        } else {  
+	            dvmWaitCond(&gHs->gcThreadCond, &gHs->gcThreadMutex);  
+	        }  
+	  
+	        ......  
+	  
+	        dvmLockHeap();  
+	  
+	        if (!gDvm.gcHeap->gcRunning) {  
+	            dvmChangeStatus(NULL, THREAD_RUNNING);  
+	            if (trim) {  
+	                trimHeaps();  
+	                gHs->gcThreadTrimNeeded = false;  
+	            } else {  
+	                dvmCollectGarbageInternal(GC_CONCURRENT);  
+	                gHs->gcThreadTrimNeeded = true;  
+	            }  
+	            dvmChangeStatus(NULL, THREAD_VMWAIT);  
+	        }  
+	        dvmUnlockHeap();  
+	    }  
+	    dvmChangeStatus(NULL, THREAD_RUNNING);  
+	    return NULL;  
+	}
+
+
+ 非并行GC 并行GC的执行过程。它们的总体流程是相似的，主要差别在于前者在执行的过程中一直是挂起**非GC线程的**，而后者是**有条件地挂起非GC线程**。
 
 ### 参考文档
 
