@@ -1,3 +1,11 @@
+List是个泛型，运行时检查？
+
+        List a = new ArrayList();
+        List<String> b;
+        List<Integer> c = a;    运行错误
+     // List<Integer> d = b;  编译错误 
+
+
 ####  ArrayList [基于数组的链表]初始容量与扩容
 
     private void ensureCapacityInternal(int minCapacity) {
@@ -98,3 +106,4 @@ Deque用作队列：
 	peek	
 
 
+#### HashMap 
