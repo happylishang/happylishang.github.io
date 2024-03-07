@@ -60,7 +60,12 @@ SynchronousQueue可以看成是一个传球手，负责把生产者线程处理�
 
     public static ExecutorService newCachedThreadPool() {
         return new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue());
+        创建一个可缓存线程池，如果线程池长度超过处理需要，可灵活回收空闲线程，若无可回收，则新建线程。
+
+
     }
+    
+    
     
  如果有任务新来了，但是没消费者等，那就新建一个消费者，让他去消费，如果有消费者等着，直接给他。用的offer方法，失败了，就说明线程不够用，消费者都忙着呢。它的size永远返回0
   
@@ -69,3 +74,46 @@ SynchronousQueue可以看成是一个传球手，负责把生产者线程处理�
     }
   
   其实就是没有存储生产物的地方，只会任务转移，手把手转移，SynchronousQueue负责中转，任务的转移，线程池有没有任务在等，有就可以投喂成功，没有就加。
+  
+	      public boolean offer(E e, long timeout, TimeUnit unit) throws InterruptedException {
+	        if (e == null) {
+	            throw new NullPointerException();
+	        } else if (this.transferer.transfer(e, true, unit.toNanos(timeout)) != null) {
+	            return true;
+	        } else if (!Thread.interrupted()) {
+	            return false;
+	        } else {
+	            throw new InterruptedException();
+	        }
+	    }
+	    
+是否可以转交成功， ThreadPoolExecutor 的execute
+
+
+	   public void execute(Runnable command) {
+	        if (command == null) {
+	            throw new NullPointerException();
+	        } else {
+	        <!--未达到核心数，直接创建-->
+	            int c = this.ctl.get();
+	            if (workerCountOf(c) < this.corePoolSize) {
+	                if (this.addWorker(command, true)) {
+	                    return;
+	                }
+	                c = this.ctl.get();
+	            }
+			<!--如果有线程等就给他 workQueue.offer，插入成功-->
+	            if (isRunning(c) && this.workQueue.offer(command)) {
+	                int recheck = this.ctl.get();
+	                if (!isRunning(recheck) && this.remove(command)) {
+	                    this.reject(command);
+	                } else if (workerCountOf(recheck) == 0) {
+	                    this.addWorker((Runnable)null, false);
+	                }
+	                	<!--如果队列插入失败 ，就增加一个线程-->
+	            } else if (!this.addWorker(command, false)) {
+	                this.reject(command);
+	            }
+	        }
+	    }
+对于SynchronousQueue，没有等待的消费者，	    this.workQueue.offer(command)就会失败，只会新建线程。
