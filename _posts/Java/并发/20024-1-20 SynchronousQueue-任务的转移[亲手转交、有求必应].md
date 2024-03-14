@@ -1,4 +1,4 @@
-SynchronousQueue: 生产出来的东西亲自交到消费者手里，否则就等，或者放弃，更像是一个等候站！ 
+SynchronousQueue: 生产出来的东西亲自交到消费者手里，否则就等，或者放弃，更像是一个等候站！ 线程陪着一起等待。
  
 	public class SynchronousQueue<E> extends AbstractQueue<E> implements BlockingQueue<E>, Serializable {
 
