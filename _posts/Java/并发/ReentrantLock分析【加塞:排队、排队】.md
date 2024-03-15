@@ -27,20 +27,19 @@ ReentrantLock本身只实现了Lock、Serializable接口，
 ![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3a2b8ece52c043e2bb8ee2b5e3935340~tplv-k3u1fbpfcp-watermark.image?)
 
 
-
-
-### 加锁流程 -- 公平锁 **即使锁可用，也要看看有没有已经在等待的线程**]
+### ReetrantLock加锁流程--公平锁 **排队优先**
 
 ReentrantLock在使用时候，一般是
 
 	reentrantLock.lock();
+	
 	<!--临界代码-->
 	...
 	reentrantLock.unLock();
 
-先看下公平锁lock的实现
+公平锁lock()函数的实现
 
-	    static final class FairSync extends Sync {
+	 static final class FairSync extends Sync {
 	        private static final long serialVersionUID = -3000897897090466540L;
 	
 	        final void lock() {
@@ -50,27 +49,25 @@ ReentrantLock在使用时候，一般是
 acquire调用的其实是父类AbstractQueuedSynchronizer的acquire方法，acquire进一步调用子类tryAcquire以及自身的acquireQueued，如果无法获取锁，并且满足某些条件则进入睡眠
 
     public final void acquire(int arg) {
-        if (!tryAcquire(arg) &&
-            acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+        if (!tryAcquire(arg) && acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
             selfInterrupt();
     }
 
-如果tryAcquire直接就获取成功的话，是无需睡眠的，tryAcquire逻辑如下
+如果tryAcquire直接就获取成功的话，是无需睡眠的，tryAcquire的作用就像名字一样，试试能不能直接获取到，逻辑如下
 
 	        protected final boolean tryAcquire(int acquires) {
 	            final Thread current = Thread.currentThread();
-	            
 			<!--  获取用于同步的state   private volatile int state; 在AbstractQueuedSynchronizer定义-->
 	            int c = getState();
 	            if (c == 0) {
 	            	<!--判断前面是不是有等待的节点，第一次进来肯定没有，这里也是跟非公平锁相差最大的地方，不是唤醒的节点是抢占的节点-->
 	                if (!hasQueuedPredecessors() &&
-	                    compareAndSetState(0, acquires)) {
+	                    compareAndSetState(0, acquires)) {  //  compareAndSetState(0, acquires)这句只会有一个现成成功
 	                    setExclusiveOwnerThread(current);
 	                    return true;
 	            }} 
 	          <!--另一半流程 可重入逻辑-->
-	         else if (current == getExclusiveOwnerThread()) {
+	           else if (current == getExclusiveOwnerThread()) {
                 int nextc = c + acquires;
                 if (nextc < 0)
                     throw new Error("Maximum lock count exceeded");
@@ -177,7 +174,7 @@ Thread.interrupted()是用来判断是否被设置中断运行，如果被打断
 
 > 备注：**对于已经获取到锁的线程，后续的操作就不需要任何同步处理**，因为就它自己能操作其他的都无法通过CAS更新，那后续也就无需CAS更新，直接赋值即可。
 
-### 加锁流程 -非公平锁 [如果锁可用，上来就抢]
+### 加锁流程 -非公平锁**加塞优先，上来就抢**
              
 
 	   static final class NonfairSync extends Sync {
