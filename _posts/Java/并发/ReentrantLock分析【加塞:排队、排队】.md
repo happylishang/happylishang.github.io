@@ -1,88 +1,33 @@
-## CAS概念：compare-and-swap原子操作
-
-CAS到底是什么，为什么出现？很多文章都说的稀里糊涂，Wiki百科的解释反而是最清晰的
-
-> In computer science, compare-and-swap (CAS) is an atomic instruction used in multithreading to achieve synchronization. It compares the contents of a memory location with a given value and, only if they are the same, modifies the contents of that memory location to a new given value. This is done as a single atomic operation. The atomicity guarantees that the new value is calculated based on up-to-date information; if the value had been updated by another thread in the meantime, the write would fail.
-
-**CAS是一条原子操作指令，用于在多线程编程中实现同步**，CAS本身就是为了多线程同步而出现的，对于单线程编程没有任何意义。在同步上，CAS的立足点是**共享变量**，依赖硬件指令，保证了比较+修改的原子性，每次利用CAS写的时候，都要确保之前GET值未被修改，否则更新失败，该操作可以保证写操作都是基于最新的值计算而来，避免了GET->SET之间线程被被打断而引发的风险。
-
-## AtomicBoolean如何利用CAS实现无锁同步
-
-CAS本身的定位是**原子操作**，不具备锁或者synchronization的能力，但它是构建锁的一种非常好的工具，compare-and-swap的原子性为实现synchronization提供了契机：多个线程利用CAS更新一个值时，只有一个会成功，成功代表已获取锁，失败的代表竞争失败，失败的线程可以选择自旋等待或者睡眠等待，**这就是锁的概念**。可以参考利用AtomicBoolean实现的一个无锁并发编程：先看下在没有锁的情况下会有什么表现：
-
-	 <!--无锁编程：多线程 CPU忙等待-->
-	static volatile boolean condition=false;
-	  @Override
-	    public void run() {
-	        if (!condition) {
-	         <!--这里有漏洞可以钻，切走-->
-	           condition = true;
-	         <!--临界操作-->
-	         condition = false;
-	        } }
-	        
-多线程执行如上逻辑时，会存在问题，如果线程A恰好在执行condition = true这条操作前之前被切走了，还没来得及更新condition，那么其他线程也同样可以满足 if (!condition) ，从而进入临界区，出现多个线程访问临界区从情况。究其原因就是对于condition 的get、compare、set是分开的，如若借助CAS就可以避免上述问题，原子类就是利用CAS实现的类，通过这种类可以修复上述风险：
-
-    static  AtomicBoolean  condition = new AtomicBoolean(false);
-	  @Override
-    public void run() {
-    <!--默认false，谁设置为true谁获得成功-->
-        if (!condition.getAndSet(true)) {
-           <!--临界资源操作-->
-           ...           
-           <!--恢复-->
-           condition.set(false)
-        }  
-    }
-    
-AtomicBoolean的getAndSet保证了GET->SET的原子性，中间没有中断，因而不会存在多个线程同时满足 **if (!condition.getAndSet(false, true))**的情况，一定存在且只存在一个线程在某个时间点满足条件。而AtomicBoolean如何实现的呢？其实就是利用CAS+自旋完成的
-
-    //AtomicBoolean.java
-    private static final long VALUE;
-    <!--CAS必须跟volatile一起使用，否则由于内存一致性的问题存在，可能导致多个线程同时获取锁-->
-    private volatile int value;
-    public final boolean getAndSet(boolean var1) {
-        boolean var2;
-        do {
-            var2 = this.get();
-        } while(!this.compareAndSet(var2, var1));
-       return var2;
-    }
-
-compareAndSet通过Java中的Unsafe类实现，核心原则就是只有一个线程能够成功！
-   
-	    public final boolean compareAndSet(boolean expect, boolean update) {
-	        return U.compareAndSwapInt(this, VALUE,
-	                                   (expect ? 1 : 0),
-	                                   (update ? 1 : 0));
-	    }
-
-    
-Unsafe底层在不同平台实现各不相同，不需要过多关心。综上所述，**CAS其实只能提供原子操作能力，需要CAS配合自旋能才能达到类似synchronization同步锁的目的**，不过这种锁是忙等待，**如果临界区执行比较耗时，其他任务会一直轮训等待，可能会造成CPU负担过重**，不过是睡眠还是自旋这个要有权衡，因为线程的睡眠唤醒也是有成本的。
-
 
 ## Java框中的AbstractQueuedSynchronizer[AQS队列同步器]框架：有锁同步[睡眠与唤起]
 
-AbstractQueuedSynchronizer[**队列同步器**]是并发包的核心，或者说抽象队列同步器就是锁的本体。ReentrantLock、Semaphore(做流量控制)等都是借助AQS模板实现的，而AQS也是借助CAS与同步队列实现的，AQS会把请求获取锁失败的线程放入一个队列的尾部，然后**睡眠**。加锁仍旧是借助CAS完成，CAS保证只会有一个线程获取锁成功，失败的就进入睡眠，下面借助ReentrantLock【**可重入的互斥锁**】来看下AbstractQueuedSynchronizer框架的实现，ReentrantLock是一种常用的Java锁，支持公平与非公平两种模式，公平锁与非公平锁的区别是**是否一直遵守先来后到**，公平锁：直接进入等待队列，先进入先唤醒，而非公平锁支持**先来一次抢断，抢断不成功，再退化成排队**。实现如下：
+ReentrantLock是一种常用的Java锁，支持公平与非公平两种模式，公平锁与非公平锁的区别是**是否一直遵守先来后到**，公平锁：直接进入等待队列，先进入先唤醒，而非公平锁支持**先来一次抢断【加塞】，抢断【加塞】不成功，再退化成排队**。ReentrantLock 是基于AbstractQueuedSynchronizer框架实现的，AbstractQueuedSynchronizer[**队列同步器**]是并发包的核心，或者说抽象队列同步器就是锁的本体。
 
-> 非公平锁类似于强制加塞+交警执法，加塞成功，直接抢断，加塞失败，被罚到后面排队
+除了ReentrantLock、Semaphore(做流量控制)等也是借助AQS模板实现的，而AQS也是借助CAS与同步队列实现的，**AQS会把请求获取锁失败的线程放入一个队列的尾部**，然后**睡眠**。加锁是借助CAS完成，CAS保证只会有一个线程获取锁成功，失败的就进入睡眠。
 
+ReentrantLock本身只实现了Lock、Serializable接口，
 
-首先看下**ReentrantLock**的构造函数，很明显可以看出，ReentrantLock默认无参构造方法实现的是非公平锁
+	public class ReentrantLock implements Lock, Serializable {
+
+它采用的是组合模式，而不是简单的继承，内部有个静态抽象内部类Sync，继承AbstractQueuedSynchronizer，负责AQS框架的部分：
+	
+      abstract static class Sync extends AbstractQueuedSynchronizer {
+    
+看下**ReentrantLock**的构造函数，ReentrantLock默认无参构造方法跟有参方法：
 
     public ReentrantLock() {
         sync = new NonfairSync();
     }
-
-如果需要使用公平锁，则需要使用有参构造函数
-
     public ReentrantLock(boolean fair) {
         sync = fair ? new FairSync() : new NonfairSync();
     }
-
-NonfairSync与FairSync均继承自ReentrantLock中的静态内部类Sync类，结构
+    
+默认非公平，如果需要使用公平锁，则需要使用有参构造函数，NonfairSync与FairSync均继承自ReentrantLock中的静态内部类Sync类 ，负责承担AQS的作用。
 
 ![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3a2b8ece52c043e2bb8ee2b5e3935340~tplv-k3u1fbpfcp-watermark.image?)
+
+
+
 
 ### 加锁流程 -- 公平锁 **即使锁可用，也要看看有没有已经在等待的线程**]
 
@@ -372,223 +317,3 @@ ReentrantLock的Condition用来处理生产者-消费者（producer-consumer）�
 	   } 
 	 }
 	 
-	
-
-## notify() 方法随机唤醒对象的等待池中的一个线程，进入锁池；notifyAll() 唤醒对象的等待池中的所有线程，进入锁池。
-
-在Condition上调用 await() 方法使线程等待，其他线程调用signal() 或 signalAll() 方法唤醒等待的线程  wait一般用于Synchronized中，而await只能用于ReentrantLock锁中
-
-1.Condition中的await()方法相当于Object的wait()方法，Condition中的signal()方法相当于Object的notify()方法，Condition中的signalAll()相当于Object的notifyAll()方法。
-不同的是，Object中的这些方法是和同步锁捆绑使用的；而Condition是需要与互斥锁/共享锁捆绑使用的。
-
-2.Condition它更强大的地方在于：能够更加精细的控制多线程的休眠与唤醒。对于同一个锁，我们可以创建多个Condition，在不同的情况下使用不同的Condition
-
-
-
-## synchronized锁的实现
-
-
-**多个线程访问同一段代码**的时候，如果需要互斥访问某些资源，则需要同步 ，如果只是一个线程访问，无需
-
-synchronized 内置锁 是一种 对象锁（锁的是对象而非引用变量），作用粒度是对象 ，可以用来实现对 临界资源的同步互斥访问 ，是 可重入 的
-
-monitorenter
-
-monitorexit
-
-
-## synchronized与Lock的区别
-
-1）Lock是一个接口，而synchronized是Java中的关键字，synchronized是内置的语言实现；
-2）当synchronized块结束时，会自动释放锁，lock一般需要在finally中自己释放。synchronized在发生异常时，会自动释放线程占有的锁，因此不会导致死锁现象发生；而Lock在发生异常时，如果没有主动通过unLock()去释放锁，则很可能造成死锁现象，因此使用Lock时需要在finally块中释放锁；
-3）lock等待锁过程中可以用interrupt来终端等待，而synchronized只能等待锁的释放，不能响应中断。
-4）lock可以通过trylock来知道有没有获取锁，而synchronized不能； 
-	    5. 当synchronized块执行时，只能使用非公平锁，无法实现公平锁，而lock可以通过new ReentrantLock(true)设置为公平锁，从而在某些场景下提高效率。
-
-6、LLock可以提高多个线程进行读操作的效率。（可以通过readwritelock实现读写分离）
-7、synchronized 锁类型 可重入 不可中断 非公平 而 lock 是： 可重入 可判断 可公平（两者皆可） 
-在性能上来说，如果竞争资源不激烈，两者的性能是差不多的，而当竞争资源非常激烈时（即有大量线程同时竞争），此时Lock的性能要远远优于synchronized。所以说，在具体使用时要根据适当情况选择。 
-
-## CAS的ABA问题
-
-
-## AtomicInteger中volatile value作用 但是解决不了i++类原子操作的问题
-
-### volatile 可以保证可见性
-
-：启动两个线程，一个线程修改static 变量，另一个线程读取该变量，看看volatile变量的作用
-
-	public class VolatileTest {
-	    final static int COUNT = 5;
-	    static int value = 0;
-	    public static void main(String[] args) {
-	        new Thread(() -> {
-	            int tmp = value;
-	            while (tmp < COUNT) {
-	            <!--读取并使用-->
-	                if (value != tmp) {
-	                    tmp = value;
-	                    System.out.print("\n R "+value + " "+tmp);
-	                }
-	            }
-	        }, "R").start();
-	        new Thread(() -> {
-	            while (value < COUNT) {
-	                value ++;
-	                System.out.print("\n W "+value);
-	                try {
-	                    TimeUnit.SECONDS.sleep(1);
-	                } catch (Exception e) {
-	                }
-	            }
-	        }, "W").start();
-	    }
-	}
-	
-输出可能是如下情况：	
-
-	 W 1
-	 R 1 1
-	 W 2
-	 W 3
-	 W 4
-	 W 5
-	 结束
-	 
-可以看到写线程已经将静态变量value更新成了5，但是R线程中看到的value依旧是1，所以R线程可能就在那个地方死循环了，为value加上volatile之后呢？
-
-	    static volatile  int value = 0;
-
-之后输出会变成理想情况：
-
-	 W 1
-	 R 1 1
-	 W 2
-	 R 2 2
-	 W 3
-	 R 3 3
-	 W 4
-	 R 4 4
-	 W 5
-	 R 5 5
-	Process finished with exit code 0
-
-所以volatile修饰的变量其可见性会很时时，一个线程修改后，另一个线程会再次用的时候会立即可见。
-
-### 防止指令重排
-
-public class NoVisibility {
-    private static boolean ready = false;
-    private static int number = 0;
-
-    private static class ReaderThread extends Thread {
-        @Override
-        public void run() {
-            while (!ready) {
-                Thread.yield(); //交出CPU让其它线程工作
-            }
-            System.out.println(number);
-        }
-    }
-
-    public static void main(String[] args) {
-        new ReaderThread().start();
-        number = 42;
-        ready = true;
-    }
-}
-
-在单一线程中，只要重排序不会影响到程序的执行结果，那么就不能保证其中的操作一定按照程序写定的顺序执行，即使重排序可能会对其它线程产生明显的影响。
-
-
-### synchroniz关键字也能保证可见性
-
-即当ThreadA释放锁M时，它所写过的变量（比如，x和y，存在它工作内存中的）都会同步到主存中，而当ThreadB在申请同一个锁M时，ThreadB的工作内存会被设置为无效，然后ThreadB会重新从主存中加载它要访问的变量到它的工作内存中（这时x=1，y=1，是ThreadA中修改过的最新的值）。通过这样的方式来实现ThreadA到ThreadB的线程间的通信。
-
- 
-
-
-## 无锁编程与乐观锁
-
-CAS：Compare and Swap，比较再交换，从硬件上说，是一条指令，执行两个动作，为什么要这样做：**因为有时候需要这样来达到及时更新，从而用于无锁编程。**，所以CAS背后其实透露的是一种无锁算法。
-
-
-
-CAS到底是什么？是一种操作还是一种思想，还是一个指令
-
-CAS算法
-
-
-，。
-
-无锁编程，即不使用锁的情况下实现多线程之间的变量同步，也就是在没有线程被阻塞的情况下实现变量的同步，所以也叫非阻塞同步（Non-blocking Synchronization）。
-
-
-
-compareAndSwapInt本身是原子操作，不阻塞，本身没有自旋属性，需要外部添加do while才能达到自旋的作用
-
-
-
-
-
-
-
-
-
-
-AtomicBoolean这些类只是提供原子操作的类，本身不算锁，而且本身的初衷是无锁编程，不存在GET，
-
-
-
-	// Unsafe.java
-	public final int getAndAddInt(Object o, long offset, int delta) {
-	   int v;
-	   do {
-	       v = getIntVolatile(o, offset);
-	   } while (!compareAndSwapInt(o, offset, v, v + delta));
-	   return v;
-	}
-	 
-	private static final Unsafe unsafe = Unsafe.getUnsafe();
-    private static final long valueOffset;
-
-    static {
-      try {
-        valueOffset = unsafe.objectFieldOffset
-            (AtomicReference.class.getDeclaredField("value"));
-      } catch (Exception ex) { throw new Error(ex); }
-    }
-
-    private volatile V value;
-
-    /**
-     * Creates a new AtomicReference with the given initial value.
-     *
-     * @param initialValue the initial value
-     */
-    public AtomicReference(V initialValue) {
-        value = initialValue;
-    }
-
-    /**
-     * Creates a new AtomicReference with null initial value.
-     */
-    public AtomicReference() {
-    }
-    
-     
-getAndAddInt()循环获取给定对象o中的偏移量处的值v，然后判断内存值是否等于v。如果相等则将内存值设置为 v + delta，否则返回false，继续循环进行重试，直到设置成功才能退出循环，并且将旧值返回。 整个“比较+更新”操作封装在compareAndSwapInt()中，在JNI里是借助于一个CPU指令完成的，属于原子操作，可以保证多个线程都能够看到同一个变量的修改值。CPU操作成功会里用MESI内存一致模型，让其同步，
-
-后续JDK通过CPU的cmpxchg指令，去比较寄存器中的 A 和 内存中的值 V。如果相等，就把要写入的新值 B 存入内存中。如果不相等，就将内存值 V 赋值给寄存器中的值 A。然后通过Java代码中的while循环再次调用cmpxchg指令进行重试，直到设置成功为止。
-
- 
-    System.out.print("普通原子类无法解决ABA问题： ");
-            System.out.println(atomicReference.compareAndSet("A", "C") + "\t" + atomicReference.get());
-            System.out.print("版本号的原子类解决ABA问题： ");
- 
-#  synchronized锁原理
- 
- Java早期版本中，synchronized属于重量级锁，效率低下，因为监视器锁（monitor）是依赖于底层的操作系统的Mutex Lock来实现的，而操作系统实现线程之间的切换时需要从用户态转换到核心态，这个状态之间的转换需要相对比较长的时间，时间成本相对较高，这也是为什么早期的synchronized效率低的原因。庆幸的是在Java 6之后Java官方对从JVM层面对synchronized较大优化，所以现在的synchronized锁效率也优化得很不错了，Java 6之后，为了减少获得锁和释放锁所带来的性能消耗，引入了轻量级锁和偏向锁，
- 
- 
- 

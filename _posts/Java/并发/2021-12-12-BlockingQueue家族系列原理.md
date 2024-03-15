@@ -3,9 +3,9 @@
 BlockingQueue的定义：A Queue that additionally supports operations that wait for the queue to become non-empty when retrieving an element, and wait for space to become available in the queue when storing an element. 即BlockingQueue是一个支持阻塞的队列，如果添加时已满，或者获取是为空，都支持阻塞等待，在Java并发包中BlockingQueue是一个接口，并且满足线程安全，任何实现该接口的类都应该满足该要求，并提供上述的阻塞功能。Java中实现该接口的类有：
 
 * ArrayBlockingQueue	一个由数组结构组成的有界阻塞队列。
-* SynchronousQueue	一个不存储元素的阻塞队列，即直接提交给线程不保持它们
-* LinkedBlockingQueue	一个由链表结构组成的可选有界阻塞队列。
-* PriorityBlockingQueue	一个支持优先级排序的无界阻塞队列。
+* SynchronousQueue	一个不存储元素的阻塞队列，即直接提交给线程不保持它们,亲手转交、有求必应, **必须有人等着娶她，没人等，就等待有人来娶她**
+* LinkedBlockingQueue	一个由链表结构组成的**可选有界**阻塞队列。
+* PriorityBlockingQueue	一个支持优先级排序的**无界阻塞**队列。
 * DelayQueue	一个使用优先级队列实现的无界阻塞队列，只有在延迟期满时才能从中提取元素。
 * LinkedTransferQueue	一个由链表结构组成的无界阻塞队列。与SynchronousQueue类似，还含有非阻塞方法。
 

@@ -132,4 +132,4 @@ SynchronousQueue可以看成是一个传球手，负责把生产者线程处理�
 	            }
 	        }
 	    }
-对于SynchronousQueue，没有等待的消费者，	    this.workQueue.offer(command)就会失败，只会新建线程。
+对于SynchronousQueue，没有等待的消费者，	    this.workQueue.offer(command)就会失败，只会新建线程。[]()
