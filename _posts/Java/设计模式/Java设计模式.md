@@ -77,3 +77,6 @@
 	}
 	
 ### 工厂模式	
+
+
+参考文档：https://www.cnblogs.com/pony1223/p/7608955.html
