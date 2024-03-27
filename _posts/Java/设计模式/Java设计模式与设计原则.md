@@ -200,38 +200,78 @@ Android 里ListView用适配器模式的目的就是让listview的每个item可�
  
 其实也蛮 组合、也蛮像桥接，只不过代理要求与被代理的对象功能基本一致，参考Android的Binder框架，那个远程代理更有代理的意义。
 
-### 模板模式 
+### 模板模式 ：行为型模式
+
+有些时候我们做某几件事情的步骤都差不多，仅有那么一小点的不同，在软件开发的世界里同样如此，如果我们都将这些步骤都一一做的话，费时费力不讨好。所以我们可以将这些步骤分解、封装起来，然后利用继承的方式来继承即可，当然不同的可以自己重写实现嘛！这就是模板方法模式提供的解决方案。
+
+* 第一步
+* 第二步
+* 第三步
 
 
-* 亨元（蝇量）模式：通过共享技术来有效的支持大量细粒度的对象。
-* 
-* 外观模式：对外提供一个统一的方法，来访问子系统中的一群接口。
-* 
-* 桥接模式：将抽象部分和它的实现部分分离，使它们都可以独立的变化。
-* 
+### 策略模式：一个类的行为或其算法可以在运行时更改。这种类型的设计模式属于行为型模式
 
-* 
-* 模板模式：定义一个算法结构，而将一些步骤延迟到子类实现。
-* 
-* 解释器模式：给定一个语言，定义它的文法的一种表示，并定义一个解释器。
-* 
-* 策略模式：定义一系列算法，把他们封装起来，并且使它们可以相互替换。
-* 
-* 状态模式：允许一个对象在其对象内部状态改变时改变它的行为。
-* 
-* 观察者模式：对象间的一对多的依赖关系。
-* 
-* 备忘录模式：在不破坏封装的前提下，保持对象的内部状态。
-* 
-* 中介者模式：用一个中介对象来封装一系列的对象交互。
-* 
-* 命令模式：将命令请求封装为一个对象，使得可以用不同的请求来进行参数化。
-* 
-* 访问者模式：在不改变数据结构的前提下，增加作用于一组对象元素的新功能。
-* 
-* 责任链模式：将请求的发送者和接收者解耦，使的多个对象都有处理这个请求的机会。
-* 
-* 迭代器模式：一种遍历访问聚合对象中各个元素的方法，不暴露该对象的内部结构。
+参考线程池的拒绝策略，其实就是面向接口编程的另一种应用：RejectedExecutionHandler
+
+		 public ThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory, RejectedExecutionHandler handler) {
+ 
+ 
+### 观察者模式：对象间的一对多的依赖关系 -行为型设计模式
+
+它定义了一种一对多的依赖关系，当一个对象的状态发生改变时，其所有依赖者都会收到通知并自动更新。
+
+	view.setOnClickListenerr
+ 
+ 或者各种自定义Listener
+ 
+### 责任链模式：将请求的发送者和接收者解耦，使的多个对象都有处理这个请求的机会。 行为：传递
+ 
+在这种模式中，通常每个接收者都包含对另一个接收者的引用。如果一个对象不能处理该请求，那么它会把相同的请求传给下一个接收者，依此类推。
+ 
+ 有个传递关系，一般而言，如果前面的处理了后面的可以不处理，当然也可以都处理，都处理就比较像一堆listener，或者说也可以做过滤，Error Info debug等输出不同。
+ 
+###  迭代器模式：一种遍历访问聚合对象中各个元素的方法，不暴露该对象的内部结构。
+
+迭代器模式（Iterator Pattern）是 Java 和 .Net 编程环境中非常常用的设计模式。这种模式用于顺序访问集合对象的元素，不需要知道集合对象的底层表示。
+
+	public interface Iterator {
+	   public boolean hasNext();
+	   public Object next();
+	}
+		 
+采用内部实现类：内部类可以直接用外部类的东西，但是不能是静态内部类，静态内部类是独立的，只是简单的标识一下归属性或者使用范围。**static nested classes.   inner classes.**
+  
+    public class NameRepository implements Container {
+	   public String[] names = {"Robert" , "John" ,"Julie" , "Lora"};
+	 
+	   @Override
+	   public Iterator getIterator() {
+	      return new NameIterator();
+	   }
+	 
+	   private class NameIterator implements Iterator {
+	 
+	      int index;
+	      @Override
+	      public boolean hasNext() {
+	         if(index < names.length){
+	            return true;
+	         }
+	         return false;
+	      }
+	 
+	      @Override
+	      public Object next() {
+	         if(this.hasNext()){
+	            return names[index++];
+	         }
+	         return null;
+	      }     
+	   }
+	}
+
+### 命令模式：将命令请求封装为一个对象，使得可以用不同的请求来进行参数化。
+
 
 
 
