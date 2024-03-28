@@ -35,8 +35,8 @@ List是个泛型，运行时检查？
         // minCapacity is usually close to size, so this is a win:
         elementData = Arrays.copyOf(elementData, newCapacity);
     }
-    
-        /**
+
+     /**
      * Default initial capacity.
      */
     private static final int DEFAULT_CAPACITY = 10;
