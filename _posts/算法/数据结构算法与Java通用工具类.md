@@ -478,9 +478,11 @@ Hash冲突，如何查找，Key的hash值相同，还要对比Key本身是否相
 ![](https://imgconvert.csdnimg.cn/aHR0cHM6Ly9pbWdlZHUubGFnb3UuY29tLzE1ODAzMzItMjAxOTA4MTYyMDA1MzA1NTAtODg5MTcwODExLnBuZw?x-oss-process=image/format,png#pic_center)
 
 
-####  HashMap 的底层数组长度为何总是2的n次方
+####  HashMap 的底层数组长度为何总是2的n次方:  **即使自己定义容量，也是会向2的n次方对齐**
+
+参考文档[https://blog.csdn.net/jack_ang/article/details/105383999](https://blog.csdn.net/jack_ang/article/details/105383999)
  
- 为何高效，碰撞少，计算快，位与操作替代取模操作。
+为何高效，碰撞少，计算快，位与操作替代取模操作。
  
 * HashMap根据用户传入的初始化容量，利用无符号**右移和按位或运算等方式计算出第一个大于该数的2的幂**。使数据分布均匀，减少碰撞
 * 当length为2的n次方时，**h&(length - 1) 就相当于对length取模**，而且在速度、效率上比直接取模要快得多。
@@ -671,17 +673,18 @@ split缩减到6 才转为链表，但是如果增长，要扩展到8才能转红
 *  如果黑色，没有孩子，兄弟也是黑色，并且兄弟有红色孩子，旋转+变色可以搞定
 *  如果黑色，没有孩子，兄弟也是黑色，并且兄弟没有红色孩子，兄弟变红，加上溯到爷爷，少了一个黑色，此时最复杂回溯，但是不一定需要到顶。
 
+![image.png](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/cbe8cb22308c4fa1b78cbb331838edec~tplv-k3u1fbpfcp-jj-mark:0:0:0:0:q75.image#?w=1410&h=530&s=198613&e=png&b=ffffff)
+
+其中4最复杂，需要将叔叔节点变红，然后向上回溯，最多回溯到parent是root。
+
 ![](https://img-blog.csdnimg.cn/20191011193343281.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQwODQzODY1,size_16,color_FFFFFF,t_70)
 
-上溯
 
-
-调整红黑的理由是一边比另一边多，一定是另一边多，因为删除了黑色，那么一定少了
-
+调整红黑的理由是一边比另一边多，一定是另一边多，因为删除了黑色，那么一定少了，删除是固定的，调整是后续，**调整一定是双黑，双黑才需要调整。**
 ### 总结 
 
 * 平衡二叉树的重点是平衡，但是严格平衡的代价大，平衡重要是最后递归balance
-* 红黑的插入，没办法降低了才升，孩子的红尽量不变
+* **红黑的插入，没办法降低了才升，孩子的红尽量不变**
 * 红黑的删除，双黑是麻烦双黑的自己，双黑的叔叔，叔叔变红，**黑爷爷**回溯，NIL代表权值0，黑色或者红色为1，
 
 
