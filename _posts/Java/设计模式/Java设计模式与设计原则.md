@@ -102,32 +102,50 @@
 	}
 	
 
-	枚举方法可以保证安全，防止反射
+枚举方法可以保证安全，防止反射?
 		
 	class SingleTonEnumClass {
+	    
 	    //    不会上来就构建对象
+	    
 	    public static SingleTonEnumClass getInstance() {
 	        return SingleTonEnum.INSTANCE.ob;
 	    }
 	
 	    private SingleTonEnumClass() {
+	    
 	    }
-	
-	    //    枚举同静态内部类类似，可以实现加载线程安全
+
+	    //  枚举同静态内部类类似，可以实现加载线程安全
 	    //  枚举类型是线程安全的，并且只会装载一次，只会装装载一次
+	    
 	    enum SingleTonEnum {
+	        
 	        INSTANCE;
+	        <!--注意这里是属性值，不是静态的，是对象的，跟着唯一的枚举对象绑定-->
 	        SingleTonEnumClass ob;
 	
 	        // jvm 保证enum 的SingleTonEnum的构造方法只执行一次
+	        <!--但是能够保证SingleTonEnumClass一次吗？不能-->
 	        SingleTonEnum() {
+	        <!--构建的方式在构造方法里-->
 	            ob = new SingleTonEnumClass();
 	        }
-	
 	    }
 	}
 
+
+感觉上面的不对，应是枚举对象本身是单利，而不是枚举对象的一个属性，枚举的自己无法new，但是其他对象是可以的。所以直接用枚举 本身，由于是单利，其函数本身无所谓其他实例的对象，只要提供相应的方法即可，没有必要再转接一遍。单利，单利，一个进程中只能存在一个的对象。
+	
+	public enum Singleton {  
+	    // jvm 保证enum 的SingleTonEnum的构造方法只执行一次
+	    INSTANCE;  
+	}  
+	    
+
+
 除枚举方式外, 其他方法都会通过反射的方式破坏单例,反射是通过调用构造方法生成新的对象，所以如果我们想要阻止单例破坏，可以在构造方法中进行判断，若已有实例, 则阻止生成新的实例。如果单例类实现了序列化接口Serializable, 就可以通过反序列化破坏单例，所以我们可以不实现序列化接口,如果非得实现序列化接口，可以重写反序列化方法readResolve(), 反序列化时直接返回相关单例对象
+
 
 ### 工厂设计模式
 
