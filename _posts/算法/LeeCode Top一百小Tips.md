@@ -624,3 +624,26 @@ Arrays.asList(nums[j], nums[t])
 	    }
 	
 	
+## ✔	[48]旋转图像	76.0%	Medium	0.0%
+
+给定一个 n × n 的二维矩阵 matrix 表示一个图像。请你将图像顺时针旋转 90 度。
+
+
+> 存在公式 ，转换公式
+[i][j] =[j][n-1-i] ，矩形，只有四步
+
+
+        //    [i][j] [j][n-j-1]
+        int n=matrix.length;
+        for (int i = 0; i < matrix.length / 2; i++) {
+            for (int j = i; j < matrix.length - i - 1; j++) {
+                int tmp1 = matrix[j][n - 1 - i];
+                matrix[j][n - 1 - i] = matrix[i][j];
+                int tmp2 = matrix[n - 1 - i][n - 1 - j];
+                matrix[n - 1 - i][n - 1 - j] = tmp1;
+                tmp1 = matrix[n - 1 - j][i];
+                matrix[n - 1 - j][i] = tmp2;
+                matrix[i][j] = tmp1;
+            }
+        }
+    }
