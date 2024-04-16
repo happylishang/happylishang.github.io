@@ -647,3 +647,57 @@ Arrays.asList(nums[j], nums[t])
             }
         }
     }
+    
+##     不同的二叉搜素数  
+
+动态规划
+
+
+    public int numTrees(int n) {
+        if (n == 0) return 0;
+        if (n == 1) return 1;
+        int sum = 0;
+        int[] dp = new int[n + 1];
+        dp[0] = 0;
+        dp[1] = 1;
+        for (int i = 2; i <= n; i++) {
+            dp[i] = 0;
+            for (int j = 1; j <= i; j++) {
+                dp[i] += Math.max(1, dp[j - 1]) * Math.max(1, dp[i - j]);
+            }
+
+        }
+        return dp[n];
+    }
+    
+    
+    
+##     搜索二叉树的判断
+
+> 找最左边，左右边
+
+	 public boolean isValidBST(TreeNode root) {
+	        if (root == null) return true;
+	
+	        if (root.left != null && findMax(root.left) >= root.val) {
+	            return false;
+	        }
+	        if (root.right != null && findMin(root.right) <= root.val) {
+	            return false;
+	        }
+	        return isValidBST(root.left) && isValidBST(root.right);
+	    }
+	
+	    int findMax(TreeNode root) {
+	        while (root != null) {
+	            if (root.right != null) root = root.right;
+	            else return root.val;
+	        } return -1;
+	    }
+	
+	    int findMin(TreeNode root) {
+	        while (root != null) {
+	            if (root.left != null) root = root.left;
+	            else return root.val;
+	        } return -1;
+	    }
