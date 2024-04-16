@@ -83,7 +83,7 @@
 	        }
 	        return max;
 	    }
-### 4 寻找两个正序数组的中位数	 算法的时间复杂度应该为 O(log (m+n))
+### 4 寻找两个正序数组的中位数	 算法的时间复杂度应该为 O(log (m+n))   左边占一半 。。
 
 
 给定两个大小分别为 m 和 n 的正序（从小到大）数组 nums1 和 nums2。请你找出并返回这两个正序数组的 中位数 。
@@ -91,6 +91,8 @@
 > 题解，看到时间复杂度，就可以猜测二分查找， 
 
 如果没有， 限制我们可以用 O(m+n) 的算法解决， 很简单，双指针，哪个往前走。
+ 
+ 
  
 ### 5  给你一个字符串 s，找到 s 中最长的回文子串。 最长子串，dp
 
@@ -125,12 +127,48 @@
 	    }
 	    
 	    
-### ✔	正则表达式匹配	30.7% Hard：动态规划
+### ✔	正则表达式匹配	30.7% Hard：动态规划 不太容易理解
 
 给你一个字符串 s 和一个字符规律 p，请你来实现一个支持 '.' 和 '*' 的正则表达式匹配。
 
 '.' 匹配任意单个字符
 '*' 匹配零个或多个前面的那一个元素
+'.' 和 '*'
+s 只包含从 a-z 的小写字母，p是模式 才包含'.' 和 '*'
+
+
+要好好理解正则，跟零个的意思，零个、一个、多个 
+
+	   public boolean isMatch(String s, String p) {
+	
+	        boolean[][] dp = new boolean[s.length() + 1][p.length() + 1];
+	        dp[0][0] = true;
+	
+	        for (int i = 1; i <= p.length(); i++) {
+	            dp[0][i] = ((i - 2 >= 0 && dp[0][i - 2]) || dp[0][i - 1]) && (p.charAt(i - 1) == '*');
+	        }
+	        for (int i = 1; i <= s.length(); i++) {
+	            dp[i][0] = false;
+	        }
+	
+	        for (int i = 1; i <= s.length(); i++) {
+	            for (int j = 1; j <= p.length(); j++) {
+	                if (p.charAt(j - 1) == '.') {
+	                    dp[i][j] = dp[i - 1][j - 1];
+	                } else if (p.charAt(j - 1) == '*') {
+	//                    0个或者多个前面的字符
+	                    dp[i][j] = (j - 2 >= 0 && dp[i][j - 2])
+	                            || dp[i][j - 1]
+	                            || (dp[i - 1][j] && (s.charAt(i - 1) == p.charAt(j - 2)
+	                            || p.charAt(j - 2) == '.')); //注意多个的条件要表述清楚，多个的时候，是怎么样的 
+	                } else {
+	                    dp[i][j] = s.charAt(i - 1) == p.charAt(j - 1) && dp[i - 1][j - 1];
+	                }
+	            }
+	        }
+	        return dp[s.length()][p.length()];
+	    }
+	    
 
 # ✔	盛最多水的容器 ，主要是题目的理解 **双指针 **?
 
@@ -622,8 +660,86 @@ Arrays.asList(nums[j], nums[t])
 	
 	        return new int[]{finA, finB};
 	    }
+
+### 组合总数 回溯
+
+包含的跟不包含
+
+	public static List<List<Integer>> combinationSum(int[] candidates, int target) {
+	        List<List<Integer>> list = new ArrayList<>();
+	        int count = 1;
+	        if(candidates==null || candidates.length==0) return list;
+	        while (target >= count * candidates[0]) {
+	            if (target == count * candidates[0]) {
+	                Integer[] ar = new Integer[count];
+	                Arrays.fill(ar, candidates[0]);
+	                list.add(Arrays.asList(ar));
+	            } else {
+	                List<List<Integer>> tmp = combinationSum(Arrays.copyOfRange(candidates, 1, candidates.length), target - count * candidates[0]);
+	                Integer[] ar = new Integer[count];
+	                Arrays.fill(ar, candidates[0]);
+	                List<Integer> tL = Arrays.asList(ar);
+	                for (List<Integer> item : tmp) {
+	                    ArrayList<Integer> c = new ArrayList<>(item);
+	                    c.addAll(tL);
+	                    list.add(c);
+	                }
+	            }
+	            count++;
+	        }
+	        List<List<Integer>> tmp2 = combinationSum(Arrays.copyOfRange(candidates, 1, candidates.length), target);
+	        if (!tmp2.isEmpty()) {
+	            list.addAll(tmp2);
+	        }
+	        return list;
+	    }
+
+## ✔	[42]接雨水	63.4%	Hard	0.0%
+
+考察的单调栈 ，左右两侧最大值中的最小
+
+	public int trap(int[] height) {
+	        Stack<Integer> stack = new Stack<>();
+	        int[] left = new int[height.length];
+	        int[] right = new int[height.length];
+	        stack.push(height[0]);
+	        left[0] = height[0];
+	        for (int i = 1; i < height.length - 1; i++) {
+	            if (height[i] > stack.peek()) {
+	                while (!stack.isEmpty() && stack.peek() < height[i]) {
+	                    stack.pop();
+	                }
+	                if (stack.isEmpty())
+	                    stack.push(height[i]);
+	            }
+	            left[i] = stack.peek();
+	        }
+	        stack.clear();
+	        right[height.length - 1] = height[height.length - 1];
+	        stack.push(height[height.length - 1]);
+	        for (int i = height.length - 2; i > 0; i--) {
+	            if (height[i] > stack.peek()) {
+	                while (!stack.isEmpty() && stack.peek() < height[i]) {
+	                    stack.pop();
+	                }
+	                if (stack.isEmpty())
+	                    stack.push(height[i]);
+	            }
+	            right[i] = stack.peek();
+	        }
+	        int ret = 0;
+	        for (int i = 1; i < height.length - 1; i++) {
+	            ret += Math.min(left[i], right[i]) - height[i];
+	        }
 	
+	        return ret;
+	    }
+
+ 
+
+	给定一个不含重复数字的数组 nums ，返回其 所有可能的全排列 。你可以 按任意顺序 返回答案。
 	
+ 
 ## ✔	[48]旋转图像	76.0%	Medium	0.0%
 
 给定一个 n × n 的二维矩阵 matrix 表示一个图像。请你将图像顺时针旋转 90 度。
@@ -647,11 +763,587 @@ Arrays.asList(nums[j], nums[t])
             }
         }
     }
+ 
     
-##     不同的二叉搜素数  
+## ✔	[46]全排列	79.1%	Medium	0.0%
 
-动态规划
+回溯
 
+	public List<List<Integer>> permute(int[] nums) {
+		        //    回溯
+		        List<Integer> list = new ArrayList<>();
+		        for (int item : nums) {
+		            list.add(item);
+		        }
+		        return permute1(list);
+		    }
+		
+		    public List<List<Integer>> permute1(List<Integer> input) {
+		        //    回溯
+		        List<List<Integer>> list = new ArrayList<>();
+		
+		        if (input == null || input.size() == 0) {
+		            return list;
+		        }
+		
+		        for (int i = 0; i < input.size(); i++) {
+		            ArrayList<Integer> tmp = (new ArrayList<Integer>(input));
+		            tmp.remove(i);
+		            List<List<Integer>> list2 = permute1(tmp);
+		            if (list2.size() == 0) {
+		                list.add(Collections.singletonList(input.get(i)));
+		            } else {
+		                for (List<Integer> item : list2) {
+		                    ArrayList<Integer> integers = new ArrayList<>(item);
+		                    integers.add(0, input.get(i));
+		                    list.add(integers);
+		                }
+		            }
+		        }
+		        return list;
+		    }
+		    
+	插入法  找到前面所有的，后面的插入，前面的每个排列，插入后，都有多个，擦，这个想法简单多了
+	
+## 	 ✔	[49]字母异位词分组	68.0%	Medium	0.0%
+
+给你一个字符串数组，请你将 字母异位词 组合在一起。可以按任意顺序返回结果列表。
+
+> 不考虑去重，就用list，考虑就用set
+	
+	 public List<List<String>> groupAnagrams(String[] strs) {
+	
+	        HashMap<String, List<String>> hashMap = new HashMap<>();
+	
+	        for (int i = 0; i < strs.length; i++) {
+	            char[] p = strs[i].toCharArray();
+	            Arrays.sort(p);
+	            String s = new String(p);
+	            if (hashMap.containsKey(s)) {
+	                hashMap.get(s).add(strs[i]);
+	            } else {
+	                ArrayList<String> strings = new ArrayList<>();
+	                strings.add(strs[i]);
+	                hashMap.put(s, strings);
+	            }
+	        }
+	
+	        List<List<String>> ret = new ArrayList<>();
+	        for (Map.Entry<String, List<String>> stringHashSetEntry : hashMap.entrySet()) {
+	            ret.add(stringHashSetEntry.getValue());
+	        }
+	        return ret;
+	    }
+	 
+### ✔	[53]最大子数组和	55.3%	Medium	0.0% :
+
+给你一个整数数组 nums ，请你找出一个具有最大和的连续子数组（子数组最少包含一个元素），返回其最大和。
+子数组 是数组中的一个连续部分。
+
+> 连续、最大、子区间 都是动态规划的字眼，用动态规划
+
+    public int maxSubArray(int[] nums) {
+        //动态规划
+        int[] dp = new int[nums.length];
+        //  以A为结尾的最大连续
+
+        dp[0] = nums[0];
+        int max = dp[0];
+        for (int i = 1; i < nums.length; i++) {
+            dp[i] = dp[i - 1] > 0 ? dp[i - 1] + nums[i] : nums[i];
+            max = Math.max(dp[i], max);
+        }
+        return max;
+    }
+    
+    
+##     ✔	[55]跳跃游戏	43.3%	Medium  贪心 	0.0%
+
+给你一个非负整数数组 nums ，你最初位于数组的 第一个下标 。数组中的每个元素代表你在该位置可以跳跃的最大长度。
+
+
+> 题解：找到第一个比他跳的远的，找不到，就有问题 ** 贪心算法**
+
+	 public boolean canJump(int[] nums) {
+	        // 触达的最长距离
+	        if (nums.length == 1) return true;
+	        int i = 0;
+	        while (i < nums.length) {
+	            int nextI = i + nums[i];
+	            if (nextI == i) return false;
+	            if (nextI >= nums.length - 1)
+	                return true;
+	            for (int j = i + 1; j <= nextI; j++) {
+	                if (j + nums[j] > nextI) {
+	                    i = j;
+	                    nextI = 0;
+	                    break;
+	                }
+	            }
+	            if (nextI > 0) return false;
+	        }
+	        return true;
+	    }
+	    
+### 	    ✔	[56]合并区间	49.9%	Medium  数组排序，无论一维数组，还是二维数组。	0.0%
+
+以数组 intervals 表示若干个区间的集合，其中单个区间为 intervals[i] = [starti, endi] 。请你合并所有重叠的区间，并返回 一个不重叠的区间数组，该数组需恰好覆盖输入中的所有区间 。
+
+> 题解 :先排序，再合并
+> 
+
+    开发技巧，List写法
+    
+        List<int[]> merged = new ArrayList<int[]>();
+
+    排序的写法   Arrays.sort Comparator
+
+	    public int[][] merge(int[][] intervals) {
+	
+	        //  数组先排序
+	
+	        Arrays.sort(intervals, new Comparator<int[]>() {
+	            @Override
+	            public int compare(int[] ints, int[] t1) {
+	                return ints[0]-t1[0];
+	            }
+	        });
+	        int[][] ret = new int[intervals.length][];
+	        ret[0] = intervals[0];
+	        int current = 0;
+	        for (int i = 1; i < intervals.length; i++) {
+	            if (intervals[i][0] > ret[current][1]) {
+	                ret[current + 1] = intervals[i];
+	                current++;
+	            } else {
+	                ret[current][1] = Math.max(intervals[i][1], ret[current][1]);
+	            }
+	        }
+	        int[][] p = new int[current + 1][];
+	        for (int i = 0; i <= current; i++)
+	            p[i] = ret[i];
+	
+	        return p;
+	    }
+    
+###     ✔	[62]不同路径	68.1%	Medium	0.0%
+    
+ 一个机器人位于一个 m x n 网格的左上角 （起始点在下图中标记为 “Start” ）。
+
+机器人每次只能向下或者向右移动一步。机器人试图达到网格的右下角（在下图中标记为 “Finish” ）。
+
+问总共有多少条不同的路径？ 最简单的动态规划
+
+
+    public int uniquePaths(int m, int n) {
+        int[][] dp = new int[m][n];
+        dp[0][0] = 1;
+        for (int i = 0; i < m; i++) {
+            dp[i][0] = 1;
+        }
+        for (int i = 0; i < n; i++) {
+            dp[0][i] = 1;
+        }
+        for (int i = 1; i < m; i++)
+            for (int j = 1; j < n; j++) {
+                dp[i][j] = dp[i - 1][j] + dp[i][j - 1];
+            }
+        return dp[m-1][n-1];
+    }
+    
+    
+###     ✔	[64]最小路径和	70.2%	Medium  dp	0.0%
+
+给定一个包含非负整数的 m x n 网格 grid ，请找出一条从左上角到右下角的路径，使得路径上的数字总和为最小。
+
+
+> 跟上面类似，只是加了权
+
+    public int minPathSum(int[][] grid) {
+        int m = grid.length;
+        int n = grid[0].length;
+        int[][] dp = new int[m][n];
+        dp[0][0] = grid[0][0];
+        for (int i = 1; i < m; i++) {
+            dp[i][0] = dp[i - 1][0] + grid[i][0];
+        }
+        for (int i = 1; i < n; i++) {
+            dp[0][i] = dp[0][i - 1] + grid[0][i];
+        }
+        for (int i = 1; i < m; i++)
+            for (int j = 1; j < n; j++) {
+                dp[i][j] = Math.min(dp[i - 1][j], dp[i][j - 1]) + grid[i][j];
+            }
+
+        return dp[m - 1][n - 1];
+    }
+    
+##     ✔	[70]爬楼梯	54.5%	Easy	0.0%
+
+假设你正在爬楼梯。需要 n 阶你才能到达楼顶。
+
+每次你可以爬 1 或 2 个台阶。你有多少种不同的方法可以爬到楼顶呢？
+
+动态规划？ 斐波那契?
+
+    public int climbStairs(int n) {
+
+        if (n == 1) return 1;
+        if (n == 2) return 2;
+        int before = 1, after = 2;
+        for (int i = 3; i <= n; i++) {
+            int tmp = before;
+            before = after;
+            after = before + tmp;
+        }
+        return after;
+    }
+    
+##     ✔	[72]编辑距离	62.8%	Medium  经典动态规划  对于结尾的操作放在最后	0.0%
+
+
+**对于结尾的操作放在最后**，参考跳格子
+
+
+给你两个单词 word1 和 word2， 请返回将 word1 转换成 word2 所使用的最少操作数 。
+
+你可以对一个单词进行如下三种操作：
+
+插入一个字符
+删除一个字符
+替换一个字符
+
+
+**1 逆序性质等价**  处理相等的时候，
+
+不等的时候  **2 结尾等价**
+
+ **先后处理顺序不影响结果，所以对于**最后一个字符**的处理放在最后，对第一个的结尾操作处理有三种，删除，替换  、插入。**
+  
+ 其实就是从三个中找到最小的，最后不满足，在结尾的处理一定分三种：固定一个串 
+  
+*   如果是替换：那么一定是最后一个跟最后一个字符，替换成P最后一个，前面的都是从 i-1 替换成 j-1的代价
+*   如果是删除：那么一定是从是从,  i-1到j的代价，最后一个的操作
+*   如果是插入：对于上面的插入， 插入后 i+1=j 那其实等效于i变成j-1，逆序等价性质。
+  
+ 顶住对于结尾的处理，动态规划，只要覆盖所有可能性就可以，然后计算最终的值，也比较像回溯。
+ 
+    
+> 题解 以及理解 很容易写出来，但是不容易理解，紧紧握住最后一步操作在最后【先后顺序不影响结果】，一共三种情况，
+>  从后往前，跟从前往后是一样的，得出的结论是一样的，**从直观上理解，先砍掉一致的地方，不影响后面的不一致的匹配**
+
+ 
+	 public int minDistance(String word1, String word2) {
+	        if (word1 == null || word1.length() == 0) return word2 == null ? 0 : word2.length();
+	        if (word2 == null || word2.length() == 0) return word1.length();
+	
+	        int[][] dp = new int[word1.length() + 1][word2.length() + 1];
+	//        i j,i 跟j 匹配需要的编辑距离
+	        dp[0][0] = 0;
+	        for (int i = 1; i <= word1.length(); i++) {
+	            dp[i][0] = i;
+	        }
+	        for (int i = 1; i <= word2.length(); i++) {
+	            dp[0][i] = i;
+	        }
+	
+	        // 转换成对最后一个操作等价，这个怎么证明的
+	        for (int i = 1; i <= word1.length(); i++) {
+	            for (int j = 1; j <= word2.length(); j++) {
+	                //  id的长度从小到大 ， 最后一步是插入、删除、还是替换，对最后一个操作
+	                if (word1.charAt(i - 1) == word2.charAt(j - 1)) {
+	                    dp[i][j] = dp[i - 1][j - 1];
+	                } else {
+	                    dp[i][j] = Math.min(dp[i - 1][j - 1], Math.min(dp[i][j - 1], dp[i - 1][j])) + 1;
+	                }
+	            }
+	        }
+	
+	        return dp[word1.length()][word2.length()];
+	    }
+
+
+### ✔	[75]颜色分类	61.1%	Medium	0.0%
+
+给定一个包含红色、白色和蓝色、共 n 个元素的数组 nums ，原地对它们进行排序，使得相同颜色的元素相邻，并按照红色、白色、蓝色顺序排列。
+
+    public void sortColors(int[] nums) {
+//        双指针
+
+        int rIndex = -1;
+        int wIndex = -1;
+        for (int i = 0; i < nums.length; i++) {
+            switch (nums[i]) {
+                case 0:
+                    if (wIndex >= 0) {
+                        nums[i] = nums[wIndex];
+                        if (rIndex >= 0) {
+                            nums[wIndex] = 1;
+                            wIndex++;
+                            nums[rIndex] = 0;
+                            rIndex++;
+                        } else {
+                            nums[wIndex] = 0;
+                            wIndex++;
+                        }
+                    } else if (rIndex >= 0) {
+                        nums[i] = nums[rIndex];
+                        nums[rIndex] = 0;
+                        rIndex++;
+                    }
+                    break;
+                case 1:
+                    if (wIndex >= 0) {
+                        nums[i] = nums[wIndex];
+                        nums[wIndex] = 1;
+                        if (rIndex < 0) {
+                            rIndex = wIndex;
+                        }
+                        wIndex++;
+                    } else {
+                        if (rIndex < 0) {
+                            rIndex = i;
+                        }
+                    }
+                    break;
+                case 2:
+                    if (wIndex < 0)
+                        wIndex = i;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+## ✔	[76]最小覆盖子串	45.6  z%	Hard	0.0%
+
+给你一个字符串 s 、一个字符串 t 。返回 s 中涵盖 t 所有字符的最小子串。如果 s 中不存在涵盖 t 所有字符的子串，则返回空字符串 "" 。
+
+> 题解  纯哈希表
+  
+ 
+	  public String minWindow(String t, String s) {
+	//  找到第一个中的所有字符
+	        //  找到第一个中的所有字符
+	        HashMap<Character, Integer> set = new HashMap<>();
+	        for (int i = 0; i < s.length(); i++) {
+	            set.put(s.charAt(i), set.getOrDefault(s.charAt(i), 0) + 1);
+	        }
+	        int[] dp = new int[t.length()];
+	        int valideBegin = -1;
+	        HashMap<Character, Integer> hashMap = new HashMap<>();
+	        boolean sati = false;
+	        for (int i = 0; i < t.length(); i++) {
+	            if (set.containsKey(t.charAt(i))) {
+	                if (valideBegin == -1)
+	                    valideBegin = i;
+	                hashMap.put(t.charAt(i), hashMap.getOrDefault(t.charAt(i), 0) + 1);
+	                while (!set.containsKey(t.charAt(valideBegin))
+	                        || hashMap.getOrDefault(t.charAt(valideBegin), 0) > set.getOrDefault(t.charAt(valideBegin), 0)) {
+	                    if (hashMap.getOrDefault(t.charAt(valideBegin), 0) > set.getOrDefault(t.charAt(valideBegin), 0)) {
+	                        hashMap.put(t.charAt(valideBegin), hashMap.get(t.charAt(valideBegin)) - 1);
+	                    }
+	                    valideBegin++;
+	                }
+	                if (hashMap.size() == set.size()) {
+	                    int count = 0;
+	                    if (!sati) {
+	                        for (Character item : set.keySet()) {
+	                            if (hashMap.getOrDefault(item, 0) >= set.get(item))
+	                                count++;
+	                        }
+	                        if (count == set.size()) sati = true;
+	                    }
+	                    dp[i] = sati ? i - valideBegin + 1 : 0;
+	                }
+	            } else {
+	                dp[i] = 0;
+	            }
+	        }
+	        int index = -1;
+	        for (int i = 0; i < t.length(); i++) {
+	            if (dp[i] > 0) {
+	                if (index < 0) index = i;
+	                else index = dp[i] < dp[index] ? i : index;
+	            }
+	        }
+	
+	        return index >= 0 ? t.substring(index - dp[index] + 1, index + 1) : "";
+	    }
+
+## ✔	[78]子集	81.3%	Medium	0.0%
+
+给你一个整数数组 nums ，数组中的元素 互不相同 。返回该数组所有可能的子集（幂集）
+
+> 回溯,注意对空list的处理 
+
+    public List<List<Integer>> subsets(int[] nums) {
+        List<List<Integer>> list = new ArrayList<>();
+
+        for (int i = 0; i < nums.length; i++) {
+            if (list.size() == 0) {
+                list.add(Collections.singletonList(nums[i]));
+                list.add(new ArrayList<>());
+            } else {
+                List<List<Integer>> tmp = new ArrayList<>();
+                for (List<Integer> item : list) {
+                    List<Integer> list1 = new ArrayList<>(item);
+                    list1.add(nums[i]);
+                    tmp.add(list1);
+                }
+                list.addAll(tmp);
+            }
+        }
+
+        return list;
+    }
+    
+    
+####     ?	[79]单词搜索	46.8%	Medium	0.0%
+
+给定一个 m x n 二维字符网格 board 和一个字符串单词 word 。如果 word 存在于网格中，返回 true ；否则，返回 false 。
+
+> 考察点 回溯 深度优先遍历 visit，岛屿问题
+
+	  public boolean exist(char[][] board, String word) {
+	        for (int i = 0; i < board.length; i++) {
+	            for (int j = 0; j < board[0].length; j++) {
+	                boolean[][] visit = new boolean[board.length][board[0].length];
+	                if (exist(board, word, visit, 0, i, j))
+	                    return true;
+	            }
+	        }
+	        return false;
+	    }
+	
+	    public boolean exist(char[][] board, String word, boolean[][] visit, int start, int i, int j) {
+	
+	        if (start >= word.length())
+	            return true;
+	
+	        if (board[i][j] == word.charAt(start)) {
+	            if (start == word.length() - 1)
+	                return true;
+	
+	            visit[i][j] = true;
+	            boolean ret = false;
+	
+	            if (i + 1 < board.length && !visit[i + 1][j]) {
+	                ret = exist(board, word, visit, start + 1, i + 1, j);
+	                if (ret) return true;
+	                visit[i + 1][j] = false;
+	            }
+	
+	            if (j + 1 < board[0].length && !visit[i][j + 1]) {
+	                ret = exist(board, word, visit, start + 1, i, j + 1);
+	                if (ret) return true;
+	                visit[i][j + 1] = false;
+	            }
+	
+	            if (i - 1 >= 0 && !visit[i - 1][j]) {
+	                ret = exist(board, word, visit, start + 1, i - 1, j);
+	                if (ret) return true;
+	                visit[i - 1][j] = false;
+	            }
+	
+	            if (j - 1 >= 0 && !visit[i][j - 1]) {
+	                ret = exist(board, word, visit, start + 1, i, j - 1);
+	                if (ret) return true;
+	                visit[i][j - 1] = false;
+	            }
+	            visit[i][j] = false;
+	            return false;
+	        } else {
+	            return false;
+	        }
+	    }
+
+
+## ✔	[84]柱状图中最大的矩形	45.6%	Hard	0.0%
+
+单调栈 
+
+
+public int largestRectangleArea(int[] heights) {
+
+        // 左边比他大的值
+        Stack<Integer> stack = new Stack<>();
+        stack.push(0);
+        int[] left = new int[heights.length];
+        left[0] = 0;
+        for (int i = 1; i < heights.length; i++) {
+            //  找到左边第一个比他小的
+            if (heights[i] > heights[stack.peek()]) {
+                left[i] = i;
+            } else {
+                while (!stack.isEmpty() && heights[stack.peek()] >= heights[i])
+                    stack.pop();
+                if (!stack.isEmpty())
+                    left[i] = stack.peek() + 1;
+                else left[i] = 0;
+            }
+            stack.push(i);
+        }
+        stack.clear();
+        stack.push(heights.length - 1);
+        int[] right = new int[heights.length];
+        right[heights.length - 1] = heights.length - 1;
+        //   找右边第一个比他小的
+        for (int i = heights.length - 2; i >= 0; i--) {
+            if (heights[i] > heights[stack.peek()]) {
+                right[i] = i;
+            } else {
+                while (!stack.isEmpty() && heights[stack.peek()] >= heights[i])
+                    stack.pop();
+                if (!stack.isEmpty()) right[i] = stack.peek() - 1;
+                else right[i] = heights.length - 1;
+            }
+            stack.push(i);
+        }
+        int max = heights[0];
+        for (int i = 0; i < heights.length; i++) {
+            max = Math.max(max, heights[i] * (right[i] - left[i] + 1));
+        }
+        return max;
+    }
+    
+##    ✔	[94]二叉树的中序遍历	76.7%	Easy	0.0% 
+
+左，中 右  
+
+深度到底，出，如果右边是null，继续出，如果不是null，新数入栈，新回合
+    
+	 public List<Integer> inorderTraversal(TreeNode root) {
+	        List<Integer> list = new ArrayList<>();
+	        if(root ==null)return list;
+	        Stack<TreeNode> stack = new Stack<>();
+	        stack.push(root);
+	        while (!stack.isEmpty()) {
+	            if (stack.peek().left != null) {
+	                stack.push(stack.peek().left);
+	            } else {
+	                // 一直往回归
+	                while (!stack.isEmpty()) {
+	                    TreeNode node = stack.pop();
+	                    list.add(node.val);
+	                    if (node.right != null) {
+	                        // 新树插入
+	                        stack.push(node.right);
+	                        break;
+	                    }
+	                }
+	            }
+	        }
+	        return list;
+	
+
+	    }
+
+
+##     不同的二叉搜素数
+
+    动态规划
 
     public int numTrees(int n) {
         if (n == 0) return 0;
@@ -669,9 +1361,9 @@ Arrays.asList(nums[j], nums[t])
         }
         return dp[n];
     }
-    
-    
-    
+
+
+
 ##     搜索二叉树的判断
 
 > 找最左边，左右边
@@ -700,4 +1392,4 @@ Arrays.asList(nums[j], nums[t])
 	            if (root.left != null) root = root.left;
 	            else return root.val;
 	        } return -1;
-	    }
+ 
