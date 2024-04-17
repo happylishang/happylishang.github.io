@@ -2044,3 +2044,89 @@ void put(int key, int value) 如果关键字 key 已经存在，则变更其数�
 	        return stackMini.peek();
 	    }
 	}
+
+
+## ✔	[152]乘积最大子数组	43.2%	Medium	0.0%
+
+> 题解 找到第一个负值，后面为负值 就除法他
+	
+	public int maxProduct(int[] nums) {
+	        if (nums.length == 1) return nums[0];
+	
+	        int minN = 1;
+	        int max = nums[0];
+	        int total = 1;
+	        int nIndex = -1;
+	        for (int i = 0; i < nums.length; i++) {
+	            if (nums[i] == 0) {
+	                minN = 1;
+	                total = 1;
+	                max = Math.max(max, 0);
+	                nIndex = -1;
+	            } else {
+	                total *= nums[i];
+	                if (total < 0 && minN == 1) {
+	                    minN = total;
+	                    nIndex = i;
+	                }
+	
+	                max = total > 0 ? Math.max(max, total) : Math.max(max, nIndex == i ? total : total / minN);
+	            }
+	        }
+	        return max;
+	    }
+	    
+	    
+
+## ✔	[160]相交链表	64.8%	Easy	0.0%
+
+set 看看谁在里面
+
+    public ListNode getIntersectionNode(ListNode headA, ListNode headB) {
+
+//        集合
+
+        HashSet<ListNode> set = new HashSet<>();
+
+        while (headA != null || headB != null) {
+            if (set.contains(headA))
+                return headA;
+            if (headA != null)
+                set.add(headA);
+            if (set.contains(headB))
+                return headB;
+            if (headB != null)
+                set.add(headB);
+            if (headA != null)
+                headA = headA.next;
+            if (headB != null)
+                headB = headB.next;
+        }
+        return null;
+    }
+    
+    
+####     ✔	[169]多数元素	66.3%	Easy	0.0%
+
+
+给定一个大小为 n 的数组 nums ，返回其中的多数元素。多数元素是指在数组中出现次数 大于 ⌊ n/2 ⌋ 的元素。
+
+
+## 打家劫舍：打劫最多，跟之前打劫的值有关系
+
+动态规划，
+
+	
+	    public int rob(int[] nums) {
+	//        后面的依赖前面的结果
+	        int[] dp = new int[nums.length];
+	        dp[0] = nums[0];
+	        int max = dp[0];
+	        for (int i = 1; i < nums.length; i++) {
+	            dp[i] = Math.max(dp[i - 1], (i - 2 >= 0 ? dp[i - 2] : 0) + nums[i]);
+	            max = Math.max(dp[i], max);
+	        }
+	        return max;
+	    }
+	    
+	    
