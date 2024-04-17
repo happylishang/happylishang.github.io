@@ -1576,3 +1576,196 @@ Ke
 	        return value;
 	    }
 	    
+## 	  ✔	[114]二叉树展开为链表	73.6%  前序 中序 后续	Medium	0.0%
+
+  
+		      public void flatten(TreeNode root) {
+	        if (root == null) return;
+	
+	        TreeNode pre = root;
+	
+	        while (pre != null) {
+	            if (pre.right != null) {
+	                if (pre.left != null) {
+	                    findLeftLast(pre.left).right = pre.right;
+	                    pre.right = pre.left;
+	                    pre.left = null;
+	                }
+	            } else {
+	                pre.right = pre.left;
+	                pre.left = null;
+	            }
+	            pre = pre.right;
+	        }
+	    }
+	
+	    TreeNode findLeftLast(TreeNode root) {
+	//        注意while
+	        while (root != null && root.right != null)
+	            root = root.right;
+	        return root;
+	    }
+	    
+ 我们不再是打印根节点，而是利用一个全局变量 pre 修改树的指针，一般要通过后续，因为，先序不能获得后处理的Node，要按照顺序
+	     
+	    
+		    private TreeNode pre = null;
+		
+			public void flatten(TreeNode root) {
+		    if (root == null)
+		        return;
+		        <!--后续可以安排 左右顺序-->
+		    flatten(root.right);
+		    flatten(root.left);
+		    root.right = pre;//先被处理的一定在前面，后续不会再处理root的孩子
+		    root.left = null;
+		    pre = root;
+		}
+
+ 
+
+## 	    ✔	[124]二叉树中的最大路径和	45.5%	Hard	0.0%
+
+> 题解  二分，包含A的左侧大，右侧大，
+	    
+		     public int maxPathSum(TreeNode root) {
+	        if (root == null)
+	            return 0;
+	        if (root.left == null && root.right == null)
+	            return root.val;
+	        if (root.left == null) {
+	            return Math.max(root.val + findMaxR(root), maxPathSum(root.right));
+	        } else if (root.right == null) {
+	            return Math.max(findMaxL(root) + root.val, maxPathSum(root.left));
+	        } else {
+	            return Math.max(findMaxL(root) + root.val + findMaxR(root), Math.max(maxPathSum(root.left), maxPathSum(root.right)));
+	        }
+	    }
+	
+	    int findMaxL(TreeNode root) {
+	        // 包含root的最大
+	        if (root == null || root.left == null) return 0;
+	        return Math.max(0, root.left.val + Math.max(findMaxL(root.left), findMaxR(root.left)));
+	
+	    }
+	
+	    int findMaxR(TreeNode root) {
+	        if (root == null || root.right == null) return 0;
+	        return Math.max(0, root.right.val + Math.max(findMaxL(root.right), findMaxR(root.right)));
+	    }
+	    
+**树的递归，经常用全局变量，表示pre   **  
+
+
+## ✔	[128]最长连续序列	51.9%	Medium	0.0%最、连续序列  动态规划
+
+
+> 哈希表 左右区间扩展，中间不处理
+
+	  public int longestConsecutive(int[] nums) {
+	        if (nums == null || nums.length == 0) return 0;
+	        HashMap<Integer, Integer> hashMap = new HashMap<>();
+	        // 并查集？
+	        int max = 0;
+	        for (int i = 0; i < nums.length; i++) {
+	            if (!hashMap.containsKey(nums[i])) {
+	                int size = 0;
+	                if (hashMap.containsKey(nums[i] - 1) && hashMap.containsKey(nums[i] + 1)) {
+	                    size += hashMap.get(nums[i] - 1);
+	                    size += hashMap.get(nums[i] + 1);
+	                    size++;
+	                    hashMap.put(nums[i], size);
+	                    hashMap.put(nums[i] + hashMap.get(nums[i] + 1), size);
+	                    hashMap.put(nums[i] - hashMap.get(nums[i] - 1), size);
+	                } else if (hashMap.containsKey(nums[i] - 1)) {
+	                    size += hashMap.get(nums[i] - 1);
+	                    size++;
+	                    hashMap.put(nums[i], size);
+	                    hashMap.put(nums[i] - hashMap.get(nums[i] - 1), size);
+	                } else if (hashMap.containsKey(nums[i] + 1)) {
+	                    size += hashMap.get(nums[i] + 1);
+	                    size++;
+	                    hashMap.put(nums[i], size);
+	                    hashMap.put(nums[i] + hashMap.get(nums[i] + 1), size);
+	                } else {
+	                    size++;
+	                    hashMap.put(nums[i], 1);
+	                }
+	                max = Math.max(max, size);
+	            }
+	        }
+	
+	        return max;
+	    }
+	    
+	    
+
+
+### ✔	[136]只出现一次的数字	73.5%	Easy	0.0%
+
+> 题解 两次，可以疑惑运算
+
+
+	    public int singleNumber(int[] nums) {
+	//        两次
+	//        位运算
+	        int ret = 0;
+	        for (int i = 0; i < nums.length; i++) {
+	            ret ^= nums[i];
+	        }
+	        return ret;
+	    }
+	    
+
+
+
+
+
+## ✔	[141]环形链表	52.3%	Easy  入口判断	0.0%
+
+> 判断链表入口：快慢指针
+
+	
+	    public boolean hasCycle(ListNode head) {
+        if (head == null || head.next == null || head.next.next == null)
+            return false;
+        ListNode slow = head.next;
+        ListNode fast = slow.next;
+        while (slow != fast) {
+            if (fast.next == null || fast.next.next == null)
+                return false;
+            fast = fast.next.next;
+            slow = slow.next;
+        }
+        return true;
+    }
+    
+### 	    ✔	[142]环形链表 II	58.8%	Medium  	0.0%
+
+找入口  给定一个链表的头节点 head ，返回链表开始入环的第一个节点。 如果链表无环，则返回 null。
+
+> 题解 ：找到合并除，然后慢指针一个从头开始一定碰上[慢指针不可能跑一圈]
+
+证明 2(a+b)= a+n(b+c)+b   a=(n-1)(b+c) + c 
+
+
+	    public ListNode detectCycle(ListNode head) {
+	        if (head == null || head.next == null || head.next.next == null)
+	            return null;
+	        ListNode slow = head.next;
+	        ListNode fast = slow.next;
+	        while (slow != fast) {
+	            if (fast.next == null || fast.next.next == null)
+	                return null;
+	            fast = fast.next.next;
+	            slow = slow.next;
+	        }
+	        ListNode start = head;
+	        while (start != slow) {
+	            slow = slow.next;
+	            start = start.next;
+	        }
+	        return start;
+	    }
+
+注意快慢指针的写法，可以主动让其先前进一次，条件可改
