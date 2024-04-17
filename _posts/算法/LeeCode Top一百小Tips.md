@@ -1769,3 +1769,278 @@ Ke
 	    }
 
 注意快慢指针的写法，可以主动让其先前进一次，条件可改
+
+
+
+## ?	[139]单词拆分	55.4%	Medium  拆分 匹配，动态规划	0.0%
+
+> <!--题解-->动态规划
+
+	 public boolean wordBreak(String s, List<String> wordDict) {
+	        boolean ret = false;
+	        boolean[][] dp = new boolean[s.length()][wordDict.size()];
+	
+	        dp[0][0] = s.substring(0, 1).equals(wordDict.get(0));
+	        for (int i = 1; i < s.length(); i++) {
+	            dp[i][0] = s.substring(0, i).equals(wordDict.get(0));
+	        }
+	        for (int i = 1; i < wordDict.size(); i++) {
+	            dp[0][i] = dp[0][i - 1] || s.substring(0, 1).equals(wordDict.get(i));
+	        }
+	
+	        for (int i = 1; i < s.length(); i++) {
+	            String sub = s.substring(0, i + 1);
+	            for (int j = 1; j < wordDict.size(); j++) {
+	                dp[i][j] = false;
+	                for (int k = 0; k <= j; k++) {
+	//                    边界
+	                    dp[i][j] = sub.equals(wordDict.get(k)) || (sub.endsWith(wordDict.get(k)) && dp[i - wordDict.get(k).length()][j]);
+	                    if (dp[i][j]) break;
+	                }
+	            }
+	        }
+	
+	        return dp[s.length() - 1][wordDict.size() - 1];
+	    }
+	    
+二维的动态规划有些浪费，为什么浪费，因为是可以重复，可以重复的的不作为一个维度，全部走一遍
+	    
+	     //    时间超过限制
+    public boolean wordBreak(String s, List<String> wordDict) {
+        boolean ret = false;
+        boolean[] dp = new boolean[s.length()];
+        for (int i = 0; i < wordDict.size(); i++) {
+            dp[0] = s.substring(0, 1).equals(wordDict.get(i));
+            if (dp[0]) break;
+        }
+
+        for (int i = 1; i < s.length(); i++) {
+            String sub = s.substring(0, i + 1);
+            dp[i] = false;
+            for (int j = 0; j < wordDict.size(); j++) {
+                dp[i] = sub.equals(wordDict.get(j)) || (sub.endsWith(wordDict.get(j)) && dp[i - wordDict.get(j).length()]);
+                if (dp[i]) break;
+            }
+        }
+        return dp[s.length() - 1];
+    }
+    
+    
+##     ✔	[146]LRU 缓存	53.6%	Medium	0.0%
+
+请你设计并实现一个满足 LRU (最近最少使用) 缓存 约束的数据结构。
+实现 LRUCache 类：
+LRUCache(int capacity) 以 正整数 作为容量 capacity 初始化 LRU 缓存
+int get(int key) 如果关键字 key 存在于缓存中，则返回关键字的值，否则返回 -1 。
+void put(int key, int value) 如果关键字 key 已经存在，则变更其数据值 value ；如果不存在，则向缓存中插入该组 key-value 。如果插入操作导致关键字数量超过 capacity ，则应该 逐出 最久未使用的关键字。
+函数 get 和 put 必须以 O(1) 的平均时间复杂度运行。
+
+>  题解 ： get 和 put  O(1)的时间复杂度，get必须用hashMap ，而且要又先后，放前面，那么必须用双向链表，超过了尾部删除。  put很简单放在头部 
+ 
+
+没规定删除的时间复杂度， 主要是细心 
+
+
+	class LRUCache {
+	
+	    Node head;
+	    Node tail;
+	    int capacity = 0;
+	    HashMap<Integer, Node> hashMap = new HashMap<>();
+	
+	    public LRUCache(int capacity) {
+	        this.capacity = capacity;
+	    }
+	
+	    public int get(int key) {
+	        if (hashMap.containsKey(key)) {
+	            Node node = hashMap.get(key);
+	            if (node == tail) {
+	                tail = node.pre == null ? node : node.pre;
+	            }
+	            if (node != head) {
+	                node.pre.next = node.next;
+	                if (node.next != null) {
+	                    node.next.pre = node.pre;
+	                }
+	                node.next = head;
+	                head.pre = node;
+	                node.pre = null;
+	                head = node;
+	            }
+	            return node.value;
+	        }
+	        return -1;
+	    }
+	
+	    public void put(int key, int value) {
+	        if (hashMap.containsKey(key)) {
+	            get(key);
+	            Node node = hashMap.get(key);
+	            node.value = value;
+	        } else {
+	            Node node = new Node(key, value);
+	            hashMap.put(key, node);
+	            node.next = head;
+	            if (head != null)
+	                head.pre = node;
+	            node.pre = null;
+	            head = node;
+	            if (tail == null) tail = node;
+	            if (hashMap.size() > capacity) {
+	                hashMap.remove(new Integer(tail.key));
+	                tail.pre.next = null;
+	                tail = tail.pre;
+	            }
+	        }
+	
+	    }
+	
+	    static class Node {
+	        public Node(int key, int value) {
+	            this.key = key;
+	            this.value = value;
+	        }
+	
+	        public int key;
+	        public int value;
+	        public Node pre;
+	        public Node next;
+	    }
+	}
+
+## ✔	[148]排序链表	65.6%	Medium	0.0%
+ 
+	  public ListNode sortList(ListNode head) {
+	        if (head == null || head.next == null) return head;
+	        //    归并排序？ 二分
+	        ListNode current = head;
+	        int size = 0;
+	        while (current != null) {
+	            size++;
+	            current = current.next;
+	        }
+	
+	        current = head;
+	        int half = 0;
+	        while (current != null) {
+	            if (half == (size - 1) / 2) {
+	                ListNode node = current.next;
+	                current.next = null;
+	                return merge(sortList(head), sortList(node));
+	            }
+	            half++;
+	            current = current.next;
+	        }
+	
+	        return null;
+	
+	    }
+	//    合并两个有序链表
+	
+	    ListNode merge(ListNode left, ListNode right) {
+	        ListNode head = null;
+	        ListNode cur = null;
+	        while (left != null && right != null) {
+	            if (head == null) {
+	                head = left.val > right.val ? right : left;
+	                if (left.val > right.val)
+	                    right = right.next;
+	                else left = left.next;
+	                cur = head;
+	            } else {
+	                cur.next = left.val > right.val ? right : left;
+	                if (left.val > right.val)
+	                    right = right.next;
+	                else left = left.next;
+	                cur = cur.next;
+	            }
+	        }
+	        cur.next = left == null ? right : left;
+	        return head;
+	    }
+	 
+	 
+二分，查找一般的链表，可以用快慢指针。
+	
+	
+	  public ListNode sortList(ListNode head) {
+        if (head == null || head.next == null) return head;
+        //    归并排序？ 二分 快慢指针
+        ListNode fast = head;
+        ListNode slow = head;
+        while (fast != null) {
+            if (fast.next == null || fast.next.next == null) {
+                fast = slow.next;
+                slow.next = null;
+                return merge(sortList(head), sortList(fast));
+            }
+            slow = slow.next;
+            fast = fast.next.next;
+        }
+        return null;
+    }
+//    合并两个有序链表
+
+    ListNode merge(ListNode left, ListNode right) {
+        ListNode head = null;
+        ListNode cur = null;
+        while (left != null && right != null) {
+            if (head == null) {
+                head = left.val > right.val ? right : left;
+                if (left.val > right.val)
+                    right = right.next;
+                else left = left.next;
+                cur = head;
+            } else {
+                cur.next = left.val > right.val ? right : left;
+                if (left.val > right.val)
+                    right = right.next;
+                else left = left.next;
+                cur = cur.next;
+            }
+        }
+        cur.next = left == null ? right : left;
+        return head;
+    }
+    
+    
+##     ✔	[152]乘积最大子数组	43.2%	Medium	0.0%
+
+动态规划 
+
+给你一个整数数组 nums ，请你找出数组中乘积最大的非空连续子数组（该子数组中至少包含一个数字），并返回该子数组所对应的乘积。
+
+
+### 最小栈
+
+
+	class MinStack {
+	
+	    Stack<Integer> stack = new Stack<>();
+	    Stack<Integer> stackMini = new Stack<>();
+	
+	    public MinStack() {
+	
+	    }
+	
+	    public void push(int val) {
+	        stack.push(val);
+	        if (!stackMini.isEmpty() && val > stackMini.peek()) {
+	            stackMini.push(stackMini.peek());
+	        } else stackMini.push(val);
+	    }
+	
+	    public void pop() {
+	        stack.pop();
+	        stackMini.pop();
+	    }
+	
+	    public int top() {
+	        return stack.peek();
+	    }
+	
+	    public int getMin() {
+	        return stackMini.peek();
+	    }
+	}
