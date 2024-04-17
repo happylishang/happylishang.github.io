@@ -1393,3 +1393,138 @@ public int largestRectangleArea(int[] heights) {
 	            else return root.val;
 	        } return -1;
  
+## ✔	[101]对称二叉树	60.1%	Easy	0.0%
+
+> 递归，或者用队列
+
+
+	public boolean isSymmetric(TreeNode root) {
+	
+	        if (root == null) return true;
+	        Deque<TreeNode> queue = new LinkedList<>();
+	        queue.add(root);
+	        while (!queue.isEmpty()) {
+	            TreeNode node = queue.poll();
+	            if (!queue.isEmpty()) {
+	                TreeNode node2 = queue.poll();
+	                if (node2.val != node.val)
+	                    return false;
+	                if (node.left != null && node2.right != null) {
+	                    queue.add(node.left);
+	                    queue.add(node2.right);
+	                } else if (node.left == null && node2.right == null) {
+	                } else {
+	                    return false;
+	                }
+	
+	                if (node.right != null && node2.left != null) {
+	                    queue.add(node.right);
+	                    queue.add(node2.left);
+	                } else if (node.right == null && node2.left == null) {
+	                } else {
+	                    return false;
+	                }
+	
+	            } else {
+	                if (node == root && node.left == null && node.right == null) {
+	                    return true;
+	                }
+	                if (node == root && node.left != null && node.right != null) {
+	                    queue.add(node.left);
+	                    queue.add(node.right);
+	                } else
+	                    return false;
+	            }
+	        }
+	        return true;
+	    }
+	    
+	    
+ 递归 擦这种巧劲
+	    
+	    
+	    
+    public boolean isSymmetric(TreeNode root) {
+
+        if (root == null) return true;
+
+        return isSymmetric(root.left, root.right);
+
+    }
+
+    boolean isSymmetric(TreeNode left, TreeNode right) {
+
+        if (left == null && right == null) return true;
+
+        if (left != null && right != null) {
+            return left.val == right.val && isSymmetric(left.left, right.right) && isSymmetric(left.right, right.left);
+        }
+
+        return false;
+    }
+    
+    
+##     ✔	[102]二叉树的层序遍历	67.1%	Medium	0.0%
+
+
+> 题解  借助层的数量
+ 
+	 public List<List<Integer>> levelOrder(TreeNode root) {
+	        List<List<Integer>> list = new ArrayList<>();
+	
+	        if (root == null) return list;
+	
+	        Deque<TreeNode> deque = new LinkedList<>();
+	
+	        deque.add(root);
+	        int size = 1;
+	        List<Integer> tmp = new ArrayList<>();
+	        while (!deque.isEmpty()) {
+	            TreeNode node = deque.poll();
+	            tmp.add(node.val);
+	            size--;
+	            if (node.left != null) {
+	                deque.add(node.left);
+	            }
+	            if (node.right != null) {
+	                deque.add(node.right);
+	            }
+	            if (size == 0) {
+	                list.add(tmp);
+	                tmp = new ArrayList<>();
+	                size = deque.size();
+	            }
+	        }
+	        return list;
+	    }
+	    
+### > ✔	[104]二叉树的最大深度	77.5%	Easy	0.0%
+
+keyi	    
+Ke	    
+>     用递归
+    
+    public int maxDepth(TreeNode root) {
+        if (root == null) return 0;
+
+        return 1 + Math.max(maxDepth(root.left), maxDepth(root.right));
+    }
+    
+    
+    
+##     ✔	[105]从前序与中序遍历序列构造二叉树	71.6%	Medium	0.0%
+
+只有利用中序才能区分谁左，谁右
+    
+        public TreeNode buildTree(int[] preorder, int[] inorder) {
+
+        if (preorder == null || preorder.length == 0) return null;
+        if (preorder.length == 1) return new TreeNode(preorder[0]);
+        TreeNode root = new TreeNode(preorder[0]);
+        int index = 0;
+        while (index < preorder.length && preorder[0] != inorder[index])
+            index++;
+        root.left = buildTree(Arrays.copyOfRange(preorder, 1, index + 1), Arrays.copyOfRange(inorder, 0, index));
+        root.right = buildTree(Arrays.copyOfRange(preorder, index + 1, preorder.length), Arrays.copyOfRange(inorder, index + 1, preorder.length));
+        return root;
+    }
