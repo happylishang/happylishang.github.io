@@ -1528,3 +1528,51 @@ Ke
         root.right = buildTree(Arrays.copyOfRange(preorder, index + 1, preorder.length), Arrays.copyOfRange(inorder, index + 1, preorder.length));
         return root;
     }
+    
+    
+##     ✔	[114]二叉树展开为链表	73.6%	Medium	0.0%
+
+
+
+
+## 买卖股票时机
+
+多次 找峰值
+
+> 
+	    public int maxProfit(int[] prices) {
+	        int value = 0;
+	        int buy = -1;
+	        int sell = -1;
+	
+	//        只能买一次,卖一次
+	        for (int i = 1; i < prices.length; i++) {
+	            if (prices[i] > prices[i - 1]) {
+	                if (buy == -1) {
+	                    buy = prices[i - 1];
+	                }
+	            } else if (prices[i] < prices[i - 1]) {
+	                if (buy > 0) {
+	                    value += prices[i - 1] - buy;
+	                    buy = -1;
+	                }
+	            }
+	        }
+	        return value;
+	    }
+	    
+	    
+> 如果只有一次 找i前边的最小值。
+
+	    public int maxProfit(int[] prices) {
+	        int value = 0;
+	        int lowest = -1;
+	        lowest = prices[0];
+	//        只能买一次,卖一次
+	        for (int i = 1; i < prices.length; i++) {
+	            value = Math.max(value,prices[i]-lowest);
+	            lowest = Math.min(prices[i], lowest);
+	        }
+	        return value;
+	    }
+	    
