@@ -2111,10 +2111,36 @@ set 看看谁在里面
 
 给定一个大小为 n 的数组 nums ，返回其中的多数元素。多数元素是指在数组中出现次数 大于 ⌊ n/2 ⌋ 的元素。
 
+> 消消乐的思想，双指针
+> 
+	public int majorityElement(int[] nums) {
+	        if (nums.length == 1) return nums[0];
+	        //消消乐
+	        int start = 0;
+	        int ret;
+	        for (int i = 0; i < nums.length - 1; ) {
+	            if (nums[i] != nums[i + 1]) {
+	                if (start == i) {
+	                    i += 2;
+	                } else {
+	                    nums[i + 1] = nums[start];
+	                    nums[i] = nums[start + 1];
+	                    i++;
+	                }
+	                start += 2;
+	            } else {
+	                i++;
+	            }
+	        }
+	        return nums[nums.length - 1];
+	    }
+	    
 
 ## 打家劫舍：打劫最多，跟之前打劫的值有关系
 
-动态规划，
+> 动态规划， 固定最后一步，并且，可以从前面的 推断出来后面的。
+
+你是一个专业的小偷，计划偷窃沿街的房屋。每间房内都藏有一定的现金，影响你偷窃的唯一制约因素就是相邻的房屋装有相互连通的防盗系统，如果两间相邻的房屋在同一晚上被小偷闯入，系统会自动报警。
 
 	
 	    public int rob(int[] nums) {
@@ -2130,3 +2156,411 @@ set 看看谁在里面
 	    }
 	    
 	    
+## 	    ✔	[206]反转链表	74.3%	Easy	0.0%
+
+> 主要弄清楚 pre current ı
+
+    public ListNode reverseList(ListNode head) {
+
+        if (head == null || head.next == null) return head;
+        ListNode current = head;
+        ListNode pre = null;
+
+        while (current != null) {
+            ListNode tmp = current.next;
+            current.next = pre;
+            pre = current;
+            current = tmp;
+        }
+
+        return pre;
+
+    }
+    
+###     ✔	[200]岛屿数量	60.4%	Medium	0.0%
+    
+>     题解 ：深度优先+记忆 
+> 
+	     public int numIslands(char[][] grid) {
+
+        boolean[][] visit = new boolean[grid.length][grid[0].length];
+
+        for (int i = 0; i < grid.length; i++) {
+            for (int j = 0; j < grid[0].length; j++) {
+                if (grid[i][j] == '1') {
+                    visit[i][j] = true;
+                    dfs(grid, i, j, visit);
+                }
+            }
+        }
+
+        int max = 0;
+        for (int i = 0; i < grid.length; i++) {
+            for (int j = 0; j < grid[0].length; j++) {
+                max += grid[i][j] - '0';
+            }
+        }
+        return max;
+    }
+
+    void dfs(char[][] grid, int i, int j, boolean[][] visit) {
+        if (i + 1 < grid.length) {
+            if (grid[i + 1][j] == '1' && !visit[i + 1][j]) {
+                visit[i + 1][j] = true;
+                grid[i + 1][j] = '0';
+                dfs(grid, i + 1, j, visit);
+            }
+        }
+
+        if (j + 1 < grid[0].length) {
+            if (grid[i][j + 1] == '1' && !visit[i][j + 1]) {
+                visit[i][j + 1] = true;
+                grid[i][j + 1] = '0';
+                dfs(grid, i, j + 1, visit);
+            }
+        }
+
+        if (i - 1 >= 0) {
+            if (grid[i - 1][j] == '1' && !visit[i - 1][j]) {
+                visit[i - 1][j] = true;
+                grid[i - 1][j] = '0';
+                dfs(grid, i - 1, j, visit);
+            }
+        }
+
+        if (j - 1 >= 0) {
+            if (grid[i][j - 1] == '1' && !visit[i][j - 1]) {
+                visit[i][j - 1] = true;
+                grid[i][j - 1] = '0';
+                dfs(grid, i, j - 1, visit);
+            }
+        }
+    }
+    
+    
+### 	   ✔	[207]课程表	53.9%	Medium	0.0% 
+ 
+ 
+>  题解考察点 邻接表  图 入度与出度
+	 
+	   public boolean canFinish(int numCourses, int[][] prerequisites) {
+	        //  邻接表 ，有向图
+	
+	        if (numCourses <= 1 || prerequisites == null || prerequisites.length == 0) {
+	            return true;
+	        }
+	
+	        ArrayList<Integer>[] list = new ArrayList[numCourses];
+	        int[] indegree = new int[numCourses];
+	        ArrayList<Integer> zeros = new ArrayList<>();
+	
+	        for (int i = 0; i < prerequisites.length; i++) {
+	            indegree[prerequisites[i][1]]++;
+	            if (list[prerequisites[i][0]] == null) {
+	                list[prerequisites[i][0]] = new ArrayList<>();
+	            }
+	            list[prerequisites[i][0]].add(prerequisites[i][1]);
+	        }
+	
+	        for (int i = 0; i < numCourses; i++) {
+	            if (indegree[i] == 0 && list[i] != null && !list[i].isEmpty()) {
+	                zeros.add(i);
+	            }
+	        }
+	
+	        if (zeros.isEmpty()) return false;
+	
+	        while (!zeros.isEmpty()) {
+	            int p = zeros.remove(0);
+	            if (!list[p].isEmpty()) {
+	                ArrayList<Integer> list1 = list[p];
+	                for (Integer integer : list1) {
+	                    indegree[integer]--;
+	                    if (indegree[integer] == 0 && list[integer] != null && !list[integer].isEmpty()) {
+	                        zeros.add(integer);
+	                    }
+	                }
+	            }
+	        }
+	
+	        for (int i = 0; i < indegree.length; i++) {
+	            if (indegree[i] > 0)
+	                return false;
+	        }
+	
+	        return true;
+	    }
+	
+### 	✔	[208]实现 Trie (前缀树)	72.0%	Medium	0.0%
+	    
+> 	  题解：
+> 
+	    Trie（发音类似 "try"）或者说 前缀树 是一种树形数据结构，用于高效地存储和检索字符串数据集中的键。这一数据结构有相当多的应用情景，例如自动补完和拼写检查
+	    
+	    
+	    
+### > 	    ✔	[215]数组中的第K个最大元素	61.5%	Medium	0.0%
+
+> 题解
+> 
+> 堆 topK 
+> 
+	     
+	      public int findKthLargest(int[] nums, int k) {
+	
+	        if (nums == null || nums.length == 0 || nums.length < k) return -1;
+	
+	        PriorityQueue<Integer> priorityQueue = new PriorityQueue<>(k, new Comparator<Integer>() {
+	            @Override
+	            public int compare(Integer integer, Integer t1) {
+	                return integer - t1;
+	            }
+	        });
+	
+	        for (int i = 0; i < nums.length; i++) {
+	            if (priorityQueue.size() < k) {
+	                priorityQueue.add(nums[i]);
+	            } else {
+	                if (nums[i] > priorityQueue.peek()) {
+	                    priorityQueue.poll();
+	                    priorityQueue.add(nums[i]);
+	                }
+	            }
+	        }
+	        return priorityQueue.peek();
+	    }
+	    
+	    
+### 	     	[221]最大正方形	50.3%	Medium	0.0%
+
+> 动态规划  还是数学知识
+
+    public int maximalSquare(char[][] matrix) {
+
+//        dp[i][j] 以ij 结尾的最大边长
+
+        if (matrix == null || matrix.length == 0) return 0;
+
+        int[][] dp = new int[matrix.length][matrix[0].length];
+
+        dp[0][0] = matrix[0][0] - '0';
+        int max = dp[0][0];
+        for (int i = 1; i < matrix.length; i++) {
+            dp[i][0] = matrix[i][0] - '0';
+            max = Math.max(max, dp[i][0]);
+        }
+
+        for (int i = 1; i < matrix[0].length; i++) {
+            dp[0][i] = matrix[0][i] - '0';
+            max = Math.max(max, dp[0][i]);
+        }
+
+        for (int i = 1; i < matrix.length; i++) {
+            for (int j = 1; j < matrix[0].length; j++) {
+                if (matrix[i][j] == '0') {
+                    dp[i][j] = 0;
+                } else {
+                    dp[i][j] = Math.min(dp[i][j - 1], Math.min(dp[i - 1][j - 1], dp[i - 1][j])) + 1;
+                }
+                max = Math.max(max, dp[i][j]);
+            }
+        }
+        return max * max;
+    }
+    
+    
+    
+##     ✔	[226]翻转二叉树	80.3%	Easy	0.0%
+
+
+> 递归
+
+	  public TreeNode invertTree(TreeNode root) {
+	        if (root == null) return null;
+	        TreeNode left = root.left;
+	        TreeNode right = root.right;
+	        root.left = right;
+	        root.right = left;
+	        invertTree(left);
+	        invertTree(right);
+	        return root;
+	    }
+	    
+	    
+## 	    ✔	[234]回文链表	54.3%	Easy	0.0%
+
+给你一个单链表的头节点 head ，请你判断该链表是否为回文链表。如果是，返回 true ；否则，返回 false 。
+
+> 题解
+> 
+
+进阶：你能否用 O(n) 时间复杂度和 O(1) 空间复杂度解决此题 ：快慢指针 ？
+
+快慢指针 
+
+	 public boolean isPalindrome(ListNode head) {
+	        if (head == null || head.next == null) return true;
+	
+	        ListNode fast = head;
+	        ListNode slow = head;
+	        ListNode pre = null;
+	
+	        while (slow != null && fast != null) {
+	
+	            if (fast.next == null) {
+	                fast = slow.next;
+	                slow = pre;
+	                break;
+	            }
+	            if (fast.next.next == null) {
+	                fast = slow.next;
+	                slow.next = pre;
+	                break;
+	            }
+	            fast = fast.next.next;
+	            ListNode tmp = slow.next;
+	            slow.next = pre;
+	            pre = slow;
+	            slow = tmp;
+	        }
+	
+	        while (slow != null && fast != null && slow.val == fast.val) {
+	            slow = slow.next;
+	            fast = fast.next;
+	        }
+	        return slow == fast && slow == null;
+	    }
+		    
+### 		    ✔	[236]二叉树的最近公共祖先	71.0%	Medium	0.0%
+
+ 给定一个二叉树, 找到该树中两个指定节点的最近公共祖先。
+ 
+> 要么左边，要么右边，要么上边
+ 
+	 
+	 class Solution {
+	    public TreeNode lowestCommonAncestor(TreeNode root, TreeNode p, TreeNode q) {
+	        if(root == null || root == p || root == q) return root;
+	        TreeNode left = lowestCommonAncestor(root.left, p, q);
+	        TreeNode right = lowestCommonAncestor(root.right, p, q);
+	        if(left == null) return right;
+	        if(right == null) return left;
+	        return root;
+	    }
+	}
+	 
+### ✔	[238]除自身以外数组的乘积	75.4%	Medium	0.0%
+
+
+zu
+	
+> 	左边的乘积 与右边的乘积
+
+		public int[] productExceptSelf(int[] nums) {
+		
+		
+		        //  找0 排除零
+		        int[] ret = new int[nums.length];
+		        int[] dpA = new int[nums.length];
+		        int[] dpB = new int[nums.length];
+		        dpA[0] = 1;
+		        dpB[nums.length - 1] = 1;
+		        for (int i = 1; i < nums.length; i++) {
+		            dpA[i] = dpA[i - 1] * nums[i - 1];
+		        }
+		
+		        for (int i = nums.length - 2; i >= 0; i--) {
+		            dpB[i] = dpB[i + 1] * nums[i + 1];
+		        }
+		
+		        ret[nums.length - 1] = dpA[nums.length - 1];
+		        ret[0] = dpB[0];
+		        for (int i = 1; i < nums.length - 1; i++) {
+		            ret[i] = dpA[i] * dpB[i];
+		        }
+		        return ret;
+		    }
+
+
+### ✔	[739]每日温度	68.7%	Medium	0.0%
+
+
+给定一个整数数组 temperatures ，表示每天的温度，返回一个数组 answer ，其中 answer[i] 是指对于第 i 天，下一个更高温度出现在几天后。如果气温在这之后都不会升高，请在该位置用 0 来代替。
+
+v
+>  单调栈
+	
+    public int[] dailyTemperatures(int[] temperatures) {
+
+        int[] ret = new int[temperatures.length];
+        Stack<Integer> stack = new Stack<>();
+        ret[temperatures.length - 1] = 0;
+        stack.push(temperatures.length - 1);
+        for (int i = temperatures.length - 2; i >= 0; i--) {
+
+            while (!stack.isEmpty() && temperatures[stack.peek()] <= temperatures[i]) {
+                stack.pop();
+            }
+            if (stack.isEmpty()) {
+                ret[i] = 0;
+            } else {
+                ret[i] = stack.peek() - i;
+            }
+            stack.push(i);
+        }
+        return ret;
+    }
+    
+###     ✔	[647]回文子串	67.3%	Medium	0.0%
+
+	给你一个字符串 s ，请你统计并返回这个字符串中 回文子串 的数目。
+	
+> 	动态规划
+
+	    public int countSubstrings(String s) {
+	        //动态规划？
+	        boolean[][] dp = new boolean[s.length()][s.length()];
+	//        下标 i-j是不是回文
+	        int count = 0;
+	        for (int i = 0; i < s.length(); i++) {
+	            for (int j = 0; j <= i; j++) {
+	                dp[j][i] = s.charAt(i) == s.charAt(j) && (i == j || i == j + 1 || dp[j + 1][i - 1]);
+	                count += dp[j][i] ? 1 : 0;
+	            }
+	        }
+	        return count;
+	    }
+	    
+## 	    ###     ✔	[647]回文子串	67.3%	Medium	0.0%
+
+马拉车算法
+
+
+### ✔	[617]合并二叉树	79.3%	Easy 
+
+
+> 
+>      题解：递归
+  
+        public TreeNode mergeTrees(TreeNode root1, TreeNode root2) {
+        if (root1 == null) return root2;
+
+        root1.val = root1.val + (root2  == null ? 0 : root2.val);
+
+        root1.left = mergeTrees(root1.left, root2 == null ? null : root2.left);
+        root1.right = mergeTrees(root1.right, root2 == null ? null : root2.right);
+
+        return root1;
+    }
+    
+    
+##  ✔	[239]滑动窗口最大值	48.9%	Hard	0.0%
+ 
+给你一个整数数组 nums，有一个大小为 k 的滑动窗口从数组的最左侧移动到数组的最右侧。你只可以看到在滑动窗口内的 k 个数字。滑动窗口每次只向右移动一位。
+
+
+### ✔	[621]任务调度器	60.1%	Medium	0.0%
+
+
+
+ 
