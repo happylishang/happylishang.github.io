@@ -2552,8 +2552,102 @@ v
 
         return root1;
     }
+  
+###   ✔	[581]最短无序连续子数组	42.2%	Medium	0.0%
+
+给你一个整数数组 nums ，你需要找出一个 连续子数组 ，如果对这个子数组进行升序排序，那么整个数组都会变为升序排序。
     
+>     题解 ：直观看就是动态规划 ，但是好像也可以单调栈
+
+	O(N)
+	
+	public int findUnsortedSubarray(int[] nums) {
+	
+	        if (nums.length == 1) return 0;
+	        Stack<Integer> stack = new Stack<>();
+	        stack.push(0);
+	        int max = nums[0];
+	        int start = -2;
+	        int end = 0;
+	        for (int i = 1; i < nums.length; i++) {
+	            if (nums[i] < max) {
+	                end = i;
+	            }
+	            max = Math.max(max, nums[i]);
+	            if (nums[i] < nums[stack.peek()]) {
+	                while (!stack.isEmpty() && nums[i] < nums[stack.peek()]) {
+	                    stack.pop();
+	                }
+	                //  找到开头
+	                if (stack.isEmpty()) {
+	                    start = -1;
+	                } else {
+	                    start = start == -2 ? stack.peek() : Math.min(stack.peek(), start);
+	                }
+	            }
+	            stack.push(i);
+	        }
+	
+	        return end > 0 ? end - start : 0;
+	
+	    }
+	    
     
+排序 +
+
+	    public int findUnsortedSubarray(int[] nums) {
+	
+	        int[] copy = Arrays.copyOf(nums, nums.length);
+	        Arrays.sort(nums);
+	
+	        int start = -1;
+	        int end = -1;
+	        for (int i = 0; i < nums.length; i++) {
+	            if (nums[i] != copy[i]) {
+	                if (start == -1) {
+	                    start = i;
+	                }
+	
+	                end = i;
+	            }
+	        }
+	        return end > 0 ? end - start + 1 : 0;
+	    }
+
+findUnsortedSubarray  双指针
+
+	  public int findUnsortedSubarray(int[] nums) {
+	//        双指针
+	        int end = 0;
+	        int start = 0;
+	        int tmp = nums[0];
+	        for (int i = 0; i < nums.length; i++) {
+	            if (nums[i] < tmp){
+	                end = i;
+	            }else{
+	                tmp = nums[i];
+	            }
+	        }
+	        tmp = nums[nums.length - 1];
+	        for (int i = nums.length - 1; i >= 0; i--) {
+	            if (nums[i] > tmp){
+	                start = i;
+	            }else{
+	                tmp = nums[i];
+	            }
+	        }
+	
+	        return end > 0 ? end - start + 1 : 0;
+	    }
+
+#### > ✔	[560]和为 K 的子数组	44.1%	Medium	0.0%
+ 
+ 
+> >  
+> 题解
+> 
+
+
 ##  ✔	[239]滑动窗口最大值	48.9%	Hard	0.0%
  
 给你一个整数数组 nums，有一个大小为 k 的滑动窗口从数组的最左侧移动到数组的最右侧。你只可以看到在滑动窗口内的 k 个数字。滑动窗口每次只向右移动一位。
