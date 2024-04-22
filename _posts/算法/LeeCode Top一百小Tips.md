@@ -2643,18 +2643,232 @@ findUnsortedSubarray  双指针
 #### > ✔	[560]和为 K 的子数组	44.1%	Medium	0.0%
  
  
+ 给你一个整数数组 nums 和一个整数 k ，请你统计并返回 该数组中和为 k 的子数组的个数 。
 > >  
 > 题解
-> 
+
+回溯？ 
 
 
 ##  ✔	[239]滑动窗口最大值	48.9%	Hard	0.0%
  
 给你一个整数数组 nums，有一个大小为 k 的滑动窗口从数组的最左侧移动到数组的最右侧。你只可以看到在滑动窗口内的 k 个数字。滑动窗口每次只向右移动一位。
 
-
-### ✔	[621]任务调度器	60.1%	Medium	0.0%
-
-
-
  
+ 给你一个用字符数组 tasks 表示的 CPU 需要执行的任务列表，用字母 A 到 Z 表示，以及一个冷却时间 n。每个周期或时间间隔允许完成一项任务。任务可以按任何顺序完成，但有一个限制：两个 相同种类 的任务之间必须有长度为 n 的冷却时间。
+ 
+####  ✔	[621]任务调度器	60.1%	Medium	0.0%
+ 
+	  public int leastInterval(char[] tasks, int n) {
+	        if (tasks.length == 1) {
+	            return 1;
+	        }
+	        HashMap<Character, Integer> hashMap = new HashMap<>();
+	        int max = 0;
+	        for (int i = 0; i < tasks.length; i++) {
+	            int v = hashMap.getOrDefault(tasks[i], 0) + 1;
+	            hashMap.put(tasks[i], v);
+	            max = Math.max(max, v);
+	        }
+	        PriorityQueue<Integer> priorityQueue = new PriorityQueue<>(new Comparator<Integer>() {
+	            @Override
+	            public int compare(Integer integer, Integer t1) {
+	                return t1 - integer;
+	            }
+	        });
+	        int maxCount = 0;
+	        for (Integer integer : hashMap.values()) {
+	            priorityQueue.add(integer);
+	            if (integer == max)
+	                maxCount++;
+	        }
+	
+	        int ret = 0;
+	        int[] tmp = new int[n + 1];
+	        while (!priorityQueue.isEmpty()) {
+	            if (priorityQueue.size() >= n + 1) {
+	                for (int i = 0; i < n + 1; i++) {
+	                    tmp[i] = priorityQueue.poll();
+	                    ret++;
+	                }
+	                for (int i = 0; i < n + 1; i++) {
+	                    if (tmp[i] - 1 > 0)
+	                        priorityQueue.add(tmp[i] - 1);
+	                }
+	            } else {
+	
+	                int cycle = priorityQueue.size() > 0 ? priorityQueue.peek() : 0;
+	                return ret + (cycle > 1 ? (cycle - 1) * (n + 1) + maxCount : priorityQueue.size());
+	            }
+	        }
+	
+	        return ret;
+	    }
+	    
+####  二叉树的直径	 
+
+可以用深度，但是不好理解
+
+
+
+###  ✔	[538]把二叉搜索树转换为累加树	77.3%	Medium	0.0%
+
+> 题解，转换比较拗口
+
+	   public TreeNode convertBST(TreeNode root) {
+	        if (root == null) return root;
+	        convertBST(root.right);
+	        root.val += pre;
+	        pre = root.val;
+	        convertBST(root.left);
+	        return root;
+	    }
+	    
+	    
+## 	  ✔	[494]目标和	48.3%	Medium	0.0%
+
+> 回溯
+
+
+    public int findTargetSumWays(int[] nums, int target) {
+        if (nums.length == 1) return nums[0] == target || nums[0] == -target ? (target == 0 ? 2 : 1) : 0;
+        return findTargetSumWays(nums, target, 0);
+
+    }
+
+    public int findTargetSumWays(int[] nums, int target, int start) {
+
+        if (start == nums.length - 1)
+            return nums[nums.length - 1] == target || nums[nums.length - 1] == -target ? (target == 0 ? 2 : 1) : 0;
+
+        return findTargetSumWays(nums, target - nums[start], start + 1) + findTargetSumWays(nums, target + nums[start], start + 1);
+
+    }
+
+### 汉明距离
+
+两个整数之间的 汉明距离 指的是这两个数字对应二进制位不同的位置的数目。
+
+给你两个整数 x 和 y，计算并返回它们之间的汉明距离。
+
+    public int hammingDistance(int x, int y) {
+        x = x ^ y;
+        int p = 0;
+        while (x != 0) {
+            p += x & 1;
+            x = x >> 1;
+        }
+        return p;
+    }
+    
+##     ✔	[448]找到所有数组中消失的数字	65.8%	Easy	0.0%
+
+给你一个含 n 个整数的数组 nums ，其中 nums[i] 在区间 [1, n] 内。请你找出所有在 [1, n] 范围内但没有出现在 nums 中的数字，并以数组的形式返回结果。
+
+跳动表
+
+    public List<Integer> findDisappearedNumbers(int[] nums) {
+        List<Integer> list = new ArrayList<>();
+        for (int i = 0; i < nums.length; i++) {
+            int tmp = nums[i];
+            while (nums[tmp - 1] != tmp) {
+                int next = nums[tmp - 1];
+                nums[tmp - 1] = tmp;
+                tmp = next;
+            }
+        }
+
+        for (int i = 0; i < nums.length; i++) {
+            if (nums[i] != i + 1)
+                list.add(i + 1);
+        }
+        return list;
+    }
+    
+    
+##     ✔	[438]找到字符串中所有字母异位词	53.5%	Medium	0.0%
+
+给定两个字符串 s 和 p，找到 s 中所有 p 的 异位词 的子串，返回这些子串的起始索引。不考虑答案输出的顺序。
+
+> 题解  哈希表，如果是Interge需要注意 -128 到127 才能==，否则不行
+> 
+> 
+> 
+	  public List<Integer> findAnagrams(String s, String p) {
+	//  哈希表
+	        List<Integer> list = new ArrayList<>();
+	        if (p.length() > s.length()) return list;
+	        HashMap<Character, Integer> hashMap = new HashMap<>();
+	        HashMap<Character, Integer> bHashMap = new HashMap<>(p.length());
+	
+	        for (int i = 0; i < p.length(); i++) {
+	            bHashMap.put(p.charAt(i), bHashMap.getOrDefault(p.charAt(i), 0) + 1);
+	        }
+	
+	        int satisfyCount = 0;
+	        int l = p.length();
+	
+	        for (int i = 0; i < s.length(); i++) {
+	            char v = s.charAt(i);
+	            if (i >= l) {
+	                char before = s.charAt(i - l);
+	                if (bHashMap.containsKey(before) && bHashMap.get(before).equals(hashMap.getOrDefault(before, 0))) {
+	                    satisfyCount--;
+	                }
+	                hashMap.put(before, hashMap.get(before) - 1);
+	
+	                if (bHashMap.containsKey(before) && bHashMap.get(before).equals(hashMap.getOrDefault(before, 0))) {
+	                    satisfyCount++;
+	                }
+	            }
+	
+	            if (bHashMap.containsKey(v) && bHashMap.get(v).equals(hashMap.getOrDefault(v, 0))) {
+	                satisfyCount--;
+	            }
+	            hashMap.put(v, hashMap.getOrDefault(v, 0) + 1);
+	
+	            if (bHashMap.containsKey(v) && bHashMap.get(v).equals(hashMap.get(v))) {
+	                satisfyCount++;
+	                if (satisfyCount == bHashMap.size()) {
+	                    list.add(i - l + 1);
+	                }
+	            }
+	        }
+	        return list;
+	    }
+	    
+## 	    ✔	[437]路径总和 III	47.9%	Medium	0.0%
+
+
+> 其实很简单，回溯，+递归穿插 奇怪的思维方式 
+> 
+	 public int pathSum(TreeNode root, long targetSum) {
+	        if (root == null) return 0;
+	
+	        return pathSumB(root, targetSum)
+	                + pathSum(root.left, targetSum)
+	                + pathSum(root.right, targetSum);
+	    }
+	
+	
+	    public int pathSumB(TreeNode root, long targetSum) {
+	
+	        int ret = 0;
+	
+	        if (targetSum == root.val) {
+	            ret++;
+	        }
+	        if (root.left != null) {
+	            ret += pathSumB(root.left, targetSum - root.val);
+	        }
+	        if (root.right != null) {
+	            ret += pathSumB(root.right, targetSum - root.val);
+	        }
+	        return ret;
+	    }
+	    
+	    
+## 	    ✔	[416]分割等和子集	52.4%	Medium	0.0%
+
+给你一个 只包含正整数 的 非空 数组 nums 。请你判断是否可以将这个数组分割成两个子集，使得两个子集的元素和相等。
+
