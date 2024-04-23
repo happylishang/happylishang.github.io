@@ -2650,12 +2650,6 @@ findUnsortedSubarray  双指针
 回溯？ 
 
 
-##  ✔	[239]滑动窗口最大值	48.9%	Hard	0.0%
- 
-给你一个整数数组 nums，有一个大小为 k 的滑动窗口从数组的最左侧移动到数组的最右侧。你只可以看到在滑动窗口内的 k 个数字。滑动窗口每次只向右移动一位。
-
- 
- 给你一个用字符数组 tasks 表示的 CPU 需要执行的任务列表，用字母 A 到 Z 表示，以及一个冷却时间 n。每个周期或时间间隔允许完成一项任务。任务可以按任何顺序完成，但有一个限制：两个 相同种类 的任务之间必须有长度为 n 的冷却时间。
  
 ####  ✔	[621]任务调度器	60.1%	Medium	0.0%
  
@@ -2978,6 +2972,16 @@ findUnsortedSubarray  双指针
         return dp;
     }
     
+    
+    
+##  ✔	[239]滑动窗口最大值	48.9%	Hard	0.0%
+ 
+给你一个整数数组 nums，有一个大小为 k 的滑动窗口从数组的最左侧移动到数组的最右侧。你只可以看到在滑动窗口内的 k 个数字。滑动窗口每次只向右移动一位。
+
+ 
+ 给你一个用字符数组 tasks 表示的 CPU 需要执行的任务列表，用字母 A 到 Z 表示，以及一个冷却时间 n。每个周期或时间间隔允许完成一项任务。任务可以按任何顺序完成，但有一个限制：两个 相同种类 的任务之间必须有长度为 n 的冷却时间。
+ 
+ 
 ##      	[337]打家劫舍 III	61.6%	Medium	0.0%
 
 
@@ -2998,3 +3002,31 @@ findUnsortedSubarray  双指针
     }
     
     
+    
+>   用哈希表 全局变量存储 动态规划也是 不一定非得二维数组，哈希表也是可以的
+> 
+> 
+  
+	  
+	   HashMap<TreeNode, Integer> hashMap = new HashMap<TreeNode, Integer>();
+	
+	    public int rob(TreeNode root) {
+	        if (root == null) return 0;
+	        int left = 0;
+	        int right = 0;
+	        if (root.left != null) {
+	            left = rob(root.left);
+	        }
+	        if (root.right != null) {
+	            right = rob(root.right);
+	        }
+	        int t = root.left == null ? 0 : ((root.left.left == null ? 0 : hashMap.get(root.left.left))
+	                + (root.left.right == null ? 0 : hashMap.get(root.left.right)));
+	
+	
+	        t += root.right == null ? 0 : ((root.right.left == null ? 0 : hashMap.get(root.right.left))
+	                + (root.right.right == null ? 0 : hashMap.get(root.right.right)));
+	
+	        hashMap.put(root, Math.max(left + right, root.val + t));
+	        return hashMap.get(root);
+	    }
