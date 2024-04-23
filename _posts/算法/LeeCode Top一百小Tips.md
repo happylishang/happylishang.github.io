@@ -2872,3 +2872,129 @@ findUnsortedSubarray  双指针
 
 给你一个 只包含正整数 的 非空 数组 nums 。请你判断是否可以将这个数组分割成两个子集，使得两个子集的元素和相等。
 
+> 子集问题，分割问题，二维的动态规划。
+
+
+	 public boolean canPartition(int[] nums) {
+	        if (nums.length < 2) return false;
+	        int sum = 0;
+	        for (int i = 0; i < nums.length; i++) {
+	            sum += nums[i];
+	        }
+	        if (sum % 2 != 0) return false;
+	
+	        int half = sum / 2;
+	        boolean[][] dp = new boolean[nums.length][half + 1];
+	
+	        dp[0][0] = true;
+	
+	        for (int i = 1; i < nums.length; i++) {
+	            dp[i][0] = false;
+	        }
+	        //下标i 及i以前是否可以组成 j
+	        for (int i = 1; i <= half; i++) {
+	            dp[0][i] = nums[0] == i;
+	        }
+	
+	        //  todo 可以降低空间使用
+	        for (int i = 1; i < nums.length; i++) {
+	            for (int j = 1; j <= half; j++) {
+	                dp[i][j] = (j - nums[i] >= 0 && dp[i - 1][j - nums[i]]) || dp[i - 1][j];
+	                if (dp[i][half])
+	                    return true;
+	            }
+	        }
+	
+	        return false;
+	    }
+	    
+## 	✔	[406]根据身高重建队列	76.4%	Medium	0.0%    
+	    
+  假设有打乱顺序的一群人站成一个队列，数组 people 表示队列中一些人的属性（不一定按顺序）。每个 people[i] = [hi, ki] 表示第 i 个人的身高为 hi ，前面 正好 有 ki 个身高大于或等于 hi 的人。
+  
+>   排序 插入 ，有些不明所以
+	    
+	 public static int[][] reconstructQueue(int[][] people) {
+
+        ArrayList<int[]> list = new ArrayList<>();
+        Arrays.sort(people, new Comparator<int[]>() {
+            @Override
+            public int compare(int[] ints, int[] t1) {
+                return ints[0] - t1[0];
+            }
+        });
+
+        while (list.size() < people.length) {
+            for (int i = 0; i < people.length; i++) {
+                for (int j = 0; j < people.length; j++) {
+                    if (people[j][1] == i) {
+                        int count = 0;
+                        int index = 0;
+                        for (int k = 0; k < list.size(); k++) {
+                            index++;
+                            if (people[j][0] <= list.get(k)[0]) {
+                                count++;
+                                if (count == i + 1) {
+                                    index = k;
+                                    break;
+                                }
+                            }
+                        }
+                        if (i == 0)
+                            list.add(people[j]);
+                        else {
+                            list.add(index, people[j]);
+                        }
+                    }
+                }
+            }
+        }
+
+        return list.toArray(new int[people.length][]);
+    }
+    
+    
+##      	[399]除法求值	58.6%	Medium	0.0%
+
+
+给你一个变量对数组 equations 和一个实数值数组 values 作为已知条件，其中 equations[i] = [Ai, Bi] 和 values[i] 共同表示等式 Ai / Bi = values[i] 。每个 Ai 或 Bi 是一个表示单个变量的字符串。
+
+
+
+## ✔	[338]比特位计数	78.7%	Easy	0.0%
+
+给你一个整数 n ，对于 0 <= i <= n 中的每个 i ，计算其二进制表示中 1 的个数 ，返回一个长度为 n + 1 的数组 ans 作为答案。
+
+> 动态规划 
+> 
+
+    public int[] countBits(int n) {
+        int[] dp = new int[n + 1];
+        dp[0] = 0;
+        for (int i = 1; i <= n; i++) {
+            dp[i] = i % 2 == 0 ? dp[i / 2] : (dp[i / 2] + 1);
+        }
+
+        return dp;
+    }
+    
+##      	[337]打家劫舍 III	61.6%	Medium	0.0%
+
+
+小偷又发现了一个新的可行窃的地区。这个地区只有一个入口，我们称之为 root 。
+
+除了 root 之外，每栋房子有且只有一个“父“房子与之相连。一番侦察之后，聪明的小偷意识到“这个地方的所有房屋的排列类似于一棵二叉树”。 如果 两个直接相连的房子在同一天晚上被打劫 ，房屋将自动报警。
+
+给定二叉树的 root 。返回 在不触动警报的情况下 ，小偷能够盗取的最高金额 。
+
+
+>  递归时间超限
+> 
+    public int rob(TreeNode root) {
+        if (root == null) return 0;
+        return Math.max(root.val + (root.left != null ? (rob(root.left.left) + rob(root.left.right)) : 0
+                ) + (root.right != null ? (rob(root.right.left) + rob(root.right.right)) : 0)
+                , rob(root.left) + rob(root.right));
+    }
+    
+    
