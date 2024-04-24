@@ -2786,8 +2786,7 @@ findUnsortedSubarray  双指针
 
 > 题解  哈希表，如果是Interge需要注意 -128 到127 才能==，否则不行
 > 
-> 
-> 
+ 
 	  public List<Integer> findAnagrams(String s, String p) {
 	//  哈希表
 	        List<Integer> list = new ArrayList<>();
@@ -2947,11 +2946,6 @@ findUnsortedSubarray  双指针
         return list.toArray(new int[people.length][]);
     }
     
-    
-##      	[399]除法求值	58.6%	Medium	0.0%
-
-
-给你一个变量对数组 equations 和一个实数值数组 values 作为已知条件，其中 equations[i] = [Ai, Bi] 和 values[i] 共同表示等式 Ai / Bi = values[i] 。每个 Ai 或 Bi 是一个表示单个变量的字符串。
 
 
 
@@ -2972,14 +2966,7 @@ findUnsortedSubarray  双指针
         return dp;
     }
     
-    
-    
-##  ✔	[239]滑动窗口最大值	48.9%	Hard	0.0%
- 
-给你一个整数数组 nums，有一个大小为 k 的滑动窗口从数组的最左侧移动到数组的最右侧。你只可以看到在滑动窗口内的 k 个数字。滑动窗口每次只向右移动一位。
 
- 
- 给你一个用字符数组 tasks 表示的 CPU 需要执行的任务列表，用字母 A 到 Z 表示，以及一个冷却时间 n。每个周期或时间间隔允许完成一项任务。任务可以按任何顺序完成，但有一个限制：两个 相同种类 的任务之间必须有长度为 n 的冷却时间。
  
  
 ##      	[337]打家劫舍 III	61.6%	Medium	0.0%
@@ -3005,8 +2992,7 @@ findUnsortedSubarray  双指针
     
 >   用哈希表 全局变量存储 动态规划也是 不一定非得二维数组，哈希表也是可以的
 > 
-> 
-  
+ 
 	  
 	   HashMap<TreeNode, Integer> hashMap = new HashMap<TreeNode, Integer>();
 	
@@ -3030,3 +3016,201 @@ findUnsortedSubarray  双指针
 	        hashMap.put(root, Math.max(left + right, root.val + t));
 	        return hashMap.get(root);
 	    }
+	    
+	    
+## 	    ✔	[347]前 K 个高频元素	63.6%	Medium	0.0%
+
+给你一个整数数组 nums 和一个整数 k ，请你返回其中出现频率前 k 高的元素。你可以按 任意顺序 返回答案。
+
+> PripriotyQueue也可以直接class 比如HashMap的entry
+
+
+	 public static int[] topKFrequent(int[] nums, int k) {
+	
+	        HashMap<Integer, Integer> hashMap = new HashMap<>();
+	        PriorityQueue<Map.Entry<Integer, Integer>> priorityQueue = new PriorityQueue<>(new Comparator<Map.Entry<Integer, Integer>>() {
+	            @Override
+	            public int compare(Map.Entry<Integer, Integer> integerIntegerEntry, Map.Entry<Integer, Integer> t1) {
+	                return integerIntegerEntry.getValue() - t1.getValue();
+	            }
+	        });
+	
+	        for (int i = 0; i < nums.length; i++) {
+	            hashMap.put(nums[i], hashMap.getOrDefault(nums[i], 0) + 1);
+	        }
+	
+	        for (Map.Entry<Integer, Integer> entry : hashMap.entrySet()) {
+	
+	            if (priorityQueue.size() < k) {
+	                priorityQueue.add(entry);
+	            } else if (entry.getValue() > priorityQueue.peek().getValue()) {
+	                priorityQueue.poll();
+	                priorityQueue.add(entry);
+	            }
+	        }
+	        int[] ret = new int[k];
+	        int i = 0;
+	
+	      while (!priorityQueue.isEmpty())
+	            ret[i++] = priorityQueue.poll().getKey();
+	        return ret;
+	
+	    }
+	    
+## 	    ✔	[394]字符串解码	57.5%	Medium	0.0%
+
+
+给定一个经过编码的字符串，返回它解码后的字符串。
+
+编码规则为: k[encoded_string]，表示其中方括号内部的 encoded_string 正好重复 k 次。注意 k 保证为正整数。
+
+> 题解 栈
+
+	 public String decodeString(String s) {
+	        //  栈
+	
+	        Stack<Character> stack = new Stack<>();
+	        StringBuilder stringBuilder = new StringBuilder();
+	        StringBuilder tmp = new StringBuilder();
+	        StringBuilder count = new StringBuilder();
+	        for (int i = 0; i < s.length(); i++) {
+	            if (s.charAt(i) == ']') {
+	                char v = 0;
+	                tmp = new StringBuilder();
+	                count = new StringBuilder();
+	                while ((v = stack.pop()) != '[') {
+	                    tmp.append(v);
+	                }
+	
+	                while (!stack.isEmpty() && (v = stack.peek()) >= '0' && stack.peek() <= '9') {
+	                    stack.pop();
+	                    count.append(v);
+	                }
+	                int p = Integer.parseInt(count.reverse().toString());
+	                char[] c = String.join("", Collections.nCopies(p, tmp.reverse().toString())).toCharArray();
+	
+	                for (char item : c) {
+	                    stack.push(item);
+	                }
+	            } else {
+	                stack.push(s.charAt(i));
+	            }
+	        }
+	        while (!stack.isEmpty())
+	            stringBuilder.append(stack.pop());
+	        return stringBuilder.reverse().toString();
+	
+	    }
+
+
+
+## ✔	[322]零钱兑换	48.1%	Medium	0.0%
+
+
+给你一个整数数组 coins ，表示不同面额的硬币；以及一个整数 amount ，表示总金额。
+
+计算并返回可以凑成总金额所需的 最少的硬币个数 。如果没有任何一种硬币组合能组成总金额，返回 -1 。-1
+
+> 背包问题，动态规划
+
+	    public int coinChange(int[] coins, int amount) {
+	        if (amount == 0) return 0;
+	        int[][] dp = new int[coins.length][amount + 1];
+	//        dp[i][j] 小标i之前 凑j的数量
+	        Arrays.sort(coins);
+	        dp[0][0] = 0;
+	        for (int i = 1; i < coins.length; i++) {
+	            dp[i][0] = 0;
+	        }
+	        int min = -1;
+	
+	        for (int i = 1; i <= amount; i++) {
+	            dp[0][i] = i % coins[0] == 0 ? i / coins[0] : -1;
+	        }
+	
+	        min = dp[0][amount];
+	
+	        for (int i = 1; i < coins.length; i++) {
+	            for (int j = 1; j <= amount; j++) {
+	                dp[i][j] = -1;
+	                if (j % coins[i] == 0) {
+	                    dp[i][j] = j / coins[i];
+	                } else {
+	                    int count = j / coins[i];
+	                    dp[i][j] = dp[i - 1][j];
+	                    while (count > 0) {
+	                        int re = dp[i - 1][j - count * coins[i]];
+	                        if (re >= 0) {
+	                            if (dp[i][j] == -1) dp[i][j] = re + count;
+	                            else {
+	                                dp[i][j] = Math.min(dp[i][j], re + count);
+	                            }
+	                        }
+	                        count--;
+	                    }
+	                }
+	                if (dp[i][amount] > 0) {
+	                    min = min < 0 ? dp[i][amount] : Math.min(min, dp[i][amount]);
+	                }
+	            }
+	        }
+	        return min;
+	    }
+	
+
+
+
+
+
+
+
+
+    
+##      	[399]除法求值	58.6%	Medium	0.0%
+
+
+给你一个变量对数组 equations 和一个实数值数组 values 作为已知条件，其中 equations[i] = [Ai, Bi] 和 values[i] 共同表示等式 Ai / Bi = values[i] 。每个 Ai 或 Bi 是一个表示单个变量的字符串。
+    
+    
+##  ✔	[239]滑动窗口最大值	48.9%	Hard	0.0%
+ 
+给你一个整数数组 nums，有一个大小为 k 的滑动窗口从数组的最左侧移动到数组的最右侧。你只可以看到在滑动窗口内的 k 个数字。滑动窗口每次只向右移动一位。
+
+ 
+ 给你一个用字符数组 tasks 表示的 CPU 需要执行的任务列表，用字母 A 到 Z 表示，以及一个冷却时间 n。每个周期或时间间隔允许完成一项任务。任务可以按任何顺序完成，但有一个限制：两个 相同种类 的任务之间必须有长度为 n 的冷却时间。
+ 
+ 
+>  还有单调队列  哈哈哈哈哈 ，除了单调栈，还有单调队列 
+> 
+ 
+
+    //  单调栈 试试
+    public int[] maxSlidingWindow(int[] nums, int k) {
+
+        if (nums == null || nums.length == 1) return nums;
+        if (k == 1) return nums;
+
+        Deque<Integer> deque = new LinkedList<>();
+        deque.add(0);
+        int[] ret = new int[nums.length - k + 1];
+        // 单个
+        for (int i = 1; i < nums.length; i++) {
+
+            while (!deque.isEmpty() && nums[deque.peekLast()] <= nums[i]) {
+                deque.pollLast();
+            }
+            while (!deque.isEmpty() && deque.peekFirst() < i - k + 1) {
+                deque.pollFirst();
+            }
+
+            if (i >= k - 1) {
+                if (deque.isEmpty()) {
+                    ret[i - k + 1] = nums[i];
+                } else {
+                    ret[i - k + 1] = nums[deque.peekFirst()];
+                }
+            }
+            deque.addLast(i);
+        }
+        return ret;
+    }
