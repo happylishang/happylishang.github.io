@@ -3161,16 +3161,6 @@ findUnsortedSubarray  双指针
 
 
 
-
-
-
-
-    
-##      	[399]除法求值	58.6%	Medium	0.0%
-
-
-给你一个变量对数组 equations 和一个实数值数组 values 作为已知条件，其中 equations[i] = [Ai, Bi] 和 values[i] 共同表示等式 Ai / Bi = values[i] 。每个 Ai 或 Bi 是一个表示单个变量的字符串。
-    
     
 ##  ✔	[239]滑动窗口最大值	48.9%	Hard	0.0%
  
@@ -3214,3 +3204,228 @@ findUnsortedSubarray  双指针
         }
         return ret;
     }
+    
+    
+##      	[279]完全平方数	66.8%	Medium	0.0%
+
+给你一个整数 n ，返回 和为 n 的完全平方数的最少数量 。
+     	
+    
+>  找到平方数，转换为找零钱
+> 动态规划
+>
+> 
+   
+     public int numSquares(int n) {
+        //    转换找零钱
+        //    小于10000
+        int[] arr = new int[(int) Math.sqrt(n) + 1];
+        for (int i = 0; i < arr.length; i++) {
+            arr[i] = (i + 1) * (1 + i);
+        }
+
+        return coinChange(arr, n);
+
+    }
+
+    public int coinChange(int[] coins, int amount) {
+        if (amount == 0) return 0;
+        int[][] dp = new int[coins.length][amount + 1];
+		//       dp[i][j] 小标i之前 凑j的数量
+        dp[0][0] = 0;
+        for (int i = 1; i < coins.length; i++) {
+            dp[i][0] = 0;
+        }
+        int min = -1;
+
+        for (int i = 1; i <= amount; i++) {
+            dp[0][i] = i % coins[0] == 0 ? i / coins[0] : -1;
+        }
+
+        min = dp[0][amount];
+
+        for (int i = 1; i < coins.length; i++) {
+            for (int j = 1; j <= amount; j++) {
+                dp[i][j] = -1;
+                if (j % coins[i] == 0) {
+                    dp[i][j] = j / coins[i];
+                } else {
+                    int count = j / coins[i];
+                    dp[i][j] = dp[i - 1][j];
+                    while (count > 0) {
+                        int re = dp[i - 1][j - count * coins[i]];
+                        if (re >= 0) {
+                            if (dp[i][j] == -1) dp[i][j] = re + count;
+                            else {
+                                dp[i][j] = Math.min(dp[i][j], re + count);
+                            }
+                        }
+                        count--;
+                    }
+                }
+                if (dp[i][amount] > 0) {
+                    min = min < 0 ? dp[i][amount] : Math.min(min, dp[i][amount]);
+                }
+            }
+        }
+        return min;
+    }
+    
+    
+##      	[240]搜索二维矩阵 II	53.7%	Medium	0.0%
+
+编写一个高效的算法来搜索 m x n 矩阵 matrix 中的一个目标值 target每行的元素从左到右升序排列。每列的元素从上到下升序排列。
+
+> 缩减，右边缩减
+	
+	    public boolean searchMatrix(int[][] matrix, int target) {
+	
+	        int startR = 0, startC = 0, endR = matrix.length - 1, endC = matrix[0].length - 1;
+	
+	        while ((endC >= 0 && startR < matrix.length) && (startR < endR || (startC < endC))) {
+	            if (matrix[startR][endC] > target) {
+	                endC--;
+	            } else if (matrix[startR][endC] == target) {
+	                return true;
+	            } else {
+	                startR++;
+	            }
+	        }
+	
+	        return startR < matrix.length && endC >= 0 && matrix[startR][endC] == target;
+	    }
+	    
+	    
+## 	    ✔	[297]二叉树的序列化与反序列化	59.2%	Hard	0.0%
+
+
+> 层序遍历  用队列
+> 
+
+	public class Codec {
+	
+	    //  分层遍历
+	    // Encodes a tree to a single string.
+	    public String serialize(TreeNode root) {
+	        if (root == null) return null;
+	        Deque<TreeNode> deque = new LinkedList<>();
+	        LinkedList<String> list = new LinkedList<>();
+	        deque.add(root);
+	        while (!deque.isEmpty()) {
+	            TreeNode tmp = deque.pop();
+	            if (tmp == null) {
+	                list.add("null");
+	            } else {
+	                list.add(String.valueOf(tmp.val));
+	                deque.add(tmp.left);
+	                deque.add(tmp.right);
+	            }
+	        }
+	        while (!list.isEmpty() && list.getLast().equals("null") ) {
+	            list.removeLast();
+	        }
+	        return Arrays.toString(list.toArray()).replace(" ", "");
+	    }
+	
+	    // Decodes your encoded data to tree.
+	    //  计数
+	
+	    public TreeNode deserialize(String data) {
+	
+	        if (data == null || data.length() <= 2)
+	            return null;
+	        String s = data.substring(1, data.length() - 1);
+	        String[] values = s.split(",");
+	        Deque<TreeNode> deque = new LinkedList<>();
+	        TreeNode node = new TreeNode(Integer.parseInt(values[0]));
+	        deque.add(node);
+	        int index = 0;
+	        while (!deque.isEmpty()) {
+	            TreeNode tmp = deque.pop();
+	            if (index >= values.length - 1)
+	                break;
+	            index++;
+	            tmp.left = values[index].equals("null") ? null : new TreeNode(Integer.parseInt(values[index]));
+	            if (tmp.left != null) deque.add(tmp.left);
+	            if (index >= values.length - 1)
+	                break;
+	            index++;
+	            tmp.right = values[index].equals("null") ? null : new TreeNode(Integer.parseInt(values[index]));
+	            if (tmp.right != null) deque.add(tmp.right);
+	        }
+	        return node;
+	    }
+	}
+
+
+
+
+##  	[287]寻找重复数	64.3%	Medium	0.0%
+
+给定一个包含 n + 1 个整数的数组 nums ，其数字都在 [1, n] 范围内（包括 1 和 n），可知至少存在一个重复的整数。
+
+>  
+>  普通超时
+>   
+	  public int findDuplicate(int[] nums) {
+	        if (nums.length < 2)
+	            return -1;
+	
+	        for (int i = 0; i < nums.length; i++) {
+	            int count = 0;
+	            for (int j = i; j < nums.length; j++) {
+	                if (nums[i] == nums[j]) count++;
+	                if (count >= 2) return nums[i];
+	            }
+	        }
+	        return -1;
+	    }
+
+弄了半天跟 [448]找到所有数组中消失的数字  
+
+
+
+
+**都跟num[i]交换，逮着一个交换**
+
+	    
+    public int findDuplicate(int[] nums) {
+        if (nums.length < 2)
+            return -1;
+
+        for (int i = 0; i < nums.length; i++) {
+            // 跟nums[i]交换
+            while (nums[nums[i] - 1] != nums[i]) {
+                int t = nums[nums[i] - 1];
+                nums[nums[i] - 1] = nums[i];
+                nums[i] = t;
+            }
+        }
+        for (int i = 0; i < nums.length; i++) {
+            if (nums[i] != i + 1) return nums[i];
+        }
+
+        return -1;
+    }
+	    
+	    
+## 	     	[312]戳气球	70.0%	Hard	0.0%
+	    
+
+有 n 个气球，编号为0 到 n - 1，每个气球上都标有一个数字，这些数字存在数组 nums 中。
+
+
+
+
+
+
+    
+##      	[399]除法求值	58.6%	Medium	0.0%
+
+
+给你一个变量对数组 equations 和一个实数值数组 values 作为已知条件，其中 equations[i] = [Ai, Bi] 和 values[i] 共同表示等式 Ai / Bi = values[i] 。每个 Ai 或 Bi 是一个表示单个变量的字符串。
+    
+
+
+	    
+	    
