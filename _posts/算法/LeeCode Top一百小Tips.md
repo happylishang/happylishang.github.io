@@ -3409,13 +3409,62 @@ findUnsortedSubarray  双指针
     }
 	    
 	    
+## 	    ✔	[300]最长递增子序列	55.7%	Medium	0.0%
+
+给你一个整数数组 nums ，找到其中最长严格递增子序列的长度。
+
+子序列 是由数组派生而来的序列，删除（或不删除）数组中的元素而不改变其余元素的顺序。例如，[3,6,2,7] 是数组 [0,3,1,6,2,2,7] 的子序列。
+
+
+
+> 动态规划  用前面的，不一定用一次。
+ 
+ 
+     public int lengthOfLIS(int[] nums) {
+        int[] dp = new int[nums.length];
+        dp[0] = 1;
+        int max = 1;
+        for (int i = 1; i < nums.length; i++) {
+            for (int j = i - 1; j >= 0; j--) {
+                if (nums[i] > nums[j]) {
+                    dp[i] = Math.max(dp[j], dp[i]);
+                }
+            }
+            dp[i] += 1;
+            max = Math.max(max, dp[i]);
+        }
+        return max;
+    }
+    
+##     ✔	[309]买卖股票的最佳时机含冷冻期	64.7%	Medium	0.0%
+
+> 动态规划，大不了全部遍历
+
+        public int maxProfit(int[] prices) {
+        int dp[] = new int[prices.length];
+        int max = 0;
+        dp[0] = 0;
+        for (int i = 1; i < prices.length; i++) {
+            if (prices[i] <= prices[i - 1]) {
+                dp[i] = dp[i - 1];
+            } else {
+                for (int j = i - 1; j >= 0; j--) {
+                    if (prices[j] < prices[i]) {
+                        dp[i] = Math.max(dp[i], (j - 2 >= 0 ? dp[j - 2] : 0) + prices[i] - prices[j]);
+                    }
+                }
+            }
+            dp[i] = Math.max(dp[i - 1], dp[i]);
+            max = Math.max(dp[i], max);
+        }
+        return max;
+    }
+
+	    
 ## 	     	[312]戳气球	70.0%	Hard	0.0%
 	    
 
 有 n 个气球，编号为0 到 n - 1，每个气球上都标有一个数字，这些数字存在数组 nums 中。
-
-
-
 
 
 
