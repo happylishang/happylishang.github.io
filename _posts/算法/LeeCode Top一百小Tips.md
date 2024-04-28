@@ -3478,3 +3478,84 @@ findUnsortedSubarray  双指针
 
 	    
 	    
+## 	    ✔	[399]除法求值	58.6%	Medium	0.0%
+
+> 找路径
+> 
+
+邻接表：
+
+    public static double[] calcEquation(List<List<String>> equations, double[] values, List<List<String>> queries) {
+
+        HashMap<String, List<List<String>>> hashMap = new HashMap<>();
+        for (int i = 0; i < equations.size(); i++) {
+            String first = equations.get(i).get(0);
+            String second = equations.get(i).get(1);
+            if (hashMap.containsKey(first)) {
+                hashMap.get(first).add(Arrays.asList(second, String.valueOf(values[i])));
+            } else {
+                List<List<String>> list = new ArrayList<>();
+                list.add(Arrays.asList(second, String.valueOf(values[i])));
+                hashMap.put(first, list);
+            }
+            second = equations.get(i).get(0);
+            first = equations.get(i).get(1);
+
+            if (hashMap.containsKey(first)) {
+                hashMap.get(first).add(Arrays.asList(second, String.valueOf(1 / values[i])));
+            } else {
+                List<List<String>> list = new ArrayList<>();
+                list.add(Arrays.asList(second, String.valueOf(1 / values[i])));
+                hashMap.put(first, list);
+            }
+
+        }
+
+        //   不考虑圈 环
+        double[] ret = new double[queries.size()];
+        for (int i = 0; i < queries.size(); i++) {
+
+            String start = queries.get(i).get(0);
+            String end = queries.get(i).get(1);
+            List<List<String>> list = hashMap.get(start);
+            List<List<String>> v = hashMap.get(end);
+            ret[i] = -1.0f;
+            if (list == null || v == null) {
+                continue;
+            }
+
+            if (queries.get(i).get(0).equals(queries.get(i).get(1))) {
+                ret[i] = 1.0f;
+                continue;
+            }
+            HashSet<String> strings = new HashSet<>();
+            strings.add(start);
+            while (!list.isEmpty()) {
+                List<List<String>> listA = new ArrayList<>();
+                for (List<String> item : list) {
+                    if (item.get(0).equals(end)) {
+                        ret[i] = Double.parseDouble(item.get(1));
+                        break;
+                    } else {
+                        List<List<String>> tmp = hashMap.get(item.get(0));
+                        if (tmp == null) {
+                            continue;
+                        }
+                        strings.add(item.get(0));
+                        for (List<String> p : tmp) {
+                            if (!strings.contains(p.get(0))) {
+                                listA.add(Arrays.asList(p.get(0), String.valueOf(Double.parseDouble(p.get(1)) * Double.parseDouble(item.get(1)))));
+                            }
+                        }
+                    }
+                }
+                if (ret[i] > 0) {
+                    break;
+                } else {
+                    list = listA;
+                }
+            }
+        }
+
+        return ret;
+    }
