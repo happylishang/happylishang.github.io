@@ -3467,19 +3467,44 @@ findUnsortedSubarray  双指针
 有 n 个气球，编号为0 到 n - 1，每个气球上都标有一个数字，这些数字存在数组 nums 中。
 
 
+> 动态规划 左右加 1 ，区间最值
+
+    public static int maxCoins(int[] nums) {
+
+        if (nums.length == 1) return nums[0];
+
+        int[][] dp = new int[nums.length + 2][nums.length + 2];
+
+
+        //  i j为下标中间的的最值戳破中间的 二分
+        //  二分 ，两边
+        int max = 0;
+
+        for (int i = 0; i < nums.length; i++) {
+            dp[i][i + 2] = (i >= 1 ? nums[i - 1] : 1) * nums[i] * (i + 1 > nums.length - 1 ? 1 : nums[i + 1]);
+            max = Math.max(max, dp[i][i + 2]);
+        }
+
+        for (int len = 4; len <= nums.length + 2; len++) {
+            for (int i = 0; i <= nums.length + 2 - len; i++) {
+                for (int k = i + 1; k < i + len - 1; k++) {
+                    dp[i][i + len - 1] = Math.max(dp[i][i + len - 1],
+                            dp[i][k] + dp[k][i + len - 1] + (i >= 1 ? nums[i - 1] : 1)
+                                    * nums[k - 1] * (i + len - 1 >= nums.length + 1 ? 1 : nums[i + len - 2]));
+                }
+            }
+        }
+
+        return dp[0][nums.length + 1];}
 
     
-##      	[399]除法求值	58.6%	Medium	0.0%
-
-
-给你一个变量对数组 equations 和一个实数值数组 values 作为已知条件，其中 equations[i] = [Ai, Bi] 和 values[i] 共同表示等式 Ai / Bi = values[i] 。每个 Ai 或 Bi 是一个表示单个变量的字符串。
-    
-
-
-	    
+ 
 	    
 ## 	    ✔	[399]除法求值	58.6%	Medium	0.0%
 
+给你一个变量对数组 equations 和一个实数值数组 values 作为已知条件，其中 equations[i] = [Ai, Bi] 和 values[i] 共同表示等式 Ai / Bi = values[i] 。每个 Ai 或 Bi 是一个表示单个变量的字符串。
+    
+    
 > 找路径
 > 
 
