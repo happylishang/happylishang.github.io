@@ -157,8 +157,28 @@ java.lang.OutOfMemoryError: Could not allocate JNI Env
 
 一般来说，当进程中线程数异常增多时，都是某一类线程被大量的重复创建。所以我们只需要定位到这类线程的创建时机，就能知道问题所在。如果线程是有自定义名称的，那么直接就可以在代码中搜索到创建线程的位置，从而定位问题，如果线程创建时没有指定名称，那么就需要通过该线程的堆栈信息来辅助定位。下面这个例子，就是一个“crowdSource msg”的线程被大量重复创建，在代码中搜索名称很快就查出了问题。针对这类线程问题推荐的做法就是在项目中统一使用线程池，可以很大程度上避免线程数的溢出问题。
 	  
-	  
-	  
+### 	  FD数超出限制
+
+前面介绍了，当进程中的FD数量达到最大限制时，再去新建线程，在创建JNIEnv时会抛出OOM错误。但是FD数量超出限制除了会导致创建线程抛出OOM以外，还会导致很多其它的异常，为了能够统一处理这类FD数量溢出的问题，Probe中对进程中的FD数量做了监控。在后台启动一个线程，每隔1s读取一次当前进程创建的FD数量，当检测到FD数量达到阈值时（FD最大限制的95%），读取当前进程的所有FD信息归并后上报。
+
+在/proc/pid/limits描述着Linux系统对对应进程的限制，其中Max open files就代表可创建FD的最大数目。
+
+进程中创建的FD记录在/proc/pid/fd中，通过遍历/proc/pid/fd，可以得到FD的信息。
+
+获取FD信息：
+
+		File fdFile=new File("/proc/" + Process.myPid() + "/fd");
+		File[] files = fdFile.listFiles();  
+		int length = files.length; //即进程中的fd数量
+		for (int i = 0; i < length ; i++) {
+		  if (Build.VERSION.SDK_INT >= 21) {
+		         Os.readlink(files[i].getAbsolutePath()); //得到软链接实际指向的文件
+		     } else {
+		      //6.0以下系统可以通过执行readlink命令去得到软连接实际指向文件，但是耗时较久
+		  }
+		}
+		
+得到进程中所有的FD信息后，我们会先按照FD的类型进行一个归并，FD的用途主要有打开文件、创建socket连接、创建handlerThread等。
 	  
 ## 	  参考文档
 
