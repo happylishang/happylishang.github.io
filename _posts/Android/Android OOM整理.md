@@ -172,7 +172,17 @@ java.lang.OutOfMemoryError: Could not allocate JNI Env
 		int length = files.length; //即进程中的fd数量
 		for (int i = 0; i < length ; i++) {
 		  if (Build.VERSION.SDK_INT >= 21) {
-		         Os.readlink(files[i].getAbsolutePath()); //得到软链接实际指向的文件
+		         Os.readlink(files[i].getAbsolutePath()); /最近工作：
+大话西游接入讨论
+账号及用户反馈问题跟踪排查
+首猜视频及埋点的一些问题
+三方登录异常监听、Bugly日志分类 李尚
+推送扩容，提升上限
+商品分享埋点新增参数
+urs 严选 账号411问题处理
+五月份已知要做的
+【Pro】会员中心页新增Pro星选固定板块-425
+大话西游接入讨论/得到软链接实际指向的文件
 		     } else {
 		      //6.0以下系统可以通过执行readlink命令去得到软连接实际指向文件，但是耗时较久
 		  }
