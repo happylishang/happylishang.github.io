@@ -1,18 +1,19 @@
 在java的java.util.concurrent包中定义，可以看到组要适用于并发，Future本身是一个接口，仅仅是一个接口，一个规范，内部如何实现，如何处理，是需要用户自己操作的，使用Future接口的其实就是想要规范的告诉别人，我这里要定义一些同步等待的框架出来。
 
-另外Future模式是多线程开发中非常常见的一种设计模式，它的核心思想是异步调用。Future模式可以这样来描述：我有一个任务，提交给了Future，Future替我完成这个任务。期间我自己可以去做任何想做的事情。一段时间之后，我就便可以从Future那儿取出结果。就相当于下了一张订货单，一段时间后可以拿着提订单来提货，这期间可以干别的任何事情。其中Future 接口就是订货单，真正处理**订单的是Executor类**，它根据Future接口的要求来生产产品。
+另外**Future模式是多线程开发中非常常见的一种设计模式**，它的核心思想是异步调用。Future模式可以这样来描述：我有一个任务，提交给了Future，Future替我完成这个任务。期间我自己可以去做任何想做的事情。一段时间之后，我就便可以从Future那儿取出结果。就相当于下了一张订货单，一段时间后可以拿着提订单来提货，这期间可以干别的任何事情。其中Future 接口就是订货单，真正处理**订单的是Executor类**，它根据Future接口的要求来生产产品。
 
-示例用法
+示例用法。
 
 	   void work(){
 	   	futureTask= executor.submit(FutureTask(TaskA)) // Future封装了一把
+	   	
 	   	doSomethingelse();
 	      doSomethingelse();
 	      	...
 	   	future.get() // 看看完成没有，没完成，说不定还要继续等待，看用户自己的定义。
 	   }
 
-但是注意：Future本身只是一个接口，具体的灵活处理看其实现类自己，所以Future本身并不会单独使用，而是会被作为一个任务转接口在Executor框架的里面使用。Future主要包含下面四个接口：
+但是注意：Future本身只是一个接口，具体的灵活处理看其实现类自己，所以Future本身并不会单独使用，而是会被作为一个任务转接口在Executor框架的里面使用。Future主要包含下面**四个接口**：
 
 	public interface Future<V> {
 	 
@@ -26,7 +27,7 @@
 	        throws InterruptedException, ExecutionException, TimeoutException;
 	}
 
-实现接口相应的功能，并注意扩展，就可以结合线程池，实现Future模式，以FutureTask为例，ExecutorService在submit任务后，返回一个封装的FutureTask，我们构造一个单线程池，submit任务试试：
+Future本身是没办法显示上述所有功能，Future本身一般不会发起，而是配合线程池完成闭环，Future封装的Task被提交到线程池，一般来说除了实现Future接口，还会实现Runnable接口，作为一个任务提交给线程池，在run的时候，设置一些标志，如果需要可能会唤起已经调用get的线程。ExecutorService在submit任务后，返回一个封装的FutureTask，我们构造一个单线程池，submit任务试试：
 
 	    public static ExecutorService newSingleThreadExecutor() {
 	        return new FinalizableDelegatedExecutorService
@@ -61,6 +62,8 @@ FinalizableDelegatedExecutorService这个类继承DelegatedExecutorService，Del
 	        this.callable = Executors.callable(runnable, result);
 	        this.state = NEW;      
 	    }
+
+FutureTask 内置构建callable，
     
 	    public static <T> Callable<T> callable(Runnable task, T result) {
 	        if (task == null)
@@ -132,7 +135,7 @@ Runable，submit会返回一个特定的返回值，用来标识当前的任务�
     }
     
 假设没达到	coreSize，直接添加一个线程执行：
-	
+
 	 private boolean addWorker(Runnable firstTask, boolean core) {
 	        retry:
 	        for (int c = ctl.get();;) {
@@ -195,6 +198,7 @@ Runable，submit会返回一个特定的返回值，用来标识当前的任务�
 	        }
 	        return workerStarted;
 	    }
+	    
 之后进入FutureTask可能被执行，调用run
 
     public void run() {
@@ -335,4 +339,6 @@ finishCompletion会通知等待的线程队列唤起
 	        callable = null;        // to reduce footprint
 	    }	    
 	    
-最终还是 LockSupport.unpark	    、LockSupport.park来执行的。	    
+最终还是 LockSupport.unpark	、LockSupport.park来执行的，LockSupport.unpark会唤起阻塞的线程们，FutureTask自己维护了唤起队列，这里似乎并没有用wait、notify，而是直接使用了LockSupport.unpark。
+
+	    

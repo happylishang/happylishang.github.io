@@ -314,3 +314,186 @@ ReentrantLock的Condition用来处理生产者-消费者（producer-consumer）�
 	   } 
 	 }
 	 
+newCondition 不区分公平锁与非公平锁，await函数会调用   LockSupport.park进行睡眠，同时也会将线程添加到等待队列，同时释放锁，
+
+
+        public final void await() throws InterruptedException {
+            if (Thread.interrupted())
+                throw new InterruptedException();
+            <!--加入到条件等候队列中去，这个时候不睡眠-->
+            Node node = addConditionWaiter();
+            <!--释放锁-->
+            int savedState = fullyRelease(node);
+            int interruptMode = 0;
+ 		<!--加到睡眠等待队列中去-->
+ 		
+            while (!isOnSyncQueue(node)) {
+            <!--睡眠-->
+                LockSupport.park(this);
+                if ((interruptMode = checkInterruptWhileWaiting(node)) != 0)
+                    break;
+            }
+            <!--重新获取锁-->
+            if (acquireQueued(node, savedState) && interruptMode != THROW_IE)
+                interruptMode = REINTERRUPT;
+            if (node.nextWaiter != null) // clean up if cancelled
+                unlinkCancelledWaiters();
+            if (interruptMode != 0)
+                reportInterruptAfterWait(interruptMode);
+        }
+        
+   fullyRelease的作用是就是主动释放锁，这样其他等待锁的可以运行。
+        
+    final int fullyRelease(Node node) {
+        try {
+            int savedState = getState();
+            if (release(savedState))
+                return savedState;
+            throw new IllegalMonitorStateException();
+        } catch (Throwable t) {
+            node.waitStatus = Node.CANCELLED;
+            throw t;
+        }
+    }
+    
+acquireQueued会重新获取锁，signal唤起之后，看看能不能重新获取到锁，也许不能，可能需要继续等这个时候，等待的不是条件，而是锁。跟Syncronize与wait、notify同样效果。
+    
+        final boolean acquireQueued(final Node node, int arg) {
+        boolean interrupted = false;
+        try {
+            for (;;) {
+                final Node p = node.predecessor();
+                if (p == head && tryAcquire(arg)) {
+                    setHead(node);
+                    p.next = null; // help GC
+                    return interrupted;
+                }
+                if (shouldParkAfterFailedAcquire(p, node))
+                    interrupted |= parkAndCheckInterrupt();
+            }
+        } catch (Throwable t) {
+            cancelAcquire(node);
+            if (interrupted)
+                selfInterrupt();
+            throw t;
+        }
+    }
+    
+唤醒之后，线程会重新获取Condition绑定的锁，获取锁之后，才会继续运行。signal的原理：
+
+        public final void signal() {
+            if (!isHeldExclusively())
+                throw new IllegalMonitorStateException();
+            <!--找到condition等待队列-->
+            Node first = firstWaiter;
+            if (first != null)
+                doSignal(first);
+        }
+
+
+
+        private void doSignal(Node first) {
+            do {
+            <!--找到第一个有效的等待者-->
+                if ( (firstWaiter = first.nextWaiter) == null)
+                    lastWaiter = null;
+                first.nextWaiter = null;
+            } while (!transferForSignal(first) &&
+                     (first = firstWaiter) != null);
+        }
+        
+transferForSignal唤起等待的线程，LockSupport.unpark，主要是这一句唤起线程，调用这个时候，signal线程还握着锁呢，所以被唤起的线程阻塞在等待锁的线程队列中。
+
+    final boolean transferForSignal(Node node) {
+        /*
+         * If cannot change waitStatus, the node has been cancelled.
+         */
+        if (!node.compareAndSetWaitStatus(Node.CONDITION, 0))
+            return false;
+
+        /*
+         * Splice onto queue and try to set waitStatus of predecessor to
+         * indicate that thread is (probably) waiting. If cancelled or
+         * attempt to set waitStatus fails, wake up to resync (in which
+         * case the waitStatus can be transiently and harmlessly wrong).
+         */
+        Node p = enq(node);
+        int ws = p.waitStatus;
+        if (ws > 0 || !p.compareAndSetWaitStatus(ws, Node.SIGNAL))
+        <!--其实主要就是LockSupport.unpark-->
+            LockSupport.unpark(node.thread);
+        return true;
+    }
+    
+signal现成释放锁之后，wait的线程同其他等待锁的线程一起争抢锁，就是普通的锁竞争逻辑。
+
+
+ReetreentLock的await根object的await有什么不同呢？ReetreentLock 的Condition接口的 await、signal、signalAll 也可以说是普通并发协作 wait、notify、notifyAll 的升级；普通并发协作 wait、notify、notifyAll 需要与synchronized配合使用，显式协作Condition 的 await、signal、signalAll 需要与显式锁Lock配合使用（Lock.newCondition()），调用await、signal、signalAll方法都必须在lock　保护之内，对比
+
+	public class BlockingQueue<T> {
+	    private Queue<T> mQueue = new LinkedList<>();
+	    private int mCapacity;
+	
+	    public BlockingQueue(int capacity) {
+	        this.mCapacity = capacity;
+	    }
+	
+	    public synchronized void put(T element) throws InterruptedException{
+	        while (mQueue.size() == mCapacity){
+	            wait();
+	        }
+	        mQueue.add(element);
+	        notify();
+	    }
+	
+	    public synchronized T take() throws InterruptedException{
+	        while (mQueue.isEmpty()){
+	            wait();
+	        }
+	        T item = mQueue.remove();
+	        notify();
+	        return item;
+	    }
+	
+	}
+
+用ReentrantLock的Condition
+
+	public class BlockingQueue<T> {
+	    private Queue<T> mQueue = new LinkedList<>();
+	    private int mCapacity;
+	    private Lock mLock = new ReentrantLock();
+	    private Condition mNotFull = mLock.newCondition();
+	    private Condition mNotEmpty = mLock.newCondition();
+	
+	    public BlockingQueue(int capacity) {
+	        this.mCapacity = capacity;
+	    }
+	
+	    public   void put(T element) throws InterruptedException{
+	        mLock.lockInterruptibly();
+	        try {
+	            while (mQueue.size() == mCapacity){
+	                mNotFull.await();
+	            }
+	            mQueue.add(element);
+	            mNotEmpty.signal();
+	        }finally {
+	            mLock.unlock();
+	        }
+	    }
+	
+	    public   T take() throws InterruptedException{
+	        mLock.lockInterruptibly();
+	        try {
+	            while (mQueue.size() == 0){
+	                mNotEmpty.await();
+	            }
+	            T item = mQueue.remove();
+	            mNotFull.signal();
+	            return item;
+	        }finally {
+	            mLock.unlock();
+	        }
+	    }
+	}
