@@ -49,11 +49,18 @@ kotlin不提供wait、notify、notifyAll，但是可以通过RetreentLock来处�
 	            }
 	        }
 	    }
-    
+	    
+或者	    
+
+	       companion object {
+	        val instance: KotlinMutex by lazy(mode = LazyThreadSafetyMode.SYNCHRONIZED) {
+	            KotlinMutex()
+	        }
+	    } 
+   
 * 饿汉模式
 
 		object KotlinMutex
 
-
-
+kotlin没有synchronized与volatile关键字，取而代之的是Synchronized与Volatile注解，Java的一些并发类都可以用，kotlin最主要的还是用协程。
     
