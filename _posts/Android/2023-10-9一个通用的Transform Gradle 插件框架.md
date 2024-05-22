@@ -469,3 +469,8 @@ build.grade.kt
 	        }
 	    }
 	}
+	
+## 	group不设置会提醒Invalid publication 'pluginMaven'，奇葩
+
+	//不设置会提醒 Invalid publication 'pluginMaven': groupId cannot be empty.
+group='com.n '
