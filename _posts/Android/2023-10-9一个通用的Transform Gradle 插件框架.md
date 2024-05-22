@@ -222,3 +222,250 @@ Having declared the build script classpath, you can use the classes in your buil
 https://blog.csdn.net/ZYJWR/article/details/113129586
 
 https://juejin.cn/post/6948626628637360135
+
+
+# gradle7.0之后有变化
+
+
+## 写插件注意事项
+
+	plugins {
+	//    有判断APP条件的插件，需要放在最前面
+	    id("com.android.application")
+	    id("com.netease.yanxuan.htrouterautoregister")
+
+	}
+
+否则isApp判断有问题
+
+	class HTRouterAutoRegisterPlugin : Plugin<Project> {
+    override fun apply(project: Project) {
+        System.out.println("HTRouterAutoRegisterPlugin apply")
+        val isApp = project.plugins.hasPlugin("com.android.application")
+        if (isApp) {
+            System.out.println("HTRouterAutoRegisterPlugin 2")
+            val android = project.extensions.getByType(com.android.build.gradle.AppExtension::class.java)
+            val transformImpl = AutoRegisterASMTransformer(project)
+            android.registerTransform(transformImpl)
+        }
+    }
+}
+
+### pluginManagement中要配置repositories，否则build.gradle中找不到库，远老是不对
+
+
+	 pluginManagement {
+	//    似乎是在这里设置依赖比较靠谱，在里面设置 依赖的代码原，无效，老是自动jcenter
+	    repositories {
+	        google()
+	        mavenCentral()
+	    }
+	    // 插件引入方式 这里应该是可以用给多个插件，
+	    plugins {
+	        id 'org.jetbrains.kotlin.android' version "1.8.10"
+	    }
+
+	    includeBuild("htrouterautorigister")
+	} 
+
+## 在线开发的关键
+buildbuild.gradle与build.gradle.kt写法一致
+
+	gradlePlugin {
+	    plugins {
+	        create("htrouterautorigister") {
+	            // 在 app 模块须要经过 id 引用这个插件
+	            id = "com.netease.yanxuan.htrouterautoregister"
+	            // 实现这个插件的类的路径
+	            implementationClass = "com.netease.htrouterautorigister.HTRouterAutoRegisterPlugin"
+	        }
+	    }
+	}
+
+
+## build.gradle.kts写法与build.gradle写法均可
+
+settings.gradle要配置   id 'org.jetbrains.kotlin.android' version "1.8.10" 否则提醒找不到
+
+	pluginManagement {
+	//    似乎是在这里设置依赖比较靠谱，在里面设置 依赖的代码原，无效，老是自动jcenter
+	    repositories {
+	        google()
+	        mavenCentral()
+	    }
+	    plugins {
+	        id 'org.jetbrains.kotlin.android' version "1.8.10"
+	    }
+	    includeBuild("htrouterautorigister")
+	}
+
+build.gradle
+
+
+	plugins {
+	    id 'maven-publish'
+	//    自动引入gradleAPI
+	    id('java-gradle-plugin')
+	    id 'org.jetbrains.kotlin.jvm' version('1.8.10')
+	}
+	//需要加，否则找不到com.android.tools.build:gradle:7.4.2"
+	repositories {
+	    google()
+	    mavenCentral()
+	}
+	dependencies {
+	//   自动引入gradleAPI   id('java-gradle-plugin')
+	//    implementation("com.android.tools.build:gradle-api:7.4.2")
+	    implementation("com.android.tools.build:gradle:7.4.2")
+	    implementation 'org.javassist:javassist:3.20.0-GA'
+	//    一些公共的要自己引入，不能依赖build中的，不靠谱
+	    implementation 'commons-codec:commons-codec:1.11'
+	//    commons-io
+	    implementation 'commons-io:commons-io:2.6'
+	    implementation("org.ow2.asm:asm:9.3")
+	    implementation("org.ow2.asm:asm-commons:9.3")
+
+	}
+
+
+	task sourcesJar(type: Jar) {
+	    classifier = 'sources'
+	    from sourceSets.main.allSource
+	}
+
+	artifacts {
+	    archives sourcesJar
+	}
+
+
+	publishing {
+	    publications {
+	        mavenJava(MavenPublication) {
+	            from components.java
+	            artifact sourcesJar
+	            groupId = "com.netease.yanxuan"
+	            artifactId = "htrouterautoregister"
+	            version = "1.0.45"
+	        }
+	    }
+	    repositories {
+
+	        maven {
+	//            url = uri("http://repo.mail.netease.com/artifactory/libs-release-local")
+	            url = uri("$rootDir/../plugins")
+
+	//            credentials {
+	//                username = "user"
+	//                password = "artifactory@163"
+	//            }
+	        }
+	    }
+	}
+
+	gradlePlugin {
+	    plugins {
+	        create("htrouterautorigister") {
+	            // 在 app 模块须要经过 id 引用这个插件
+	            id = "com.netease.yanxuan.htrouterautoregister"
+	            // 实现这个插件的类的路径
+	            implementationClass = "com.netease.htrouterautorigister.HTRouterAutoRegisterPlugin"
+	        }
+	    }
+	}
+
+> * build.gradle.kt写法
+
+settings.gradle要配置 写法一致
+
+	pluginManagement {
+	//    似乎是在这里设置依赖比较靠谱，在里面设置 依赖的代码原，无效，老是自动jcenter
+	    repositories {
+	        google()
+	        mavenCentral()
+	    }
+	    // 插件引入方式
+	    plugins {
+	        id 'org.jetbrains.kotlin.android' version "1.8.10"
+	    }
+
+	    includeBuild("htrouterautorigister")
+	}
+
+build.grade.kt
+
+
+
+	// buildscript {
+	//     repositories {
+	//         google()
+	//         mavenCentral()
+	//     }
+	 //这种写法，只能用在一个里边，不能用在多个里边
+	//     dependencies {
+	//         // 由于使用的 Kotlin 须要须要添加 Kotlin 插件，这里使用最新的kotlin插件
+	//         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.10")
+	//     }
+	// }
+
+	plugins {
+	    `kotlin-dsl`
+	    `java-gradle-plugin`
+	    `maven-publish`
+	}
+
+	repositories {
+	    google()
+	    mavenCentral()
+	}
+
+	dependencies {
+	    // 自动引入gradleAPI   id('java-gradle-plugin')
+	    // implementation("com.android.tools.build:gradle-api:7.4.2")
+
+	    implementation("org.javassist:javassist:3.20.0-GA")
+	    //    一些公共的要自己引入，不能依赖build中的，不靠谱
+	    implementation("commons-codec:commons-codec:1.11")
+	    //    commons-io
+	    implementation("commons-io:commons-io:2.6")
+	    implementation("org.ow2.asm:asm:9.3")
+	    implementation("org.ow2.asm:asm-commons:9.3")
+	    // com.android.build.gradle.AppExtension用的到
+	    implementation("com.android.tools.build:gradle:7.4.2")
+	}
+	kotlinDslPluginOptions {
+	    experimentalWarning.set(false)
+	}
+	gradlePlugin {
+	    plugins {
+	        create("htrouterautorigister") {
+	            // 在 app 模块须要经过 id 引用这个插件
+	            id = "com.netease.yanxuan.htrouterautoregister"
+	            // 实现这个插件的类的路径
+	            implementationClass = "com.netease.htrouterautorigister.HTRouterAutoRegisterPlugin"
+	        }
+	    }
+	}
+
+	publishing {
+	    publications {
+	        create<MavenPublication>("maven") {
+	            groupId = "org.gradle.sample"
+	            artifactId = "library"
+	            version = "1.1"
+
+	            from(components["java"])
+	        }
+	    }
+	    repositories {
+
+	        maven {
+	//            url = uri("http://repo.mail.netease.com/artifactory/libs-release-local")
+	            url = uri("$rootDir/../plugins")
+
+	//            credentials {
+	//                username = "user"
+	//                password = "artifactory@163"
+	//            }
+	        }
+	    }
+	}
