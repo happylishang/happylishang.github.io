@@ -474,3 +474,19 @@ build.grade.kt
 
 	//不设置会提醒 Invalid publication 'pluginMaven': groupId cannot be empty.
 group='com.n '
+### 	结构 ：无需settings.gradle.kts，只是当做普通的模块，进入草includeBuild中就行
+	
+		htrouterautorigister
+		.gradle
+		build
+		src
+		.gitignore
+		build.gradle
+		
+假如到构建体系，同时自己是一个java插件库
+
+### 最保守的方式，当做普通仓库，引入处理，不过要每次都发布一下，不能在线调试
+
+
+
+		
