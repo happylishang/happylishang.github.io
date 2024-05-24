@@ -487,6 +487,35 @@ group='com.n '
 
 ### 最保守的方式，当做普通仓库，引入处理，不过要每次都发布一下，不能在线调试
 
+## gradlePlugin必须加，group  version 必须加
 
+	
+	group = 'com.snail'
+	version = "1.0.0"
 
+	//发布的时候，还是必须要有的
+
+	gradlePlugin {
+	    plugins {
+	        autorigister {
+	            // 在 app 模块须要经过 id 引用这个插件
+	            id = "com.snail.autorigister"
+	            // 实现这个插件的类的路径
+	            implementationClass = "com.snail.autorigister.AutoRegisterPlugin"
+	        }
+	        autorigister2 {
+	            // 在 app 模块须要经过 id 引用这个插件
+	            id = "com.snail.autorigister2"
+	            // 实现这个插件的类的路径
+	            implementationClass = "com.snail.autorigister.AutoRegisterPlugin2"
+	        }
+	    }
+	}
+
+![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/c1de90e408a9465caf1e40c1886e2cc9~tplv-k3u1fbpfcp-jj-mark:0:0:0:0:q75.image#?w=964&h=1328&s=238253&e=png&b=2c2e31)
 		
+### 插件dubug
+
+<!--如何debug-->
+
+![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f9789c21951a482d8a334b7ceda1ce0b~tplv-k3u1fbpfcp-jj-mark:0:0:0:0:q75.image#?w=2622&h=1030&s=490121&e=png&b=242629)
