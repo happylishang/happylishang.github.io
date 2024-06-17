@@ -474,6 +474,7 @@ build.grade.kt
 
 	//不设置会提醒 Invalid publication 'pluginMaven': groupId cannot be empty.
 group='com.n '
+
 ### 	结构 ：无需settings.gradle.kts，只是当做普通的模块，进入草includeBuild中就行
 	
 		htrouterautorigister
@@ -519,3 +520,38 @@ group='com.n '
 <!--如何debug-->
 
 ![image.png](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f9789c21951a482d8a334b7ceda1ce0b~tplv-k3u1fbpfcp-jj-mark:0:0:0:0:q75.image#?w=2622&h=1030&s=490121&e=png&b=242629)
+
+### ASM 切面编程扫描全部class，可以用TransformTask
+
+            androidComponents.onVariants { variant ->
+                val taskProvider = project.tasks.register(
+                    "${variant.name}TransformRouterTask", TransformRouterTask2::class.java
+                )
+                variant.artifacts.forScope(ScopedArtifacts.Scope.ALL).use(taskProvider)
+                    .toTransform(
+                        type = ScopedArtifact.CLASSES,
+                        inputJars = TransformRouterTask2::allJars,
+                        inputDirectories = TransformRouterTask2::allDirectories,
+                        into = TransformRouterTask2::output
+                    )
+                    
+参考路由，
+
+	    /**
+	     * 遍历并修改目标class，task中定义了输出，需要将所有的都写入草jar，不能过滤，其他的修改后写入，否则会有问题 jar校验问题
+	     */
+	    private fun transformJar(inputJar: File, jarOutput: JarOutputStream) {
+	        val jarFile = JarFile(inputJar)
+	        jarFile.entries().iterator().forEach { jarEntry ->
+	            if (jarEntry.name.equals("com/ RouterInitializer.class")) {
+	                jarOutput.putNextEntry(JarEntry(jarEntry.name))
+	                asmTransform(jarFile.getInputStream(jarEntry)).inputStream().use {
+	                    it.copyTo(jarOutput)
+	                }
+	                jarOutput.closeEntry()
+	            }
+	        }
+	        jarFile.close()
+	    }
+	
+参考来写就好了	                    
