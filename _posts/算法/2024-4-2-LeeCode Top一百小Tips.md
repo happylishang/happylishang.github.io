@@ -3171,8 +3171,7 @@ findUnsortedSubarray  双指针
  
  
 >  还有单调队列  哈哈哈哈哈 ，除了单调栈，还有单调队列 
-> 
- 
+
 
     //  单调栈 试试
     public int[] maxSlidingWindow(int[] nums, int k) {
@@ -3206,7 +3205,7 @@ findUnsortedSubarray  双指针
     }
     
     
-##      	[279]完全平方数	66.8%	Medium	0.0%
+##   [279]完全平方数	66.8%	Medium	0.0%
 
 给你一个整数 n ，返回 和为 n 的完全平方数的最少数量 。
      	
@@ -3640,3 +3639,8 @@ findUnsortedSubarray  双指针
 
         return count == 0;
     }
+    
+    
+###  用单调栈，单调队列，优先存储的是**下标**
+
+下标可以得到所有你想要的信息，但是值不可以。
