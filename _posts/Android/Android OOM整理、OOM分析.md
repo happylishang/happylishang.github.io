@@ -476,28 +476,26 @@ MemMap MapAnonymous代码
 	
  输出
  
-	Name:	sail.labaffinity
-	Umask:	0077
-	State:	S (sleeping)
-	Tgid:	12353
-	Ngid:	0
-	Pid:	12353
-	PPid:	351
-	TracerPid:	0
-	Uid:	10194	10194	10194	10194
-	Gid:	10194	10194	10194	10194
-	FDSize:	128
-	Groups:	3003 9997 20194 50194 
-	VmPeak:	137084644 kB
-	VmSize:	137083712 kB
-	VmLck:	       0 kB
+	VmPeak:	32423148 kB  进程运行过程中虚拟内存的峰值
+	VmSize:	32423148 kB  代表进程现在正在占用的虚拟内存
+	VmLck:	       0 kB     进程已锁住的物理内存大小
 	VmPin:	       0 kB
-	VmHWM:	  228524 kB
-	VmRSS:	  207784 kB
+	VmHWM:	  140760 kB
+	VmRSS:	  139392 kB    应用程序正在使用的物理内存的大小
+	RssAnon:	   65452 kB
+	RssFile:	   73164 kB
+	RssShmem:	     776 kB
+	VmData:	 6637624 kB  程序数据段的大小
+	VmStk:	    8192 kB     进程在用户态的栈的大小
+	VmExe:	       4 kB
+	VmLib:	  141020 kB   虚拟内存库，动态链接库所使用的虚拟内存
+	VmPTE:	    3340 kB   可执行的虚拟内存，可执行的和静态链接库所使用的虚拟内存
+	VmSwap:	   21312 kB
+	CoreDumping:	0
+	THP_enabled:	1
+	Threads:	730
 
-VmPeak 当前进程最大的虚拟内存上限是多少，VmSize当前进程使用了多少，如果超出上限，是要抛出虚拟内存不足导致的OOM的。
-
-
+ 
 
 ### 分析
 
