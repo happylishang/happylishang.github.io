@@ -114,6 +114,8 @@
 
 #### 创建线程失败 ：创建线程过程中发生OOM是因为进程内的**虚拟内存地址空间耗尽了**
 
+**虚拟内存不足，并不一定是实际内存不足，仅仅是虚拟内存不足**
+
 看一个线程创建过多而失败的例子，打印的日志
 
 	Throwing OutOfMemoryError "pthread_create (1040KB stack) failed: Try again" (VmSize 145637572 kB)
@@ -261,11 +263,20 @@ JNIEnvExt 创建失败的原因也有两个，JNIEnvExt::Create
 		// 1. 创建 
 		
 		ashmemfd.reset(ashmem_create_region(debug_friendly_name.c_str(), page_aligned_byte_count));
-		
+
+		E/art: ashmem_create_region failed for 'indirect ref table': Too many open files
+		 java.lang.OutOfMemoryError: Could not allocate JNI Env
+		   at java.lang.Thread.nativeCreate(Native Method)
+		   at java.lang.Thread.start(Thread.java:730)
+     		
 		// 2. 调用mmap映射到用户态内存地址空间
 		
-		void* actual = MapInternal(..., fd.get(), ...);
-		
+		void* actual = MapInternal(..., fd.get(), ...);	
+		E/art: Failed anonymous mmap(0x0, 8192, 0x3, 0x2, 116, 0): Operation not permitted. See process maps in the log.
+		java.lang.OutOfMemoryError: Could not allocate JNI Env
+		  at java.lang.Thread.nativeCreate(Native Method)
+		  at java.lang.Thread.start(Thread.java:1063)
+
 
 步骤1失败的话,fd.get()返回-1,步骤2仍然会正常执行,只不过其行为有所不同。
 
@@ -290,8 +301,24 @@ JNIEnvExt 创建失败的原因也有两个，JNIEnvExt::Create
          StringPrintf("pthread_create (%s stack) failed: %s", PrettySize(stack_size).c_str(), strerror(pthread_create_result)));
          
  *          虚拟内存不足
+ 
+		 W/libc: pthread_create failed: couldn't allocate 1073152-bytes mapped space: Out of memory
+		W/tch.crowdsourc: Throwing OutOfMemoryError with VmSize  4191668 kB "pthread_create (1040KB stack) failed: Try again"
+		java.lang.OutOfMemoryError: pthread_create (1040KB stack) failed: Try again
+		        at java.lang.Thread.nativeCreate(Native Method)
+		        at java.lang.Thread.start(Thread.java:753)
+        
+ 
  *          线程数超限
- *      
+
+ 
+		 W/libc: pthread_create failed: clone failed: Out of memory
+		W/art: Throwing OutOfMemoryError "pthread_create (1040KB stack) failed: Out of memory"
+		java.lang.OutOfMemoryError: pthread_create (1040KB stack) failed: Out of memory
+		  at java.lang.Thread.nativeCreate(Native Method)
+		  at java.lang.Thread.start(Thread.java:1078)
+
+
 
 	__BIONIC_ERRDEF( EBADF          ,   9, "Bad file descriptor" )
 	
@@ -302,13 +329,13 @@ JNIEnvExt 创建失败的原因也有两个，JNIEnvExt::Create
 	__BIONIC_ERRDEF( ENOMEM         ,  12, "Out of memory" )
 	
 	__BIONIC_ERRDEF( EMFILE         ,  24, "Too many open files" )
- 
 
+ 
 	    
 > 创建JNI失败：创建JNIEnv可以归为两个步骤：
 
 通过Andorid的匿名共享内存（Anonymous Shared Memory）分配 4KB（一个page）内核态内存。
-再通过Linux的mmap调用映射到用户态虚拟内存地址空间。
+再通过Linux的mmap调用映射到用户态虚拟内存地址空间，既然是共享内存，内核必有参与
 
 第一步创建匿名共享内存时，需要打开/dev/ashmem文件，所以需要一个FD（文件描述符）。此时，如果创建的FD数已经达到上限，则会导致创建JNIEnv失败，抛出错误信息如下：
 
@@ -316,21 +343,115 @@ JNIEnvExt 创建失败的原因也有两个，JNIEnvExt::Create
 	 java.lang.OutOfMemoryError: Could not allocate JNI Env
 	   at java.lang.Thread.nativeCreate(Native Method)
 	   at java.lang.Thread.start(Thread.java:730)
-	   
+
+查看fd数量，系统的设置
+
+	 cat /proc/sys/fs/file-max
+	171817   
 
 第二步调用mmap时，如果进程虚拟内存地址空间耗尽，也会导致创建JNIEnv失败，抛出错误信息如下：
 
-E/art: Failed anonymous mmap(0x0, 8192, 0x3, 0x2, 116, 0): Operation not permitted. See process maps in the log.
-java.lang.OutOfMemoryError: Could not allocate JNI Env
-  at java.lang.Thread.nativeCreate(Native Method)
-  at java.lang.Thread.start(Thread.java:1063)
+	E/art: Failed anonymous mmap(0x0, 8192, 0x3, 0x2, 116, 0): Operation not permitted. See process maps in the log.
+	java.lang.OutOfMemoryError: Could not allocate JNI Env
+	  at java.lang.Thread.nativeCreate(Native Method)
+	  at java.lang.Thread.start(Thread.java:1063)
+	
+MemMap MapAnonymous代码
+	  
+	MemMap MemMap::MapAnonymous(const char* name,
+	                            uint8_t* addr,
+	                            size_t byte_count,
+	                            int prot,
+	                            bool low_4gb,
+	                            bool reuse,
+	                            /*inout*/MemMap* reservation,
+	                            /*out*/std::string* error_msg,
+	                            bool use_debug_name) {
+	#ifndef __LP64__
+	  UNUSED(low_4gb);
+	#endif
+	  if (byte_count == 0) {
+	    *error_msg = "Empty MemMap requested.";
+	    return Invalid();
+	  }
+	  size_t page_aligned_byte_count = RoundUp(byte_count, GetPageSize());
+	
+	  int flags = MAP_PRIVATE | MAP_ANONYMOUS;
+	  if (reuse) {
+	    // reuse means it is okay that it overlaps an existing page mapping.
+	    // Only use this if you actually made the page reservation yourself.
+	    CHECK(addr != nullptr);
+	    DCHECK(reservation == nullptr);
+	
+	    DCHECK(ContainedWithinExistingMap(addr, byte_count, error_msg)) << *error_msg;
+	    flags |= MAP_FIXED;
+	  } else if (reservation != nullptr) {
+	    CHECK(addr != nullptr);
+	    if (!CheckReservation(addr, byte_count, name, *reservation, error_msg)) {
+	      return MemMap::Invalid();
+	    }
+	    flags |= MAP_FIXED;
+	  }
+	
+	  unique_fd fd;
+	
+	  // We need to store and potentially set an error number for pretty printing of errors
+	  int saved_errno = 0;
+	
+	  void* actual = MapInternal(addr,
+	                             page_aligned_byte_count,
+	                             prot,
+	                             flags,
+	                             fd.get(),
+	                             0,
+	                             low_4gb);
+	  saved_errno = errno;
+	
+	  if (actual == MAP_FAILED) {
+	    if (error_msg != nullptr) {
+	      PrintFileToLog("/proc/self/maps", LogSeverity::WARNING);
+	      *error_msg = StringPrintf("Failed anonymous mmap(%p, %zd, 0x%x, 0x%x, %d, 0): %s. "
+	                                    "See process maps in the log.",
+	                                addr,
+	                                page_aligned_byte_count,
+	                                prot,
+	                                flags,
+	                                fd.get(),
+	                                strerror(saved_errno));
+	    }
+	    return Invalid();
+	  }
+	  if (!CheckMapRequest(addr, actual, page_aligned_byte_count, error_msg)) {
+	    return Invalid();
+	  }
+	
+	  if (use_debug_name) {
+	    SetDebugName(actual, name, page_aligned_byte_count);
+	  }
+	
+	  if (reservation != nullptr) {
+	    // Re-mapping was successful, transfer the ownership of the memory to the new MemMap.
+	    DCHECK_EQ(actual, reservation->Begin());
+	    reservation->ReleaseReservedMemory(byte_count);
+	  }
+	  return MemMap(name,
+	                reinterpret_cast<uint8_t*>(actual),
+	                byte_count,
+	                actual,
+	                page_aligned_byte_count,
+	                prot,
+	                reuse);
+	}	  
+	  
+	  
   
 >   创建线程失败
   
 创建线程也可以归纳为两个步骤：
 
-调用mmap分配栈内存。这里mmap flag中指定了MAP_ANONYMOUS，即匿名内存映射。这是在Linux中分配大块内存的常用方式。其分配的是虚拟内存，对应页的物理内存并不会立即分配，而是在用到的时候触发内核的缺页中断，然后中断处理函数再分配物理内存。
-调用clone方法进行线程创建。
+* 1 调用mmap分配栈内存。这里mmap flag中指定了MAP_ANONYMOUS，即匿名内存映射。这是在Linux中分配大块内存的常用方式。其分配的是虚拟内存，对应页的物理内存并不会立即分配，而是在用到的时候触发内核的缺页中断，然后中断处理函数再分配物理内存。
+
+* 2 调用clone方法进行线程创建。
 
 第一步分配栈内存失败是由于进程的虚拟内存不足，抛出错误信息如下：
 
@@ -349,8 +470,35 @@ java.lang.OutOfMemoryError: Could not allocate JNI Env
 	  at java.lang.Thread.start(Thread.java:1078)
 	  
 	  
-	  
+获取当前进程的虚拟内存大小
 	
+	cat /proc/pid/status  
+	
+ 输出
+ 
+	Name:	sail.labaffinity
+	Umask:	0077
+	State:	S (sleeping)
+	Tgid:	12353
+	Ngid:	0
+	Pid:	12353
+	PPid:	351
+	TracerPid:	0
+	Uid:	10194	10194	10194	10194
+	Gid:	10194	10194	10194	10194
+	FDSize:	128
+	Groups:	3003 9997 20194 50194 
+	VmPeak:	137084644 kB
+	VmSize:	137083712 kB
+	VmLck:	       0 kB
+	VmPin:	       0 kB
+	VmHWM:	  228524 kB
+	VmRSS:	  207784 kB
+
+VmPeak 当前进程最大的虚拟内存上限是多少，VmSize当前进程使用了多少，如果超出上限，是要抛出虚拟内存不足导致的OOM的。
+
+
+
 ### 分析
 
 #### 堆OOM
@@ -454,6 +602,33 @@ OOM能捕获，如果不处理，还不会死，UI线程甚至还可以继续运
 
 参考[https://juejin.cn/post/6868916019746996237](https://juejin.cn/post/6868916019746996237)
 
+### * 最基本的JVM 堆分配抛出
+
+
+Failed to allocate a后面跟的数字很大，说明是需要一大块内存，也就是大对象，此时检查代码中是否存在大对象，如果有则想办法降低内存的使用或者在Native中处理；如果数字很小，说明此时堆内存已经不足，很有可能出现内存泄露，也有可能是已经存在有大对象，此时dump内存快照无疑是最方便直接的方式
+
+参考 https://www.jianshu.com/p/3233c33f6a79
+ 
+	  std::ostringstream oss;
+	  size_t total_bytes_free = GetFreeMemory();
+	  oss << "Failed to allocate a " << byte_count << " byte allocation with " << total_bytes_free
+	      << " free bytes and " << PrettySize(GetFreeMemoryUntilOOME()) << " until OOM,"
+	      << " target footprint " << target_footprint_.load(std::memory_order_relaxed)
+	      << ", growth limit "
+	      << growth_limit_;
+	  // If the allocation failed due to fragmentation, print out the largest continuous allocation.
+	  if (total_bytes_free >= byte_count) {
+	    // 
+	    // There is no fragmentation info to log for large-object space.
+	    if (allocator_type != kAllocatorTypeLOS) {
+	      CHECK(space != nullptr) << "allocator_type:" << allocator_type
+	                              << " byte_count:" << byte_count
+	                              << " total_bytes_free:" << total_bytes_free;
+	      space->LogFragmentationAllocFailure(oss, byte_count);
+	    }
+	  }
+	  self->ThrowOutOfMemoryError(oss.str().c_str());
+	}
 	  
 ## 	  参考文档
 
@@ -461,3 +636,5 @@ OOM能捕获，如果不处理，还不会死，UI线程甚至还可以继续运
 Android 启动线程OOM[https://blog.csdn.net/LiC_07093128/article/details/79451851](https://blog.csdn.net/LiC_07093128/article/details/79451851)
 
 [参考文档 内存空间 https://www.cnblogs.com/binlovetech/p/16824522.html](https://www.cnblogs.com/binlovetech/p/16824522.html)
+
+[参考文档  OOM类型 https://www.wuyifei.cc/android-oom/](https://www.wuyifei.cc/android-oom/)
