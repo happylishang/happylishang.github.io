@@ -502,7 +502,6 @@ cat /proc/pid/maps可以查看maps虚拟内存信息 ，可以看到一个线程
 可以看到1M的虚拟内存，真是使用的	Rss只有48K，但是一个线程其实使用的虚拟内存不止1M，甚至是10M 20M。
 	
 
-
 ## dumpsys meminfo查看内存信息查看
 
 	dumpsys meminfo 15164
@@ -570,7 +569,7 @@ App Summary其实就关心两个Pss Rss ，跟上面的有换算关系 尤其关
 	         MEMORY_USED:        0
 	  PAGECACHE_OVERFLOW:        0          MALLOC_SIZE:        0
   
-*   Java Heap  
+*   Java Heap  :除了分配到的对象，还是有一些初始化时候带的，Zygote堆+Active堆，分配对象都在Active，OOM也多是这原因，但是也有固定的损耗，比如系统共享加载的东西
    
 		// dalvik private_dirty
 		 dalvikPrivateDirty
@@ -654,4 +653,4 @@ Android 启动线程OOM[https://blog.csdn.net/LiC_07093128/article/details/79451
 
  [Probe：Android线上OOM问题定位组件https://tech.meituan.com/2019/11/14/crash-oom-probe-practice.html](https://tech.meituan.com/2019/11/14/crash-oom-probe-practice.html)
  
- 
+[ Android内存申请分析 https://mp.weixin.qq.com/s?__biz=MzAwNDY1ODY2OQ==&mid=2649286327&idx=1&sn=b69513e3dfd1de848daefe03ab6719c2&scene=26#wechat_redirect}]()
