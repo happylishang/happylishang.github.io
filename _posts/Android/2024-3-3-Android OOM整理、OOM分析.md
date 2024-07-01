@@ -1539,7 +1539,24 @@ dalvik private dirty包含任何写过zygote分配的页面(应用是从zygote f
 
 	dalvikPrivateDirty + getOtherPrivate(OTHER_ART)
 
+ -Xmx和-Xms来控制堆内存的大小 其实就是这部分。可以通过Map获取各个需要的部分
  
+ 
+        public Map<String, String> getMemoryStats() {
+            Map<String, String> stats = new HashMap<String, String>();
+            stats.put("summary.java-heap", Integer.toString(getSummaryJavaHeap()));
+            stats.put("summary.native-heap", Integer.toString(getSummaryNativeHeap()));
+            stats.put("summary.code", Integer.toString(getSummaryCode()));
+            stats.put("summary.stack", Integer.toString(getSummaryStack()));
+            stats.put("summary.graphics", Integer.toString(getSummaryGraphics()));
+            stats.put("summary.private-other", Integer.toString(getSummaryPrivateOther()));
+            stats.put("summary.system", Integer.toString(getSummarySystem()));
+            stats.put("summary.total-pss", Integer.toString(getSummaryTotalPss()));
+            stats.put("summary.total-swap", Integer.toString(getSummaryTotalSwap()));
+            return stats;
+        }
+        
+        
 ##   总结
 
 * OOM对应的是Dalvik虚拟机，或者JVM限定的内存超过限制xxm设定那种，物理内存并一定不够用
