@@ -8,9 +8,11 @@
 	   	futureTask= executor.submit(FutureTask(TaskA)) // Future封装了一把
 	   	
 	   	doSomethingelse();
+	      
 	      doSomethingelse();
 	      	...
 	   	future.get() // 看看完成没有，没完成，说不定还要继续等待，看用户自己的定义。
+	   	
 	   }
 
 但是注意：Future本身只是一个接口，具体的灵活处理看其实现类自己，所以**Future本身并不会单独使用**，而是会被作为一个任务转接口在Executor框架的里面使用。Future主要包含下面**四个接口**：
@@ -47,10 +49,16 @@ FinalizableDelegatedExecutorService这个类继承DelegatedExecutorService，Del
 
 	    public Future<?> submit(Runnable task) {
 	        if (task == null) throw new NullPointerException();
+	        <!--Void是void类型的包装 -->
 	        RunnableFuture<Void> ftask = newTaskFor(task, null);
 	        execute(ftask);
 	        return ftask;
 	    }
+
+Void是void类型的包装 Void是一个不可实例化的占位类。它持有关键字为void的Class的应用。
+
+	@SuppressWarnings("unchecked")
+	public static final Class<Void> TYPE = (Class<Void>) Class.getPrimitiveClass("void");
 	
 可以看到，先封装成RunnableFuture，其实是new 了一个FutureTask，然后execute，假如到LinkedBlockQueue，Runnable一般不需要返回值，
 
@@ -63,7 +71,7 @@ FinalizableDelegatedExecutorService这个类继承DelegatedExecutorService，Del
 	        this.state = NEW;      
 	    }
 
-FutureTask 内置构建callable，
+FutureTask 内置构建callable，  RunnableAdapter
     
 	    public static <T> Callable<T> callable(Runnable task, T result) {
 	        if (task == null)
@@ -71,7 +79,7 @@ FutureTask 内置构建callable，
 	        return new RunnableAdapter<T>(task, result);
 	    }
 	    
-构建了一个Callable，或者说将Runnable转换成一个result null的callable ,没有自己设定result的，默认返回是null。
+构建了一个RunnableAdapter 的Callable，或者说将Runnable转换成一个result 是null的callable 。FutureTask之后被execute，然后返回RunnableFuture引用
 
             val future = threadPoolExecutor.submit({
                 Thread.sleep(2000)
@@ -81,7 +89,7 @@ FutureTask 内置构建callable，
 
             }, true)
 
-Runable，submit会返回一个特定的返回值，用来标识当前的任务完成了，或者说区分哪个任务完成了，实际的意义不是很大。而且无法在task中用，线程池还是多靠Runable自身中的回调来自洽。用Callable呢，Callable的call必须有返回值，这个值就是Future将来get到的值，这里可以自己定制值。
+Runable，submit后，通过get会返回一个特定的返回值，用来标识当前的任务完成了，或者说区分哪个任务完成了，实际的意义不是很大。线程池还是多靠Runable自身中的回调来自洽。用Callable呢，Callable的call必须有返回值，这个值就是Future将来get到的值，这里可以自己定制值。
 
       val future = threadPoolExecutor.submit(Callable {
                 Thread.sleep(2000)
@@ -341,4 +349,10 @@ finishCompletion会通知等待的线程队列唤起
 	    
 最终还是 LockSupport.unpark	、LockSupport.park来执行的，LockSupport.unpark会唤起阻塞的线程们，FutureTask自己维护了唤起队列，这里似乎并没有用wait、notify，而是直接使用了LockSupport.unpark。
 
+
+### 总结
+
+*  callable与future   侧重点不同，callable对应runable，一个侧重返回值，一个不侧重，future是future模式的抽象，侧重get 与await
+*  submit直接用的callable，或者都会封装成callable，因为用submit 的目的就是为了关系返回值，否则直接用execute不好吗
+*  都逃不了线程池的参与
 	    
