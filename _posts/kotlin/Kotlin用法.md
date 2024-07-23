@@ -5,6 +5,7 @@
 
 kotlin不提供wait、notify、notifyAll，但是可以通过RetreentLock来处理，
 
+<!--也必须在lock的里面-->
 		class KotlinBlockQueue<T> constructor(private val capacity: Int) {
 	
 		    private val lock = ReentrantLock()
