@@ -625,7 +625,7 @@ method包含着方法的签名，
 	        return result;
 	    }
 
-也就说，retrofit内部，将suspend回调的处理给实现了。	 
+也就说，retrofit内部，将suspend回调的处理给实现了，这就是retrofit如何支持协程的。	 
  
 #### 参考文档
 
