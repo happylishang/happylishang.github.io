@@ -43,4 +43,3 @@
             return getExclusiveOwnerThread() == Thread.currentThread();
         }
         
-        
