@@ -528,14 +528,27 @@ Lambda 表达式，也可称为闭包，Lambda 表达式（lambda expression）�
 	    p?.let {
 	        println(it)
 	        null
-	    } ?: println("null")
+	    } ?: println("null")  == (println("null")) 需要执行  
 	}
 
+但是 block写法就不行 ，如下，不会执行	
+	
+	        p?.let {
+            println(it)
+            null
+        } ?: { println("null") }  == ({ println("null") }) 直接null 
+  
+
+
+而靠谱的执行写法是
+
+	        p?.let {
+            println(it)
+            null
+        } ?: let { println("null") }  == ({ println("null") }) 直接let 执行{},同时也是计算返回值 
+        
+
 比如上述函数 ，如果p非null，会打印p，也会打印后面的null，因为let返回的值是null，后面的elvis条件成立，就会计算后面的值，所有的函数都有返回值，println("null")返回值是Unit，kotlin中都是对象，所以？后面的不执行，也会返回null，null判断会不断的传递
-
-
-### foreach写法 return之类的写法
-
 
 
 ### when
@@ -559,6 +572,8 @@ Lambda 表达式，也可称为闭包，Lambda 表达式（lambda expression）�
 
 	val inputAsString = input.bufferedReader().use { it.readText() } 
 	
+更简单的做法
+	
 	val inputAsString = input.readTextAndClose()  // defaults to UTF-8
 
 
@@ -569,4 +584,8 @@ Lambda 表达式，也可称为闭包，Lambda 表达式（lambda expression）�
 	  return kotlin.runCatching {
             JSON.parseObject(jsonStr).getJSONObject("data")
         }.getOrNull()
+
+
+
+### foreach写法 return之类的写法
 
