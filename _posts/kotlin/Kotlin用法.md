@@ -589,3 +589,329 @@ Lambda 表达式，也可称为闭包，Lambda 表达式（lambda expression）�
 
 ### foreach写法 return之类的写法
 
+
+## 协程与suspend函数  
+
+协程的目的是什么？表面上说，协程的目的是为了调用suspend函数，但是其实翻过来，suspend函数为了协程，其实两者是一体的，但是真说目的：那就是**异步转同步**，否则没必要协程，直接起任务就好了
+
+	suspend fun test(): Int {
+	    delay(1000)
+	    delay(1000)
+	    delay(1000)
+	    println("end ")
+	    return 1
+	}
+	
+	fun main() {
+	
+	    runBlocking {
+	        println("start")
+	        test()
+	        println("end")
+	    }
+	}
+
+
+转换后
+
+	public final class SusTestKt {
+	
+	<!--test函数被转换  var0作为后续调用的入口  -->
+	   @Nullable
+	   public static final Object test(@NotNull Continuation var0) {
+	      Object $continuation;
+	      label37: {
+	         if (var0 instanceof <undefinedtype>) {
+	            $continuation = (<undefinedtype>)var0;
+	            if ((((<undefinedtype>)$continuation).label & Integer.MIN_VALUE) != 0) {
+	               ((<undefinedtype>)$continuation).label -= Integer.MIN_VALUE;
+	               break label37;
+	            }
+	         }
+			<!--var0 作为ContinuationImpl 的构建参数传入， ContinuationImpl  这个是作为其上封传来的，后面ContinuationImpl 协程 执行完毕后，或者说不在挂起后  继续执行 Continuation var0，但是逻辑并不是在这里而是在 ContinuationImpl的resume中 -->
+			
+			<!--每个挂起函数，如果在在调用挂起函数之后还有处理，那么自己内部就会构建ContinuationImpl 作为 自身函数的 Continuation  每个挂起函数的的ContinuationImpl 必定是回调自身，因为它是感知不到其他函数的   -->
+	         $continuation = new ContinuationImpl(var0) {
+	            // $FF: synthetic field
+	            Object result;
+	            int label;
+	
+			<!--invokeSuspend 会被调用 同时 -invokeSuspend会有返回值 ->  
+	            @Nullable
+	            public final Object invokeSuspend(@NotNull Object $result) {
+	               this.result = $result;
+	               this.label |= Integer.MIN_VALUE;
+	               return SusTestKt.test(this);
+	            }
+	         };
+	      }
+	
+<!--	ContinuationImpl 被封装了，之后层层处理为 Task，或者runable，将来 唤起后 通过  continuation. invokeSuspend  可以获取返回值，或者说，如果再挂起，则继续处理挂起 ，等 continuation再次被调用 如此反复  返回是就是通过  ContinuationImpl的 invokeSuspend获取，因为 invokeSuspend  会继续调用原来的函数，只要原函数有返回值，那么一定会获取到，如果后续需要结果，那么一定有ContinuationImpl   complete 负责让后面传递 ，-->
+	
+	
+	      label31: {
+	         Object var4;
+	         label30: {
+	         <!--每一轮开始  $result 都会先被传递 同时   $continuation).label 会被更新 -->
+	            Object $result = ((<undefinedtype>)$continuation).result;
+	            var4 = IntrinsicsKt.getCOROUTINE_SUSPENDED();
+	            switch (((<undefinedtype>)$continuation).label) {
+	            <!-- case 0:直接调用，还用不到 continuation   -->
+	               case 0:
+	                  ResultKt.throwOnFailure($result);
+	                  ((<undefinedtype>)$continuation).label = 1;
+	                  if (DelayKt.delay(1000L, (Continuation)$continuation) == var4) {
+	                     return var4;
+	                  }
+	                  break;
+	               case 1:
+	                  ResultKt.throwOnFailure($result);
+	                  break;
+	               case 2:
+	                  ResultKt.throwOnFailure($result);
+	                 <!-- 通过break 标签 调到对应的state与函数调用 -->
+	                  break label30;
+	               case 3:
+	                  ResultKt.throwOnFailure($result);
+	               <!-- 通过break 标签 调到对应的state与函数调用 -->
+	                  break label31;
+	               default:
+	                  throw new IllegalStateException("call to 'resume' before 'invoke' with coroutine");
+	            }
+			<!--调用协程函数 可能挂起 ，这里的挂起其实就是  直接返回了，以内转Java后没什么挂起了，无视是要不要处理回调  比如Delay返回了 挂起，那么就要封装为delay runable，后面会被调用 ContinuationImpl ，而后 ContinuationImpl有complete回调，根据ContinuationImpl 的返回值 发给后续  -->
+	            ((<undefinedtype>)$continuation).label = 2;
+	            if (DelayKt.delay(1000L, (Continuation)$continuation) == var4) {
+	               return var4;
+	            }
+	         }
+		<!--调用协程函数 -->
+	         ((<undefinedtype>)$continuation).label = 3;
+	         if (DelayKt.delay(1000L, (Continuation)$continuation) == var4) {
+	            return var4;
+	         }
+	      }
+		<!--最终一次又返回值，返回值会交给complete使用，否则resume之后，接着挂起 -->
+	      String var1 = "end ";
+	      System.out.println(var1);
+	      return Boxing.boxInt(1);
+	   }
+	
+	   public static final void main() {
+	   
+	   	<!--(Function2)(new Function2((Continuation)null 这里其实可以单独玻璃一个类，构建一个对象  null 是因为这里没有来源，不需处理Continuation，是入口的意思 -->
+	      BuildersKt.runBlocking$default((CoroutineContext)null, (Function2)(new Function2((Continuation)null) {
+	         int label;
+	
+	         @Nullable
+	         public final Object invokeSuspend(@NotNull Object $result) {
+	            Object var3 = IntrinsicsKt.getCOROUTINE_SUSPENDED();
+	            Object var10000;
+	            switch (this.label) {
+	               case 0:
+	                  ResultKt.throwOnFailure($result);
+	                  this.label = 1;
+	                  <!--第一个挂起函数SusTestKt.test  的 Continuation  是  this ，也即是说，挂起后，回调 this -->
+	                  var10000 = SusTestKt.test(this);
+	                  if (var10000 == var3) {
+	                     return var3;
+	                  }
+	                  break;
+	               case 1:
+	                  ResultKt.throwOnFailure($result);
+	                  var10000 = $result;
+	                  break;
+	               default:
+	                  throw new IllegalStateException("call to 'resume' before 'invoke' with coroutine");
+	            }
+	
+	            int v = ((Number)var10000).intValue();
+	            System.out.println(v);
+	            return Unit.INSTANCE;
+	         }
+	
+	         @NotNull
+	         public final Continuation create(@Nullable Object value, @NotNull Continuation completion) {
+	            Intrinsics.checkNotNullParameter(completion, "completion");
+	            Function2 var3 = new <anonymous constructor>(completion);
+	            return var3;
+	         }
+	
+	         public final Object invoke(Object var1, Object var2) {
+	            return ((<undefinedtype>)this.create(var1, (Continuation)var2)).invokeSuspend(Unit.INSTANCE);
+	         }
+	      }), 1, (Object)null);
+	   }
+	
+ 
+	   public static void main(String[] var0) {
+	      main();
+	   }
+	}
+	
+#### 协程核心：载体是ContinuationImpl 也就是回调体 
+
+协程函数会被转换成普通的Java函数，只不过多了一个Continuation<? super Unit> continuation参数，一般而言，协程函数里面是要有suspend调用的，否则没必要，有协程调用的时候，continuation参数才有用而真正**调用suspend的地方会被封装成另一种回调形式**，从上面的就可以看出，协程会被转换成 SusTestKt$main$1  suspendlamda 函数体， 或kotlin编译工具会辅助生成这些类，如果直接通过反编译，看到的会是另一种匿名对象的方式，但是基本流程类似。
+
+runBlocking是一个固定范式：
+
+	public final /* synthetic */ class BuildersKt__BuildersKt {
+	    public static /* synthetic */ Object runBlocking$default(CoroutineContext coroutineContext, Function2 function2, int i, Object obj) throws InterruptedException {
+	        if ((i & 1) != 0) {
+	            coroutineContext = EmptyCoroutineContext.INSTANCE;
+	        }
+	        return BuildersKt.runBlocking(coroutineContext, function2);
+	    }
+	
+	<!--后面调用的是  EmptyCoroutineContext.INSTANCE  function2 -->
+	
+function2就是协程体换成 的SusTestKt$main$1 对象，该对象被runBlocking调用  runBlocking有自己的阻塞执行逻辑。而且里面也会启动新的协程之类的。
+
+	
+	    public static final <T> T runBlocking(CoroutineContext context, Function2<? super CoroutineScope, ? super Continuation<? super T>, ? extends Object> function2) throws InterruptedException {
+	   	 <!--CoroutineContext-->
+	        CoroutineContext newContext;
+	        <!--LOOP -->
+	        EventLoop eventLoop;
+	        <!--当前线程-->
+	        Thread currentThread = Thread.currentThread();
+	        <!--EmptyCoroutineContext.INSTANCE get返回的是null-->
+	        ContinuationInterceptor contextInterceptor = (ContinuationInterceptor) context.get(ContinuationInterceptor.Key);
+	        <!---->
+	        if (contextInterceptor == null) {
+	        <!--开始时null 创建爱哪一个LOOP-->
+	            eventLoop = ThreadLocalEventLoop.INSTANCE.getEventLoop$kotlinx_coroutines_core();
+	            <!--创建 依托LOOP的 CoroutineContex  有点类似于handler机制  -->
+	            newContext = CoroutineContextKt.newCoroutineContext(GlobalScope.INSTANCE, context.plus(eventLoop));
+	        } else {
+	            EventLoop eventLoop2 = null;
+	            EventLoop it = contextInterceptor instanceof EventLoop ? (EventLoop) contextInterceptor : null;
+	            if (it != null && it.shouldBeProcessedFromContext()) {
+	                eventLoop2 = it;
+	            }
+	            if (eventLoop2 == null) {
+	                eventLoop2 = ThreadLocalEventLoop.INSTANCE.currentOrNull$kotlinx_coroutines_core();
+	            }
+	            eventLoop = eventLoop2;
+	            newContext = CoroutineContextKt.newCoroutineContext(GlobalScope.INSTANCE, context);
+	        }
+	        <!--BlockingCoroutine  -->
+	        BlockingCoroutine coroutine = new BlockingCoroutine(newContext, currentThread, eventLoop);
+	        coroutine.start(CoroutineStart.DEFAULT, coroutine, function2);
+	        return (T) coroutine.joinBlocking();
+	    }
+	}
+	
+EventLoopKt构建 createEventLoop  EventLoopKt本事也是个 CoroutineDispatcher
+	
+	
+	public final class EventLoopKt {
+	    public static final EventLoop createEventLoop() {
+	        return new BlockingEventLoop(Thread.currentThread());
+	    }
+	
+	    public static final long processNextEventInCurrentThread() {
+	        EventLoop currentOrNull$kotlinx_coroutines_core = ThreadLocalEventLoop.INSTANCE.currentOrNull$kotlinx_coroutines_core();
+	        if (currentOrNull$kotlinx_coroutines_core == null) {
+	            return Long.MAX_VALUE;
+	        }
+	        return currentOrNull$kotlinx_coroutines_core.processNextEvent();
+	    }
+	
+	    public static final void platformAutoreleasePool(Function0<Unit> function0) {
+	        function0.invoke();
+	    }
+	}
+	
+协程执行的最后会构建一个BlockingCoroutine，BlockingCoroutine是一个协程，具体里面还执行什么，然后交给coroutine.start来定，BlockingCoroutine其实本身封装了协程的context，当前线程 ，以及Loop对象，
+
+    public BlockingCoroutine(CoroutineContext parentContext, Thread blockedThread, EventLoop eventLoop) {
+        super(parentContext, true, true);
+        this.blockedThread = blockedThread;
+        this.eventLoop = eventLoop;
+    }
+    
+ SusTestKt.test(this)会调用DelayKt.delay(1000, continuation) ，而DelayKt.delay，肯定会返回coroutine_suspended，并且根据不同的Context，选择不同的处理方式，如果是lifeCycleScope的context，则会睡眠唤醒 ，continuation其实就是后续的流程调用，协程的赋值，只在协程内部同步，转换后都是回调，后面传递了协程函数体进去，将来会继续执行，由于state已经发生了转变，会继续执行后续，而结果会通过invokeSuspend(Object $result) 传递进去。  根据是否有后续操作，其实continuation用法挺有区别的，如果，没返后续，则直接用上游传递的，自身有后续，则需要封装，先先执行自己的，然后执行后续的。
+  
+ **每个唤醒的 continuation 执行的都是调用自身所创建的函数 ，创建的，而不是所处的。**，并且携带返回值传递进去。BaseContinuationImpl实现的时候是可以传递一个 continue进去的， 类似于串联，自己是别人的后续，同样，自己也是别人的前驱，
+ 
+	 internal abstract class BaseContinuationImpl(
+	    // This is `public val` so that it is private on JVM and cannot be modified by untrusted code, yet
+	    // it has a public getter (since even untrusted code is allowed to inspect its call stack).
+	    public val completion: Continuation<Any?>?
+	) : Continuation<Any?>, CoroutineStackFrame, Serializable {
+
+ completion: Continuation，这个参数就是BaseContinuationImpl被调用完后，主动调用的一个，而且是结果传递的地方
+
+	   public final override fun resumeWith(result: Result<Any?>) {
+	        // This loop unrolls recursion in current.resumeWith(param) to make saner and shorter stack traces on resume
+	        var current = this
+	        var param = result
+	        while (true) {
+	            // Invoke "resume" debug probe on every resumed continuation, so that a debugging library infrastructure
+	            // can precisely track what part of suspended callstack was already resumed
+	            probeCoroutineResumed(current)
+	            with(current) {
+	                val completion = completion!! // fail fast when trying to resume continuation without completion
+	                val outcome: Result<Any?> =
+	                    try {
+	                    <!--这里获取结果 -->
+	                        val outcome = invokeSuspend(param) //会调用之前的挂起函数，获取返回值，如果是挂起就挂起了 ，不挂起，后面执行 回调唤起，其实赋值什么的转换成回调 
+	                        if (outcome === COROUTINE_SUSPENDED) return
+	                        Result.success(outcome)
+	                    } catch (exception: Throwable) {
+	                        Result.failure(exception)
+	                    }
+	                releaseIntercepted() // this state machine instance is terminating
+	                if (completion is BaseContinuationImpl) {
+	                    // unrolling recursion via loop
+	                    current = completion
+	                    param = outcome
+	                } else {
+	                    // top-level completion reached -- invoke and return
+	                    <!--这里传递结果 -->
+	                    completion.resumeWith(outcome)
+	                    return
+	                } }  }   }
+	
+
+##  挂起函数最后的continue 参数是负责承接与回调的  承接的是当前挂起函数
+
+每个挂起函数的continue都是为了承接 continue本身，而函数内部的 continueimpli对象是为了执行函数，不是作为参数，不是作为结果承接  ，continueimpli自身作为承接，但是气内含complete参数作为启下的作用。
+
+
+
+	    
+### 从Delay的看处理模型  
+
+一开始continuation会被封装成消息插入Loop，在Loop中处理Delay的调用，delay调用了suspendCancellableCoroutine，
+	 
+		 public suspend fun delay(timeMillis: Long) {
+	    if (timeMillis <= 0) return // don't delay
+	    return suspendCancellableCoroutine sc@ { cont: CancellableContinuation<Unit> ->
+	        // if timeMillis == Long.MAX_VALUE then just wait forever like awaitCancellation, don't schedule.
+	        if (timeMillis < Long.MAX_VALUE) {
+	            cont.context.delay.scheduleResumeAfterDelay(timeMillis, cont)
+	        }
+	    }
+	}
+
+suspendCancellableCoroutine是个典型的协程范式：
+  
+	  public suspend inline fun <T> suspendCancellableCoroutine(
+	    crossinline block: (CancellableContinuation<T>) -> Unit
+	): T =
+	    suspendCoroutineUninterceptedOrReturn { uCont ->
+	        val cancellable = CancellableContinuationImpl(uCont.intercepted(), resumeMode = MODE_CANCELLABLE)
+	        /*
+	         * For non-atomic cancellation we setup parent-child relationship immediately
+	         * in case when `block` blocks the current thread (e.g. Rx2 with trampoline scheduler), but
+	         * properly supports cancellation.
+	         */
+	        cancellable.initCancellability()
+	        block(cancellable)
+	        cancellable.getResult()
+	    }
+
+  
+
+ 
