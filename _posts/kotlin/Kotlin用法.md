@@ -932,11 +932,9 @@ suspendCancellableCoroutine是个典型的协程范式：
 		        return result == IntrinsicsKt.getCOROUTINE_SUSPENDED() ? result : Unit.INSTANCE;
 		    }
 
- suspendCoroutineUninterceptedOrReturn本身没实现，是靠编译工具
+ suspendCoroutineUninterceptedOrReturn本身没实现，是靠编译工具，因为本来就会有多余的continueation参数生成，suspendCoroutineUninterceptedOrReturn便是承接上面生成的参数二来，进而调用的时候用的便是传递而来的continueation参数，之后就会直接调用，不会存在多余转移，就是直接调用。
  
-	 
-	 
-	/**
+	  	/**
 	 * Obtains the current continuation instance inside suspend functions and either suspends
 	 * currently running coroutine or returns result immediately without suspension.
 	 *
@@ -966,3 +964,18 @@ suspendCancellableCoroutine是个典型的协程范式：
 	    contract { callsInPlace(block, InvocationKind.EXACTLY_ONCE) }
 	    throw NotImplementedError("Implementation of suspendCoroutineUninterceptedOrReturn is intrinsic")
 }
+
+ contract   callsInPlace就是让调用保持调用，并且一次。只是这里么看到 ，需要借助编译工具。
+ 
+ 
+###  suspendCancellableCoroutine  的作用是要么挂起，要么返回正确的值，本身其实没多少实际意义   
+
+suspendCancellableCoroutine函数本身有返回值，他是个挂起函数，终究走的还是回调那套。要么挂起，要么返回值 。
+
+
+### * 总结
+
+
+* runblocking  BlockingCoroutine 有时候是需要被唤醒的 afterCompletion
+* suspendCancellableCoroutine 与suspendCoroutineUninterceptedOrReturn 依靠编译工具，将continueation串联起来，当然，这里就是直接调用，没有什么现成切换
+* suspendCancellableCoroutine 的resumeWith 是在 CancellableCoroutine中，用的是CancellableCoroutine的resumeWith 这里也是回调，当时估计有现成切换跟消息
