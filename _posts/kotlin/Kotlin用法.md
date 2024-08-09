@@ -1,4 +1,10 @@
-# 最关键：不会先Google，一定会提供简洁的写法
+
+
+
+# 协程：唤起=CallBack，不要误入唤起的套路中，就是回调
+# 挂起函数 ，依赖状态机回调自身
+## Suspend不看返回 ，返回值的传递依赖的是回调，invokeSuspend的层层回溯
+
 
 
 ### kotlin中的同步互斥
@@ -865,10 +871,11 @@ EventLoopKt构建 createEventLoop  EventLoopKt本事也是个 CoroutineDispatche
 	                if (completion is BaseContinuationImpl) {
 	                    // unrolling recursion via loop
 	                    current = completion
-	                    param = outcome
+	                    param = outcome //循环传递结果 ，
 	                } else {
+	                 注释很明先，最外层
 	                    // top-level completion reached -- invoke and return
-	                    <!--这里传递结果 -->
+	                    <!--这里传递结果  这里非常有意思，用一个循环不断的回溯到顶部，顶部的是协程体本身，毕竟一层套一层   resumeWith最终唤醒协程 前面的调用全部用 invokeSuspend 回溯  而中间的 结果也会通过   invokeSuspend 传递 最外层的是 completion.resumeWith  是协程体， 比如BlockCrontine， 比如-->
 	                    completion.resumeWith(outcome)
 	                    return
 	                } }  }   }
@@ -876,10 +883,121 @@ EventLoopKt构建 createEventLoop  EventLoopKt本事也是个 CoroutineDispatche
 
 ##  挂起函数最后的continue 参数是负责承接与回调的  承接的是当前挂起函数
 
-每个挂起函数的continue都是为了承接 continue本身，而函数内部的 continueimpli对象是为了执行函数，不是作为参数，不是作为结果承接  ，continueimpli自身作为承接，但是气内含complete参数作为启下的作用。
+每个挂起函数的continue都是为了承接 continue本身，而函数内部的 continueimpli对象是为了执行函数，不是作为参数，不是作为结果承接  ，continueimpli自身作为承接，但是气内含complete参数作为启下的作用。最外层是
+
+ 
+	    val coroutine = BlockingCoroutine<T>(newContext, currentThread, eventLoop)
+	    coroutine.start(CoroutineStart.DEFAULT, coroutine, block)
+
+	    public fun <R> start(start: CoroutineStart, receiver: R, block: suspend R.() -> T) {
+	        start(block, receiver, this)
+	    }
+	    
+	        @InternalCoroutinesApi
+    public operator fun <R, T> invoke(block: suspend R.() -> T, receiver: R, completion: Continuation<T>): Unit =
+        when (this) {
+            DEFAULT -> block.startCoroutineCancellable(receiver, completion)
+            ATOMIC -> block.startCoroutine(receiver, completion)
+            UNDISPATCHED -> block.startCoroutineUndispatched(receiver, completion)
+            LAZY -> Unit // will start lazily
+        }
+    
+receiver 这里其实是 BlockingCoroutine。作为最后 completion.resumeWith(outcome)  block.startCoroutineCancellable(receiver, completion)，这里是启动的关键 
 
 
+	internal fun <R, T> (suspend (R) -> T).startCoroutineCancellable(
+	    receiver: R, completion: Continuation<T>,
+	    onCancellation: ((cause: Throwable) -> Unit)? = null
+	) =
+	    runSafely(completion) {
+	    <!--主要是呈上启下的 封装 ，封装表层调用，封装启下的调用 ，表层封装为DispatchCroutine-->
+	        createCoroutineUnintercepted(receiver, completion).intercepted().resumeCancellableWith(Result.success(Unit), onCancellation)
+	    }
 
+最后看那个拦截器负责处理 resumeCancellableWith  
+
+	public fun <T> Continuation<T>.resumeCancellableWith(
+	    result: Result<T>,
+	    onCancellation: ((cause: Throwable) -> Unit)? = null
+	): Unit = when (this) {
+	    is DispatchedContinuation -> resumeCancellableWith(result, onCancellation)
+	    else -> resumeWith(result)
+	}
+
+BlockCroutin完成的回调是自己，因为可能需要别人唤醒自己，如果是自己则不挂唤醒  ，DispatchedContinuation 会被自己的 dispatcher.dispatch，
+ 
+	    @Suppress("NOTHING_TO_INLINE")
+	    internal inline fun resumeCancellableWith(
+	        result: Result<T>,
+	        noinline onCancellation: ((cause: Throwable) -> Unit)?
+	    ) {
+	        val state = result.toState(onCancellation)
+	        if (dispatcher.isDispatchNeeded(context)) {
+	            _state = state
+	            resumeMode = MODE_CANCELLABLE
+	            dispatcher.dispatch(context, this)
+	        } else {
+	            executeUnconfined(state, MODE_CANCELLABLE) {
+	                if (!resumeCancelled(state)) {
+	                    resumeUndispatchedWith(result)
+	                }
+	            }
+	        }
+	    }
+    
+dispatcher.dispatch  其实就是插入当前 dispatcher对应的LOOP queue中去 本身 DispatchedContinuation也是runable，如果是 runblocking 的其实就是 EventLoopImplBase的 dispatch
+
+    final override fun dispatch(context: CoroutineContext, block: Runnable) = enqueue(block)
+
+简而言之，入队，之后被proceEvent执行 。注意队列里面，入队的永远是 Runable， 队列里面不是挂起与回调，挂起与回调只是runable的一个变量罢了。BlockCroutin先插入，再运行。
+
+####  再看CoroutineScope.async
+ 
+		 public fun <T> CoroutineScope.async(
+		    context: CoroutineContext = EmptyCoroutineContext,
+		    start: CoroutineStart = CoroutineStart.DEFAULT,
+		    block: suspend CoroutineScope.() -> T
+		): Deferred<T> {
+		    val newContext = newCoroutineContext(context)
+		    val coroutine = if (start.isLazy)
+		        LazyDeferredCoroutine(newContext, block) else
+		        DeferredCoroutine<T>(newContext, active = true)
+		    coroutine.start(start, coroutine, block)
+		    return coroutine
+		}
+
+跟runblocking开始一致，通过  coroutine.start启动一个协程,，然后插入当前对应context的LOOP Quque，如果不存在     await()，基本就无视了，如果存在，则还会有唤醒协程的操作。DeferredCoroutine是返回值，
+
+await如何联动，suspendCoroutineUninterceptedOrReturn挂起当前协程
+
+	    private suspend fun awaitSuspend(): Any? = suspendCoroutineUninterceptedOrReturn { uCont ->
+        /*
+         * Custom code here, so that parent coroutine that is using await
+         * on its child deferred (async) coroutine would throw the exception that this child had
+         * thrown and not a JobCancellationException.
+         */
+        val cont = AwaitContinuation(uCont.intercepted(), this)
+        // we are mimicking suspendCancellableCoroutine here and call initCancellability, too.
+        cont.initCancellability()
+        cont.disposeOnCancellation(invokeOnCompletion(handler = ResumeAwaitOnCompletion(cont)))
+        cont.getResult()
+    }    
+	    
+    private suspend fun awaitSuspend(): Any? = suspendCoroutineUninterceptedOrReturn { uCont ->
+        /*
+         * Custom code here, so that parent coroutine that is using await
+         * on its child deferred (async) coroutine would throw the exception that this child had
+         * thrown and not a JobCancellationException.
+         */
+        val cont = AwaitContinuation(uCont.intercepted(), this)
+        // we are mimicking suspendCancellableCoroutine here and call initCancellability, too.
+        cont.initCancellability()
+        cont.disposeOnCancellation(invokeOnCompletion(handler = ResumeAwaitOnCompletion(cont)))
+        cont.getResult()
+    }
+    
+ 注册了回调，回调会负责唤起，其实不是唤起，就是负责继续CallBack，唤起总是会给人误解
+	    
 	    
 ### 从Delay的看处理模型  
 
@@ -973,9 +1091,13 @@ suspendCancellableCoroutine是个典型的协程范式：
 suspendCancellableCoroutine函数本身有返回值，他是个挂起函数，终究走的还是回调那套。要么挂起，要么返回值 。
 
 
-### * 总结
+
+### * 总结：没有挂起，只有回调  
 
 
 * runblocking  BlockingCoroutine 有时候是需要被唤醒的 afterCompletion
 * suspendCancellableCoroutine 与suspendCoroutineUninterceptedOrReturn 依靠编译工具，将continueation串联起来，当然，这里就是直接调用，没有什么现成切换
 * suspendCancellableCoroutine 的resumeWith 是在 CancellableCoroutine中，用的是CancellableCoroutine的resumeWith 这里也是回调，当时估计有现成切换跟消息
+* 依赖状态机，回调自身
+* await也是回调
+* 协程 == 回调 
