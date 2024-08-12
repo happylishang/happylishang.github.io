@@ -1090,8 +1090,32 @@ suspendCancellableCoroutine是个典型的协程范式：
 
 suspendCancellableCoroutine函数本身有返回值，他是个挂起函数，终究走的还是回调那套。要么挂起，要么返回值 。
 
+	suspend fun test2(): Int {
+	//    会被编译
+	    return suspendCancellableCoroutine {
+	
+	        //   一般不在同一个线程唤醒。那就是同步了额
+	//        it.resumeWith(Result.success(1))
+	        println("start")
+	//        这里是注册回调，尼玛 kotlin还是有回调
+	        it.invokeOnCancellation {
+	
+	        }
+	        println("挂起")
+	        CoroutineScope(Dispatchers.IO).launch {
+	            delay(1000)
+	        // 唤起
+	            it.resumeWith(Result.success(1))
+	        }
+	    }
+	}
+
+suspendCancellableCoroutine 有返回值，但是这个返回值其实有种直角与直线的区别，返回值通过回调传递  it.resumeWith(Result.success(1))，这个才是返回值生效的地方 ，而suspendCancellableCoroutine参数其实是block不需要返回值，block是要立刻执行的东西，执行完毕后，就不处理了 ，而  it.resumeWith(Result.success(1))是负责串联起 suspendCancellableCoroutine函数之后的事情，也就是回调衔接，
 
 
+![image.png](https://p0-xtjj-private.juejin.cn/tos-cn-i-73owjymdk6/ccbecb379b4a4c8086b62a81ad60abbb~tplv-73owjymdk6-jj-mark:0:0:0:0:q75.awebp?policy=eyJ2bSI6MywidWlkIjoiMjY2NDg3MTkxMzMzNjE3MyJ9&rk3s=e9ecf3d6&x-orig-authkey=f32326d3454f2ac7e96d3d06cdbb035152127018&x-orig-expires=1723281862&x-orig-sign=RUwtEPCI%2Fby0g1w9GciEWjR9q7w%3D)
+
+**suspendCancellableCoroutine 将回调转移同步调用的好选择，** ，尤其是本来就已经写好的回调框架 。
 ### * 总结：没有挂起，只有回调  
 
 
