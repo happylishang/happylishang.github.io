@@ -181,6 +181,15 @@ name跟age任何一个变了，都会重新计算。 mutableStateOf(0)是让comp
 Composable是函数，函数，kotlin函数，所以函数的一切特性还是存在的，参数，返回值等，它只是等被调用的函数，用来Compose。
 
 
+## 控件
+
+* LazyRow LazyList可以用             flingBehavior = rememberSnapFlingBehavior(listState)控制条目居中 
+* itemsIndexed 传递index
+* List + input +bottomcolomu +imePadding等于滚动
+
+## suspendCancellableCoroutine
+
+
 
 
 ### 参考文档
