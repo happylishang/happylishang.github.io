@@ -117,7 +117,7 @@ Singleton 和 SingletonComponent 都与单例模式相关，但它们在 Hilt �
 
 然后在普通类中：
   
-		class MyServiceHelper(context: Context) {
+    class MyServiceHelper(context: Context) {
 	    private val myRepository: MyRepository by lazy {
 	        EntryPointAccessors.fromApplication(
 	            context.applicationContext,
@@ -127,7 +127,6 @@ Singleton 和 SingletonComponent 都与单例模式相关，但它们在 Hilt �
 	
 	    fun execute() {
 	        println(myRepository.fetchData())
-	    }
-	}
+	    } }
 	
 普通类要通过 EntryPoint这样的做法来处理，自己处理如何提供依赖 ，其实就是通过interface
