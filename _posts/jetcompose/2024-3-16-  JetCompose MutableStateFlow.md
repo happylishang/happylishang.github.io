@@ -261,6 +261,13 @@ callbackFlow vs suspendCancellableCoroutine 的区别
 示例：获取用户当前位置、执行一次 API 调用。
 
 
+### MutableSharedFlow MutableStateFlow
+
+MutableStateFlow用于状态的同步，无论是先注册，还是后注册，collet回调一定会有，适用于状态保持一致，而MutableSharedFlow主要用于事件传递通知，而且，非常重要的一点：先 emit() 才会有数据。
+
+
+可以认为MutableSharedFlow一定要主动触发，才有collect回调，而MutableStateFlow第一次必定有回调，为了保持同步。所以如果是要监听事件，就用MutableSharedFlow，如果UI状态一致，用MutableStateFlow
+
 
 
 
