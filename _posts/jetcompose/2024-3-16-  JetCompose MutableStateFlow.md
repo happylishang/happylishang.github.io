@@ -271,6 +271,18 @@ MutableStateFlow用于状态的同步，无论是先注册，还是后注册，c
 
 
 
+### ✅ `MutableStateFlow` vs `snapshotFlow` 使用场景对比
+
+| 场景 | 推荐使用 |
+|------|-----------|
+| ViewModel 中的业务状态（例如用户输入、网络数据） | ✅ `MutableStateFlow` |
+| Compose 中监听 UI 状态（如滑动、当前页、选择项等） | ✅ `snapshotFlow` |
+| 想让多个组件共享状态 | ✅ `StateFlow` / `MutableStateFlow` |
+| 想从某个 `@Composable` 变量派生出 Flow | ✅ `snapshotFlow` |
+
+
+
+
 
 ### 参考文档
 
