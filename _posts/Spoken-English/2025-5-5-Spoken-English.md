@@ -110,3 +110,192 @@
 | I wish I could, but I’m really busy with work. | 我很想去，但最近工作太忙了。 | ài wɪʃ ài kʊd, bʌt ài əm ˈrɪəli ˈbɪzi wɪdh wɜrk. |
 
 
+
+
+
+### 公园 遛娃
+
+# 🏞 公园遇见热心外国人 - 英文口语对话练习
+
+# 🌳 公园聊天对话 — 中英对照
+
+**场景**：你带着女儿在公园玩，一个外国人（Jake）带着儿子 Oliver 来搭讪聊天。
+
+---
+
+**👨‍🦰 Jake**：  
+Hey there! Beautiful day, isn’t it?  
+（你好呀！今天天气真不错，对吧？）
+
+**👤 You**：  
+Yes, the weather is really nice today.  
+（是的，今天天气真的很好。）
+
+---
+
+**👨‍🦰 Jake**：  
+Is that your son? He looks super active!  
+（那是你儿子吗？他看起来非常活跃！）
+
+**👤 You**：  
+That’s my daughter. She’s very outgoing and full of energy — just like a boy!  
+（那是我女儿。她非常外向又有活力，就像个小男孩一样！）
+
+---
+
+**👨‍🦰 Jake**：  
+Ohh! That’s awesome! Girls with lots of energy are the best.  
+What’s her name?  
+（哦，太棒了！精力充沛的女孩最棒了。她叫什么名字？）
+
+**👤 You**：  
+Her name is X Li. And sure, they can definitely play together — that’s a great idea.  
+（她叫 X Li。当然，他们可以一起玩，这是个好主意。）
+
+---
+
+**👨‍🦰 Jake**：  
+Oliver’s just over there by the swing.  
+He’s a bit shy at first, but once he warms up, he’s full of silly jokes.  
+So… do you live around here too?  
+（Oliver 就在那边的秋千上。他刚开始有点害羞，但熟了之后会讲一堆搞笑的笑话。  
+你也是住在附近吗？）
+
+**👤 You**：  
+Yes, we live about five kilometers from here.  
+It’s not too far from the park.  
+By the way, do you like living in China?  
+（是的，我们住在离这儿大概五公里的地方，离公园不算远。  
+顺便问一下，你喜欢住在中国吗？）
+
+---
+
+**👨‍🦰 Jake**：  
+I really do! The people, the culture, the food — it’s all amazing.  
+（非常喜欢！这里的人、文化、美食——都太棒了。）
+
+**👤 You**：  
+I’m Chinese. I was born and raised here — of course I love it.  
+（我是中国人，从小在这里长大，当然喜欢这里。）
+
+---
+
+**👨‍🦰 Jake**：  
+That’s wonderful. You must know all the best places around.  
+Do you come to this park often with your daughter?  
+（太棒了。你肯定很熟这里，知道很多好地方。  
+你经常带女儿来这个公园吗？）
+
+**👤 You**：  
+Yes, I come here every weekend.  
+How about you? How often do you come to the park?  
+（是的，我每个周末都会来。  
+你呢？你多久来一次这个公园？）
+
+---
+
+**👨‍🦰 Jake**：  
+We try to come two or three times a week.  
+Oliver gets cranky if he stays indoors too long!  
+Sometimes we bring snacks and have a picnic on the grass.  
+（我们每周来两三次。如果 Oliver 老待在屋里，他会变得很烦躁！  
+有时候我们还会带点零食，在草地上野餐。）
+
+**👤 You**：  
+Usually, I come here alone with my daughter.  
+（通常我自己一个人带女儿来。）
+
+---
+
+**👨‍🦰 Jake**：  
+I see! That’s great one-on-one time. Not always easy, but really special.  
+Do you work during the week?  
+（我明白！一对一的相处时间很宝贵，虽然不容易，但真的很特别。  
+你平时工作吗？）
+
+**👤 You**：  
+Yes, I usually work Monday to Friday.  
+But I always try to take her outdoors to enjoy nature and the beautiful scenery whenever I can.  
+（是的，我通常周一到周五工作。  
+不过我总尽量带她出去，享受大自然和美丽的风景。）
+
+---
+
+**👨‍🦰 Jake**：  
+That sounds amazing. You’re giving her such a happy childhood.  
+Have you taken her anywhere special lately?  
+Like the zoo or a short trip?  
+（那太好了，你给了她一个快乐的童年。  
+最近有没有带她去哪儿玩，比如动物园或者短途旅行？）
+
+---
+
+**👤 You**：  
+Recently, I took my daughter to the zoo.  
+（最近我带女儿去了动物园。）
+
+---
+
+**👨‍🦰 Jake**：  
+That sounds like so much fun! Which animals did she like the most?  
+（听起来很有趣！她最喜欢哪些动物？）
+
+---
+
+**👤 You**：  
+She liked the giant pandas the most, followed by the golden snub-nosed monkeys.  
+（她最喜欢大熊猫，其次是金丝猴。）
+
+---
+
+**👨‍🦰 Jake**：  
+Pandas are definitely a crowd favorite! Did you get to see them eating bamboo?  
+（熊猫肯定是大家的最爱！你们看到它们吃竹子了吗？）
+
+---
+
+**👤 You**：  
+Yes, we saw one eating bamboo, and we even saw a panda doing its business.  
+（是的，我们看到它在吃竹子，还看到熊猫在拉屎。）
+
+---
+
+**👨‍🦰 Jake**：  
+Haha, that’s a real wildlife experience! Kids usually find that hilarious.  
+Did she enjoy the rest of the zoo too?  
+（笑，这真是一次难忘的野生体验！孩子们通常觉得这很好笑。  
+她其他地方也玩得开心吗？）
+
+---
+
+**👤 You**：  
+Yes, she really enjoyed it.  
+So, how about you? Have you taken your son anywhere fun recently? Any interesting stories to share?  
+（是的，她很喜欢。  
+你呢？最近带你儿子去哪玩了吗？有什么有趣的经历分享吗？）
+
+---
+
+**👨‍🦰 Jake**：  
+Actually, last weekend we went to a nearby lake for a picnic.  
+Oliver loved feeding the ducks and trying to skip stones.  
+It was a relaxing day for all of us!  
+（其实，上周末我们去了附近的湖边野餐。  
+Oliver很喜欢喂鸭子，还试着扔扁石头。  
+对我们来说是放松愉快的一天！）
+
+---
+
+**You:**  
+It’s been really nice talking with you, thanks for the lovely chat, but we should get going now.  
+（和你聊天很愉快，谢谢你的美好交流，不过我们该走了。）
+
+---
+
+**Jake:**  
+It was great meeting you both. Have a wonderful day!  
+（很高兴认识你们，祝你们今天愉快！）
+
+
+
+
