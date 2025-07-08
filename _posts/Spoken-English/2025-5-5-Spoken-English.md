@@ -297,5 +297,245 @@ It was great meeting you both. Have a wonderful day!
 （很高兴认识你们，祝你们今天愉快！）
 
 
+## 谈论房子   housing prices in Hangzhou
 
 
+# 🏠 关于杭州房价的对话 — 中英对照完整版
+
+---
+
+**You:**  
+Hi Jack, let’s talk about the housing prices in Hangzhou.  
+（嗨，Jack，我们聊聊杭州的房价吧。）
+
+---
+
+**Jack:**  
+Sure! The housing prices in Hangzhou have really gone up lately. It’s getting quite expensive.  
+（当然！最近杭州的房价涨得很厉害，变得挺贵的。）
+
+---
+
+**You:**  
+Yes, it feels like prices have increased so much that it’s hard for young people to afford a home.  
+（是啊，感觉房价涨得太多了，年轻人买房压力很大。）
+
+---
+
+**Jack:**  
+Exactly. Many people are worried about whether they’ll ever be able to buy a house.  
+（没错，很多人都担心自己到底能不能买得起房。）
+
+---
+
+**You:**  
+I hope the government will do something to help make housing more affordable.  
+（我希望政府能采取措施，让房价更合理些。）
+
+---
+
+**You:**  
+What do you think about the housing prices in Hangzhou? Are they really worth it? Is it reasonable for prices to be this high?  
+（你觉得杭州的房价怎么样？真的值得吗？房价涨得这么高合理吗？）
+
+---
+
+**Jack:**  
+Well, it’s a tough question. On one hand, Hangzhou is a beautiful city with lots of job opportunities, which drives demand. On the other hand, such high prices can be stressful for many families.  
+（这个问题挺难回答的。一方面，杭州是个美丽的城市，有很多工作机会，所以需求很大。另一方面，这么高的房价对很多家庭来说压力很大。）
+
+---
+
+**You:**  
+That makes sense. Maybe the market needs to find a better balance between growth and affordability.  
+（说得有道理。也许市场需要在发展和可负担性之间找到更好的平衡。）
+
+---
+
+**You:**  
+Ten million for a house? That’s, uh… way too expensive!  
+（一套房子要一千万？呃……太贵了！）
+
+---
+
+**Jack:**  
+I know, right? It feels almost impossible for most people to afford.  
+（是啊，很多人几乎买不起。）
+
+---
+
+**You:**  
+Exactly. Sometimes I wonder if renting might be a more practical choice for now.  
+（没错。我有时候想，也许现在租房更实际一些。）
+
+---
+
+**Jack:**  
+Yeah, renting does seem like the better option for many, at least until the prices settle down.  
+（是的，租房对很多人来说可能是更好的选择，至少等房价稳定下来。）
+
+---
+
+**You:**  
+Hopefully, the government will step in soon with policies to cool down the market.  
+（希望政府能尽快出台政策，冷却市场。）
+
+---
+
+**Jack:**  
+Let’s hope so. Otherwise, owning a home might stay just a dream for a long time.  
+（希望如此。否则，买房可能会长时间只是一个梦想。）
+
+
+### 问别人的职业，名字
+
+**You:**  
+Hi! I don’t think we’ve met before. What’s your name?  
+（嗨！我觉得我们以前没见过，你叫什么名字？）
+
+**Stranger:**  
+I’m Emily. Nice to meet you! And you?  
+（我叫Emily，很高兴认识你！你呢？）
+
+**You:**  
+I’m Jack. So, what do you do for a living, Emily?  
+（我叫Jack。Emily，你是做什么工作的？）
+
+**Emily:**  
+I work as a graphic designer. How about you?  
+（我是平面设计师。你呢？）
+
+**You:**  
+I’m a software engineer. Do you have any hobbies?  
+（我是软件工程师。你有什么兴趣爱好吗？）
+
+**Emily:**  
+Yes, I love painting and hiking on weekends. What about you?  
+（有啊，我喜欢画画和周末去徒步。你呢？）
+
+**You:**  
+I enjoy playing basketball and reading science fiction books.  
+（我喜欢打篮球和读科幻小说。）
+
+
+
+
+# 🗂 中美生活英语对话练习：用工环境 & 医保制度
+
+## 📌 场景设定  
+你在公园认识了美国朋友 Jake，你们聊起了中美两国的工作制度、工会、社会保障和医疗制度。
+
+---
+
+## 💬 Part 1: 用工环境 Employment Environment
+
+**👤 You（你）**  
+In China, the working conditions can be really tough. Many companies don’t follow labor laws strictly.  
+在中国，用工环境真的很差，许多企业不严格遵守劳动法。
+
+**🧔‍♂️ Jake（Jake）**  
+Yeah, I’ve heard that. But actually, in the U.S., things are not always perfect either.  
+是的，我听说过。不过其实在美国，情况也不总是那么好。
+
+---
+
+**👤 You**  
+Chinese labor unions are practically useless. How about in the U.S.?  
+中国的工会形同虚设，美国的工会呢？
+
+**🧔‍♂️ Jake**  
+Unions in the U.S. used to be powerful, but their influence has declined a lot over the years.  
+美国的工会曾经很有影响力，但这些年大大削弱了。
+
+---
+
+**👤 You**  
+Why has union power declined? I thought the U.S. had a better system for workers.  
+为什么工会的影响力会下降？我一直以为美国的用工环境更好。
+
+**🧔‍♂️ Jake**  
+Partly because of laws that make it hard to organize. Also, many companies fight hard against unions.  
+部分原因是现行法律让组建工会变得很难，而且很多公司坚决反对工会。
+
+---
+
+**👤 You**  
+Is there serious wealth inequality in the U.S.?  
+美国的两极分化严重吗？有钱人和普通人的差距大吗？
+
+**🧔‍♂️ Jake**  
+Yes, it’s pretty serious. The top 1% hold a huge portion of the wealth.  
+是的，非常严重。前1%的人掌握着大部分财富。
+
+---
+
+**👤 You**  
+In China, money and power seem to mean everything. How about in the U.S.?  
+在中国，钱和权力似乎意味着一切。在美国也是这样吗？
+
+**🧔‍♂️ Jake**  
+It’s similar. But basic living support in the U.S. usually comes from government programs like Social Security and food stamps.  
+差不多。但美国的基本生活保障通常来自政府项目，比如社会保障和食品券。
+
+---
+
+**👤 You**  
+What problems do you think the U.S. system has?  
+你觉得美国的制度存在哪些问题？
+
+**🧔‍♂️ Jake**  
+It’s fragmented, expensive, and often favors the wealthy. People in lower-income brackets face more struggles.  
+系统很分散、很贵，而且往往偏向富人。低收入群体生活更艰难。
+
+---
+
+## 💬 Part 2: 医保制度 Healthcare System
+
+**👤 You**  
+Many Americans say China’s healthcare is more convenient. Do you agree?  
+很多美国人说中国的医疗更方便。你同意吗？
+
+**🧔‍♂️ Jake**  
+Yes, in China you can walk into a hospital and get treatment. In the U.S., it’s more complicated.  
+是的。在中国你可以直接去医院就诊，而美国就没那么简单。
+
+---
+
+**👤 You**  
+What are the main issues with healthcare in the U.S.?  
+美国医疗系统的主要问题是什么？
+
+**🧔‍♂️ Jake**  
+Mostly the cost. Even with insurance, people pay a lot. There are deductibles and many things aren't covered.  
+主要是费用问题。即使有保险，花费仍然很多。还有免赔额，很多项目不报销。
+
+---
+
+**👤 You**  
+In China, most people can afford basic care. Public hospitals are relatively cheap.  
+在中国，大多数人还是能承担基本医疗的。公立医院比较便宜。
+
+**🧔‍♂️ Jake**  
+That’s something I admire. Our system in the U.S. is run like a business. Hospitals care more about profit.  
+我很欣赏这一点。美国的医疗系统像企业一样运营，医院更看重利润。
+
+---
+
+**👤 You**  
+Do you think the U.S. will ever adopt universal healthcare?  
+你觉得美国将来会有全民医保吗？
+
+**🧔‍♂️ Jake**  
+It’s possible, but very hard. Politics and cost are big obstacles.  
+有可能，但很难。政治和费用是最大的障碍。
+
+---
+
+## ✅ 小结 Summary
+
+| 主题 | 中国 China | 美国 USA |
+|------|-------------|-----------|
+| 用工环境 | 法律执行不严，工会形同虚设 | 工会影响下降，法律复杂 |
+| 收入差距 | 有，但政府控制 | 非常明显，富人集中大量财富 |
+| 医保制度 | 公立医院普及，基本医疗便宜 | 私营主导，费用高，看病难 |
+| 社会保障 | 医保+最低保障政策 | 社会保障、食品券、Medicare/Medicaid |
