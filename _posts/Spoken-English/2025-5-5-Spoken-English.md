@@ -531,11 +531,18 @@ It’s possible, but very hard. Politics and cost are big obstacles.
 
 ---
 
-## ✅ 小结 Summary
+## 听不懂怎么处理
 
-| 主题 | 中国 China | 美国 USA |
-|------|-------------|-----------|
-| 用工环境 | 法律执行不严，工会形同虚设 | 工会影响下降，法律复杂 |
-| 收入差距 | 有，但政府控制 | 非常明显，富人集中大量财富 |
-| 医保制度 | 公立医院普及，基本医疗便宜 | 私营主导，费用高，看病难 |
-| 社会保障 | 医保+最低保障政策 | 社会保障、食品券、Medicare/Medicaid |
+"I don’t speak English that often, so I’m not very fluent."  "But I'm trying to improve." ，Could you explain that? I'm not quite sure what you mean.
+
+My English isn’t very good, but I’m trying to understand.
+
+
+Speaking up is the key to learning a language.  The more you speak, the faster you learn.
+
+
+
+
+
+
+
