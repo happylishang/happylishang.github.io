@@ -544,5 +544,87 @@ Speaking up is the key to learning a language.  The more you speak, the faster y
 
 
 
+# English Conversation Practice: Raising Kids
+
+---
+
+**Jack:**  
+I think raising kids is really challenging these days.
+
+**You:**  
+I have to work long hours, so I don’t have enough time to spend with my child.
+
+**Jack:**  
+Yeah, I totally understand. It’s hard to balance work and family, right? How do you usually spend time with your daughter when you’re free?
+
+**You:**  
+I usually take her outdoors, play games, go swimming, or play tennis.
+
+**Jack:**  
+Wow, that sounds fun! Swimming and tennis — your daughter must be full of energy! Does she enjoy sports a lot? Or does she also like reading or drawing?
+
+**You:**  
+She likes sports a lot, just like a boy — full of energy. Of course, she loves drawing too. It’s her favorite hobby.
+
+**Jack:**  
+That’s amazing. You must be really proud of her. Do you draw with her sometimes? Or do you just watch her while she draws?
+
+**You:**  
+I’m not good at drawing, but I still draw with her. That way, she feels happier.
+
+**Jack:**  
+That’s really sweet of you. I think spending time with her is more important than drawing well! What does she like to draw the most? Animals, people, or maybe cartoons?
+
+**You:**  
+She takes drawing classes in an art studio. Most of her drawings are about scenes, not animals.
+
+**Jack:**  
+That’s interesting! What kind of scenes does she like to draw? Nature, city views, or something else?
+
+**You:**  
+City views, such as old houses, roads, some beautiful bridges, and so on.
+
+**Jack:**  
+Wow, she has a great eye for beautiful places! Does she like to paint or draw these scenes from photos, or does she go outside to sketch them?
+
+**You:**  
+Most of the time, she draws from photos in class. Her teacher teaches her how to draw.
+
+**Jack:**  
+That’s great! Having a good teacher makes a big difference. Does she like any other subjects at school, like music or sports?
+
+**You:**  
+Maybe playing the drums. She has learned a little about playing the drums.
+
+**Jack:**  
+That’s awesome! Drums are fun but not easy to learn. How long has she been playing the drums?
+
+**You:**  
+She has been playing the drums for about a year.
+
+---
+
+# Previous Mistakes and Corrections
+
+| Incorrect Expression               | Correct Expression                  | Explanation                                  |
+|----------------------------------|-----------------------------------|----------------------------------------------|
+| donot                            | don’t                             | Correct contraction for “do not”             |
+| out door                        | outdoors                         | “outdoors” is the correct adverb              |
+| go to swim                     | go swimming                     | Use “go + gerund” form                         |
+| tannies                        | tennis                         | Spelling correction                            |
+| just like a boy full of energy | just like a boy — full of energy | Added dash for clarity                          |
+| favourate                      | favorite                       | Spelling correction (American English)        |
+| however                       | but                            | “but” is more natural in spoken English       |
+| in this way                   | that way                      | More conversational expression                 |
+| She have learned              | She has learned               | Subject-verb agreement                         |
+| playing drum                 | playing the drums             | Added article and plural form                  |
+| most time                    | Most of the time              | Fixed phrase for “most of the time”            |
+
+---
+
+If you want, I can help you create more dialogues or practice exercises. Just let me know! 😊
+
+
+
 
 
