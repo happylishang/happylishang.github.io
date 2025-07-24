@@ -546,116 +546,158 @@ Speaking up is the key to learning a language.  The more you speak, the faster y
 
 # English Conversation Practice: Raising Kids
 
-
-# English Conversation: Raising Kids
-
----
-
-**Jack:**  
-I think raising kids is really challenging these days.
-
-**You:**  
-I have to work long hours, so I don’t have enough time to spend with my child.
-
-**Jack:**  
-Yeah, I totally understand. It’s hard to balance work and family, right? How do you usually spend time with your daughter when you’re free?
-
-**You:**  
-I usually take her outdoors, play games, go swimming, or play tennis.
-
-**Jack:**  
-Wow, that sounds fun! Swimming and tennis — your daughter must be full of energy! Does she enjoy sports a lot? Or does she also like reading or drawing?
-
-**You:**  
-She likes sports a lot, just like a boy — full of energy. Of course, she loves drawing too. It’s her favorite hobby.
-
-**Jack:**  
-That’s amazing. You must be really proud of her. Do you draw with her sometimes? Or do you just watch her while she draws?
-
-**You:**  
-I’m not good at drawing, but I still draw with her. That way, she feels happier.
-
-**Jack:**  
-That’s really sweet of you. I think spending time with her is more important than drawing well! What does she like to draw the most? Animals, people, or maybe cartoons?
-
-**You:**  
-She takes drawing classes in an art studio. Most of her drawings are about scenes, not animals.
-
-**Jack:**  
-That’s interesting! What kind of scenes does she like to draw? Nature, city views, or something else?
-
-**You:**  
-City views, such as old houses, roads, some beautiful bridges, and so on.
-
-**Jack:**  
-Wow, she has a great eye for beautiful places! Does she like to paint or draw these scenes from photos, or does she go outside to sketch them?
-
-**You:**  
-Most of the time, she draws from photos in class. Her teacher teaches her how to draw.
-
-**Jack:**  
-That’s great! Having a good teacher makes a big difference. Does she like any other subjects at school, like music or sports?
-
-**You:**  
-Maybe playing the drums. She has learned a little about playing the drums.
-
-**Jack:**  
-That’s awesome! Drums are fun but not easy to learn. How long has she been playing the drums?
-
-**You:**  
-She has been playing the drums for about a year.
-
-**Jack:**  
-That’s impressive! Has she ever performed in front of others, like at school or in a small concert?
-
-**You:**  
-No, she has never performed in front of others. She’s a little shy, and I’m not sure whether that’s good for her.
-
-**Jack:**  
-I see. Being shy isn’t a bad thing. But maybe performing could help her build confidence little by little. Has she ever said she wants to try performing?
-
-**You:**  
-No, she doesn’t want to perform in front of others, not at all.
-
-**Jack:**  
-I understand. Maybe she just needs more time to feel confident. Would you like her to try performing someday, or do you think it’s not necessary?
-
-**You:**  
-I think it would be good for her confidence, but I won’t push her. I will respect her choice.
-
-**Jack:**  
-That’s a great attitude! Kids feel more comfortable when their parents respect their choices. Do you usually encourage her to try new things, like new hobbies or activities?
-
-**You:**  
-Yes, but it doesn’t make much sense to push her. I find she’s only interested in a few hobbies, and I think that’s a good thing. One should not focus on too many hobbies. It’s good for her growth.
-
-**Jack:**  
-I agree. Having a few hobbies she loves is better than trying everything and getting tired. By the way, what’s her favorite hobby of all?
-
-**You:**  
-Let’s talk about that another day.
+# 日常英语练习卡片：Raising Kids
 
 ---
 
-# Previous Mistakes and Corrections
+## **情景对话（中英文对照）**
 
-| Incorrect Expression                   | Correct Expression                          | Explanation                                    |
-|----------------------------------------|---------------------------------------------|------------------------------------------------|
-| donot                                  | don’t                                       | Correct contraction of “do not”.               |
-| out door                               | outdoors                                    | Correct adverb for "outside".                  |
-| go to swim                             | go swimming                                 | Use “go + -ing” for activities.                |
-| tannies                                | tennis                                      | Correct spelling.                              |
-| just like a boy full of energy         | just like a boy — full of energy            | Add a dash for clarity.                        |
-| favourate                              | favorite                                    | Correct spelling (US English).                 |
-| however                                | but                                         | “but” is more natural in spoken English.       |
-| in this way                            | that way                                    | “that way” is more conversational.             |
-| She have learned                       | She has learned                             | Subject-verb agreement.                        |
-| playing drum                           | playing the drums                           | Add “the” and use plural “drums”.              |
-| most time                              | Most of the time                            | Correct phrase.                                |
-| I dont known                           | I don’t know                                | Correct verb form (know).                      |
-| would not like to performance          | doesn’t want to perform                     | Use verb “perform,” and simpler phrasing.      |
-| that makes littler sense               | it doesn’t make much sense                  | Correct comparative and expression.            |
-| that is good to her 成长                | It’s good for her growth                    | Translate “成长” as “growth”.                   |
+**Jack:**  
+I think raising kids is really challenging these days.  
+我觉得现在养孩子真的很有挑战。
+
+**You:**  
+I have to work long hours, so I don’t have enough time to spend with my child.  
+我必须长时间工作，所以没有足够的时间陪孩子。
+
+**Jack:**  
+Yeah, I totally understand. It’s hard to balance work and family, right?  
+是啊，我完全理解。平衡工作和家庭确实很难，对吧？  
+**How do you usually spend time with your daughter when you’re free?**  
+你有空时通常会怎么和女儿一起度过时间？
+
+**You:**  
+I usually take her outdoors, play games, go swimming, or play tennis.  
+我通常会带她去户外，玩游戏、游泳或者打网球。
+
+**Jack:**  
+Wow, that sounds fun! Swimming and tennis — your daughter must be full of energy!  
+哇，听起来很有趣！游泳和网球——你的女儿一定很有活力！  
+**Does she enjoy sports a lot? Or does she also like reading or drawing?**  
+她很喜欢运动吗？还是也喜欢看书或画画？
+
+**You:**  
+She likes sports a lot, just like a boy — full of energy. Of course, she loves drawing too. It’s her favorite hobby.  
+她很喜欢运动，就像个男孩一样充满活力。当然，她也喜欢画画，这是她最喜欢的爱好。
+
+**Jack:**  
+That’s amazing. You must be really proud of her.  
+真棒，你一定很为她骄傲吧。  
+**Do you draw with her sometimes? Or do you just watch her while she draws?**  
+你有时会和她一起画吗？还是只是看着她画？
+
+**You:**  
+I’m not good at drawing, but I still draw with her. That way, she feels happier.  
+我画画不太好，但我仍然会陪她一起画。这样她会更开心。
+
+**Jack:**  
+That’s really sweet of you. I think spending time with her is more important than drawing well!  
+你真贴心。我觉得陪伴比画得好更重要！  
+**What does she like to draw the most? Animals, people, or maybe cartoons?**  
+她最喜欢画什么？动物、人物还是卡通？
+
+**You:**  
+She takes drawing classes in an art studio. Most of her drawings are about scenes, not animals.  
+她在画室上绘画课。她大多数画的是场景，不是动物。
+
+**Jack:**  
+That’s interesting! What kind of scenes does she like to draw? Nature, city views, or something else?  
+这很有趣！她喜欢画什么样的场景？自然风景、城市景观，还是其他？
+
+**You:**  
+City views, such as old houses, roads, some beautiful bridges, and so on.  
+城市景观，比如老房子、道路和一些漂亮的桥等。
+
+**Jack:**  
+Wow, she has a great eye for beautiful places!  
+哇，她很有发现美的眼光！  
+**Does she like to paint or draw these scenes from photos, or does she go outside to sketch them?**  
+她是喜欢根据照片画这些场景，还是会去户外写生？
+
+**You:**  
+Most of the time, she draws from photos in class. Her teacher teaches her how to draw.  
+大部分时间，她在课堂上根据照片画。她的老师会教她怎么画。
+
+**Jack:**  
+That’s great! Having a good teacher makes a big difference.  
+太棒了！有一个好老师很重要。  
+**Does she like any other subjects at school, like music or sports?**  
+她在学校还喜欢其他科目吗，比如音乐或运动？
+
+**You:**  
+Maybe playing the drums. She has learned a little about playing the drums.  
+也许是打架子鼓。她学了一点点打鼓。
+
+**Jack:**  
+That’s awesome! Drums are fun but not easy to learn.  
+太棒了！架子鼓有趣但不容易学。  
+**How long has she been playing the drums?**  
+她学鼓多久了？
+
+**You:**  
+She has been playing the drums for about a year.  
+她打鼓大约一年了。
+
+**Jack:**  
+That’s impressive! Has she ever performed in front of others, like at school or in a small concert?  
+真厉害！她有没有在别人面前表演过，比如在学校或小型演出？
+
+**You:**  
+No, she has never performed in front of others. She’s a little shy, and I’m not sure whether that’s good for her.  
+没有，她从来没在别人面前表演过。她有点害羞，我不确定这对她是不是好事。
+
+**Jack:**  
+I see. Being shy isn’t a bad thing. But maybe performing could help her build confidence little by little. Has she ever said she wants to try performing?  
+我明白。害羞并不是坏事，但表演也许能一点点帮助她建立自信。她有没有说过想尝试表演？
+
+**You:**  
+No, she doesn’t want to perform in front of others, not at all.  
+没有，她一点也不想在别人面前表演。
+
+**Jack:**  
+I understand. Maybe she just needs more time to feel confident. Would you like her to try performing someday, or do you think it’s not necessary?  
+我理解，也许她只是需要更多时间去建立自信。你希望她有一天试试表演吗，还是觉得没必要？
+
+**You:**  
+I think it would be good for her confidence, but I won’t push her. I will respect her choice.  
+我觉得这对她的自信有好处，但我不会强迫她。我会尊重她的选择。
+
+**Jack:**  
+That’s a great attitude! Kids feel more comfortable when their parents respect their choices. Do you usually encourage her to try new things, like new hobbies or activities?  
+这是个很好的态度！当父母尊重孩子的选择时，他们会更自在。你通常会鼓励她尝试新事物吗，比如新的爱好或活动？
+
+**You:**  
+Yes, but it doesn’t make much sense to push her. I find she’s only interested in a few hobbies, and I think that’s a good thing. One should not focus on too many hobbies. It’s good for her growth.  
+是的，但强迫她没太大意义。我发现她只对几种爱好感兴趣，我觉得这很好。一个人不该在太多兴趣上分心。这对她成长有好处。
+
+**Jack:**  
+I agree. Having a few hobbies she loves is better than trying everything and getting tired. By the way, what’s her favorite hobby of all?  
+我同意。拥有几个她热爱的爱好，比什么都试一遍更好。顺便问下，她最喜欢的爱好是什么？
+
+**You:**  
+Let’s talk about that another day.  
+这个我们改天再聊吧。
+
+---
+
+## **常见错误改正**
+
+| 错误表达                | 正确表达                       | 说明                     |
+|------------------------|-------------------------------|--------------------------|
+| donot                  | don’t                         | 正确缩写形式              |
+| out door               | outdoors                      | 正确副词                  |
+| go to swim             | go swimming                   | 使用 "go + 动名词"        |
+| tannies                | tennis                        | 拼写错误                  |
+| favourate              | favorite                      | 拼写错误（美式）           |
+| She have learned       | She has learned               | 主谓一致                  |
+| playing drum           | playing the drums             | 要加 the，且 drums 复数    |
+| most time              | Most of the time              | 正确短语                  |
+| I dont known           | I don’t know                  | 正确动词形式              |
+| would not like to performance | doesn’t want to perform   | performance 是名词，需用动词 perform |
+| littler sense          | doesn’t make much sense       | 正确表达                  |
+| good to her 成长       | good for her growth           | 成长 = growth            |
+
+---
 
 
 
