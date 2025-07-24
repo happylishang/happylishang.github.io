@@ -546,6 +546,9 @@ Speaking up is the key to learning a language.  The more you speak, the faster y
 
 # English Conversation Practice: Raising Kids
 
+
+# English Conversation: Raising Kids
+
 ---
 
 **Jack:**  
@@ -602,29 +605,57 @@ That’s awesome! Drums are fun but not easy to learn. How long has she been pla
 **You:**  
 She has been playing the drums for about a year.
 
+**Jack:**  
+That’s impressive! Has she ever performed in front of others, like at school or in a small concert?
+
+**You:**  
+No, she has never performed in front of others. She’s a little shy, and I’m not sure whether that’s good for her.
+
+**Jack:**  
+I see. Being shy isn’t a bad thing. But maybe performing could help her build confidence little by little. Has she ever said she wants to try performing?
+
+**You:**  
+No, she doesn’t want to perform in front of others, not at all.
+
+**Jack:**  
+I understand. Maybe she just needs more time to feel confident. Would you like her to try performing someday, or do you think it’s not necessary?
+
+**You:**  
+I think it would be good for her confidence, but I won’t push her. I will respect her choice.
+
+**Jack:**  
+That’s a great attitude! Kids feel more comfortable when their parents respect their choices. Do you usually encourage her to try new things, like new hobbies or activities?
+
+**You:**  
+Yes, but it doesn’t make much sense to push her. I find she’s only interested in a few hobbies, and I think that’s a good thing. One should not focus on too many hobbies. It’s good for her growth.
+
+**Jack:**  
+I agree. Having a few hobbies she loves is better than trying everything and getting tired. By the way, what’s her favorite hobby of all?
+
+**You:**  
+Let’s talk about that another day.
+
 ---
 
 # Previous Mistakes and Corrections
 
-| Incorrect Expression               | Correct Expression                  | Explanation                                  |
-|----------------------------------|-----------------------------------|----------------------------------------------|
-| donot                            | don’t                             | Correct contraction for “do not”             |
-| out door                        | outdoors                         | “outdoors” is the correct adverb              |
-| go to swim                     | go swimming                     | Use “go + gerund” form                         |
-| tannies                        | tennis                         | Spelling correction                            |
-| just like a boy full of energy | just like a boy — full of energy | Added dash for clarity                          |
-| favourate                      | favorite                       | Spelling correction (American English)        |
-| however                       | but                            | “but” is more natural in spoken English       |
-| in this way                   | that way                      | More conversational expression                 |
-| She have learned              | She has learned               | Subject-verb agreement                         |
-| playing drum                 | playing the drums             | Added article and plural form                  |
-| most time                    | Most of the time              | Fixed phrase for “most of the time”            |
-
----
-
-If you want, I can help you create more dialogues or practice exercises. Just let me know! 😊
-
-
+| Incorrect Expression                   | Correct Expression                          | Explanation                                    |
+|----------------------------------------|---------------------------------------------|------------------------------------------------|
+| donot                                  | don’t                                       | Correct contraction of “do not”.               |
+| out door                               | outdoors                                    | Correct adverb for "outside".                  |
+| go to swim                             | go swimming                                 | Use “go + -ing” for activities.                |
+| tannies                                | tennis                                      | Correct spelling.                              |
+| just like a boy full of energy         | just like a boy — full of energy            | Add a dash for clarity.                        |
+| favourate                              | favorite                                    | Correct spelling (US English).                 |
+| however                                | but                                         | “but” is more natural in spoken English.       |
+| in this way                            | that way                                    | “that way” is more conversational.             |
+| She have learned                       | She has learned                             | Subject-verb agreement.                        |
+| playing drum                           | playing the drums                           | Add “the” and use plural “drums”.              |
+| most time                              | Most of the time                            | Correct phrase.                                |
+| I dont known                           | I don’t know                                | Correct verb form (know).                      |
+| would not like to performance          | doesn’t want to perform                     | Use verb “perform,” and simpler phrasing.      |
+| that makes littler sense               | it doesn’t make much sense                  | Correct comparative and expression.            |
+| that is good to her 成长                | It’s good for her growth                    | Translate “成长” as “growth”.                   |
 
 
 
