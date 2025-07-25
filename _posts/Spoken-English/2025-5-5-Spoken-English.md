@@ -1016,5 +1016,498 @@ Let’s talk about that another day.
   - *By the way…*（顺便说）  
   - *Speaking of…*（说到……）
 
+# 日常英语练习卡片：自我介绍（Self-Introduction）
 
+---
+
+## **基础模板**
+1. **Hi, I’m [名字]. Nice to meet you!**  
+   嗨，我是[名字]。很高兴认识你！  
+2. **I’m from [城市/国家].**  
+   我来自[城市/国家]。  
+3. **I work as a [职业].**  
+   我是一名[职业]。  
+4. **I’m really into [兴趣爱好].**  
+   我特别喜欢[兴趣爱好]。  
+5. **In my free time, I like [活动].**  
+   空闲时，我喜欢[活动]。
+
+---
+
+## **日常口语化表达**
+- **Hey there, I’m [名字], but you can just call me [昵称].**  
+  嘿，我叫[名字]，但你可以叫我[昵称]。
+  
+- **I’m originally from [城市], but I’ve been living here for [时间].**  
+  我原本来自[城市]，但我已经在这里住了[时间]了。
+
+- **I’m passionate about [领域/爱好].**  
+  我对[领域/爱好]特别有热情。
+
+- **I’m currently working on [项目/目标].**  
+  我目前在做[项目/目标]。
+
+---
+
+## **场景示例：第一次见面**
+**A:** Hi, I’m Jack. What’s your name?  
+嗨，我叫杰克。你叫什么名字？  
+
+**B:** Hey Jack, I’m Lily. Nice to meet you.  
+嗨，杰克，我是莉莉。很高兴认识你。  
+
+**A:** Nice to meet you too! Are you from around here?  
+我也很高兴认识你！你是本地人吗？  
+
+**B:** I’m originally from Beijing, but I moved here two years ago.  
+我原本来自北京，但两年前搬到这里了。  
+
+**A:** Oh, cool! What do you do?  
+哦，挺好的！你是做什么工作的？  
+
+**B:** I work as a software engineer. How about you?  
+我是软件工程师。你呢？
+
+---
+
+## **自我介绍模板（示例）**
+**Hi, my name is Li Hua. I’m from Shanghai, China. I work as a software engineer at a tech company. I’m really into swimming and traveling. In my free time, I like playing tennis with friends or taking my daughter to the park. Nice to meet you!**  
+嗨，我叫李华，来自中国上海。我在一家科技公司做软件工程师。我特别喜欢游泳和旅游。空闲时，我喜欢和朋友打网球，或者带女儿去公园。很高兴认识你！
+
+---
+
+## **练习任务**
+1. **用自己的信息填空：**  
+   - I’m [名字], from [城市/国家].  
+   - I work as a [职业].  
+   - I love [兴趣爱好].  
+2. **录音练习**：用手机录一段 30 秒的自我介绍。  
+3. **扩展内容**：尝试加上 “One interesting thing about me is…”（关于我的一个有趣的事情是……）。
+
+---
+
+## **口语小技巧**
+- 开头别忘了微笑和 **Nice to meet you!**  
+- 用 **简单句**，避免背稿式介绍。  
+- 如果想显得随和，可以说：  
+  - **“I guess you could say I’m a foodie.”**  
+    （你可以说我是个吃货。）
+
+
+
+# 模拟对话：为什么中国人这么累？
+
+**Jack (外国朋友):**  
+Hey, Shang, I always wonder — why do people in China work so hard? Everyone seems so busy and tired.  
+嘿，尚，我一直想知道——为什么中国人工作那么辛苦？大家看起来都很忙、很累。  
+
+**Li Shang:**  
+Yeah, that’s true. Life here can be pretty stressful.  
+是啊，确实这样。这里的生活压力挺大的。  
+
+**Jack:**  
+What makes it so stressful? Is it work?  
+为什么会这么累？是因为工作吗？  
+
+**Li Shang:**  
+Work is part of it, but not the only reason. We also have big pressure from **education, medical costs, and housing prices**.  
+工作是其中一个原因，但不是唯一的。我们还要面对 **教育、医疗和房价** 的压力。  
+
+**Jack:**  
+Education? How does that make you so tired?  
+教育？这和累有什么关系？  
+
+**Li Shang:**  
+Parents put a lot of energy and money into their kids’ education. Competition is tough. Many kids go to school all day, then have extra classes at night or on weekends. Parents have to work hard to afford all this.  
+家长要花大量精力和金钱在孩子教育上。竞争很激烈。很多孩子白天上学，晚上或周末还要上补习班。家长必须拼命工作才能负担这些费用。  
+
+**Jack:**  
+Wow, that sounds intense. What about medical care?  
+哇，这听起来压力很大。医疗呢？  
+
+**Li Shang:**  
+Medical care is improving, but good hospitals are usually in big cities, and people often need to pay a lot for good treatment. We save money just in case of emergencies.  
+医疗条件在改善，但好医院一般都在大城市，而且好的治疗往往要花不少钱。我们得攒钱以防万一。  
+
+**Jack:**  
+I see. And housing prices?  
+我明白了。房价呢？  
+
+**Li Shang:**  
+Housing is super expensive, especially in big cities like Beijing or Shanghai. Many young people have to work for years just to afford an apartment. Buying a house is considered necessary for starting a family, so people feel the pressure to earn more.  
+房价超级贵，特别是在北京、上海这种大城市。很多年轻人要工作很多年才能买得起房子。买房被认为是成家立业的必须条件，所以大家都很有压力。  
+
+**Jack:**  
+That explains a lot. So people work hard because they want a better future for their family?  
+这就能解释很多了。所以人们努力工作是为了给家人更好的未来？  
+
+**Li Shang:**  
+Exactly. Most of us are just trying to give our kids better education, better healthcare, and a stable home.  
+没错。大多数人只是想让孩子有更好的教育、更好的医疗，还有一个稳定的家。  
+
+**Jack:**  
+I get it now. That’s really tough, but also kind of inspiring.  
+我现在明白了。虽然很辛苦，但也挺让人敬佩的。  
+
+**Li Shang:**  
+Yeah, we’re used to it, but I hope life will get easier in the future.  
+是啊，我们习惯了，但我希望未来能轻松一些。
+
+# 模拟对话：为什么中国教育这么“卷”？
+
+**Jack (外国朋友):**  
+Shang, you just mentioned education is stressful. Why is it so intense in China?  
+尚，你刚提到教育压力大。为什么中国的教育会这么“卷”？  
+
+**Li Shang:**  
+Well, the competition for good schools and universities is huge. Parents want their kids to have a better future, so they push them to study hard from a young age.  
+嗯，因为上好学校、好大学的竞争非常激烈。家长都希望孩子未来更好，所以从小就逼孩子努力学习。  
+
+**Jack:**  
+Isn’t regular school enough? Why do kids need extra classes?  
+正常学校的课程不够吗？为什么孩子还要上补习班？  
+
+**Li Shang:**  
+Regular school is fine, but if you want to stand out, you need extra help. Most kids take **after-school tutoring** in math, English, or even arts. If you don’t, you might fall behind.  
+学校教育是可以的，但如果想脱颖而出，就需要额外的帮助。大部分孩子要上 **课后辅导班**，比如数学、英语，甚至艺术类。如果不上，就可能被落下。  
+
+**Jack:**  
+That sounds exhausting for the kids. Do they still have time to play?  
+这对孩子来说听起来很累。他们还有时间玩耍吗？  
+
+**Li Shang:**  
+Not much. Many kids have classes even on weekends. It’s not that parents don’t want them to play, but they worry about the **high school and college entrance exams**.  
+不多。很多孩子周末也要上课。不是家长不想让他们玩，而是担心 **中考和高考** 的竞争压力。  
+
+**Jack:**  
+College entrance exams? Are they that important?  
+高考？有那么重要吗？  
+
+**Li Shang:**  
+Yes! The **Gaokao** (college entrance exam) decides which university you can go to. A good university means better job chances and a better life. That’s why parents put so much pressure on kids.  
+是的！**高考** 决定了你能上哪所大学。好大学就意味着更好的工作机会和生活。所以家长才这么用心、甚至有压力。  
+
+**Jack:**  
+Wow, that’s intense. Is everyone okay with this system?  
+哇，那真紧张。大家都能接受这种制度吗？  
+
+**Li Shang:**  
+Not really. Many parents feel tired, and kids are under a lot of stress. But it’s hard to change because everyone is afraid to fall behind.  
+也不完全是。很多家长觉得累，孩子也很有压力。但大家都怕被别人超过，所以很难改变。  
+
+**Jack:**  
+I see. It’s like a race, right?  
+我明白了。这就像一场比赛，是吧？  
+
+**Li Shang:**  
+Exactly, it’s like an endless race. But we’re starting to talk more about **letting kids enjoy life**, not just study.  
+没错，就像一场无休止的比赛。不过现在也有人开始讨论 **让孩子更享受生活**，而不只是学习。  
+
+
+
+# 模拟对话：为什么中国人这么累 + 教育为什么这么卷
+
+---
+
+**Jack (外国朋友):**  
+Shang, I’ve always been curious — why do people in China work so hard? Everyone looks so busy and tired.  
+尚，我一直很好奇——为什么中国人工作那么辛苦？大家看起来都很忙、很累。
+
+**Li Shang:**  
+Yeah, life here can be pretty stressful. We face big pressures from **education, housing prices, and medical care**.  
+是啊，这里的生活压力确实很大。我们要面对 **教育、房价和医疗** 的压力。
+
+---
+
+### **房价 & 医疗**
+
+**Jack:**  
+Housing prices? Are they that high?  
+房价？真的那么高吗？  
+
+**Li Shang:**  
+Oh, yes! In big cities like Beijing or Shanghai, buying an apartment is extremely expensive. Young people often work for years just to pay the down payment.  
+真的！在北京、上海这样的城市，买房特别贵。年轻人常常要工作很多年才能付得起首付。
+
+**Jack:**  
+That sounds tough. What about medical care?  
+听起来挺难的。医疗呢？  
+
+**Li Shang:**  
+Medical care is improving, but good hospitals are mostly in big cities. People often save a lot just in case something happens.  
+医疗条件在改善，但好医院主要集中在大城市。大家通常要存很多钱，以防意外。
+
+---
+
+### **教育压力**
+
+**Jack:**  
+And education? Why is it so stressful?  
+那教育呢？为什么会那么有压力？  
+
+**Li Shang:**  
+The competition for good schools is huge. Parents want their kids to get into top universities, so they start pushing them from a young age.  
+上好学校的竞争特别激烈。家长都希望孩子能上好大学，所以从小就逼孩子努力学习。
+
+**Jack:**  
+Isn’t regular school enough?  
+正常学校课程不够吗？  
+
+**Li Shang:**  
+Not really. Most kids have **after-school tutoring** — math, English, music… If you don’t take extra classes, you might fall behind.  
+不够。大部分孩子要上 **课外补习班** —— 数学、英语、音乐…… 如果不上，可能就被落下了。
+
+**Jack:**  
+Wow, that must be exhausting for the kids. Do they still have time to play?  
+哇，这对孩子来说一定很累。他们还有时间玩耍吗？  
+
+**Li Shang:**  
+Not much. Even weekends are full of classes. Parents worry about the **college entrance exam (Gaokao)**, which decides a kid’s future.  
+不多。连周末也要上课。家长都担心 **高考**，因为它决定孩子的未来。
+
+---
+
+### **为什么这么卷**
+
+**Jack:**  
+So that’s why you say education is “crazy competitive,” or as you say, “卷”?  
+所以这就是你们说的教育很“卷”吗？  
+
+**Li Shang:**  
+Exactly. Everyone’s afraid of falling behind. It’s like a race — if you stop, you lose.  
+没错。大家都怕被超过，就像一场比赛——停下就会输。
+
+**Jack:**  
+That sounds exhausting for both kids and parents.  
+听起来对孩子和家长都很累。  
+
+**Li Shang:**  
+It is. Parents work long hours to pay for classes, and kids study all the time.  
+确实。家长要长时间工作来支付补课费，而孩子也一直在学习。
+
+---
+
+### **生活态度**
+
+**Jack:**  
+So, people work so hard mainly to give their family a better future?  
+所以，人们这么努力主要是为了给家人更好的未来？  
+
+**Li Shang:**  
+Exactly. We want good education for our kids, better healthcare, and a stable home.  
+没错。我们希望孩子能上好学校，有更好的医疗，还有一个稳定的家。
+
+**Jack:**  
+I see. It’s tough, but also admirable.  
+我明白了。这很辛苦，但也挺让人敬佩的。  
+
+**Li Shang:**  
+Yeah, we’re used to it, but I hope life will get easier in the future.  
+是啊，我们习惯了，但我希望未来能轻松一点。
+
+---
+
+## **地道口语表达**
+1. **It’s like a race — if you stop, you lose.**  
+   就像一场比赛——停下来就会输。  
+2. **We face big pressures from education, housing prices, and medical care.**  
+   我们要面对教育、房价和医疗的压力。  
+3. **Not much. Even weekends are full of classes.**  
+   不多，连周末都被课程填满了。  
+4. **Parents work long hours to pay for classes.**  
+   父母要长时间工作来支付补课费。  
+5. **We’re used to it, but I hope life will get easier.**  
+   我们习惯了，但希望未来能更轻松。
+
+---
+
+## **练习任务**
+1. **大声朗读**：尝试一问一答地读完整个对话。  
+2. **替换练习**：把 “college entrance exam” 换成 “job competition” 造句。  
+3. **即兴表达**：尝试用自己的话说一句 “中国人为什么累” 的原因。
+
+
+
+# 模拟对话：为什么中国孩子没那么多自由玩耍时间？
+
+**Jack (外国朋友):**  
+Shang, I’ve noticed that kids here don’t seem to have as much free time to play. Why is that?  
+尚，我发现中国的孩子似乎没有那么多自由玩耍的时间。为什么呢？  
+
+**Li Shang:**  
+Yeah, that’s true. Most kids are busy with homework and after-school classes.  
+是的，确实如此。大部分孩子都忙着写作业和上课外班。  
+
+**Jack:**  
+Really? In my country, kids usually have a lot of free time after school.  
+真的吗？在我们国家，孩子放学后一般都有很多自由时间。  
+
+**Li Shang:**  
+Here, the competition is pretty strong. Parents worry their kids will fall behind if they just play.  
+在这里，竞争非常激烈。家长担心孩子只玩的话会被落下。  
+
+**Jack:**  
+So they have extra classes every day?  
+所以他们每天都有额外的课程吗？  
+
+**Li Shang:**  
+Not every day, but many kids have tutoring at least two or three times a week. Weekends are also filled with activities like English, math, or piano lessons.  
+不一定每天，但很多孩子一周至少有两三次补习。周末也排满了英语、数学、钢琴等课程。  
+
+**Jack:**  
+Wow, that sounds intense. Do kids like it?  
+哇，听起来好紧张。孩子们喜欢这样吗？  
+
+**Li Shang:**  
+Honestly, not really. Most of them would rather play. But parents feel they have no choice because of school and exam pressure.  
+说实话，并不喜欢。大多数孩子都想玩。但因为学校和考试压力，家长觉得没办法。  
+
+**Jack:**  
+Is it because of the college entrance exam?  
+是因为高考吗？  
+
+**Li Shang:**  
+Exactly. The **Gaokao** decides which university you can enter. A good university can change your whole life. That’s why the competition starts so early.  
+没错。**高考** 决定了你能上哪所大学。一所好大学可以改变一生，所以竞争从很早就开始了。  
+
+**Jack:**  
+I get it now. Parents just want the best for their kids, right?  
+我懂了。家长只是想给孩子最好的未来，对吧？  
+
+**Li Shang:**  
+Yeah, but now more parents are starting to realize that kids also need time to relax and play.  
+是的，不过现在越来越多的家长开始意识到孩子也需要时间放松和玩耍。  
+
+**Jack:**  
+That’s good to hear. I hope they can find a balance.  
+那挺好的。我希望他们能找到平衡。  
+
+**Li Shang:**  
+Me too. A happy childhood is just as important as good grades.  
+我也是。快乐的童年和好成绩一样重要。
+
+
+
+# 长场景对话：为什么中国人这么累 & 教育为什么这么卷 & 孩子缺少自由玩耍时间
+
+---
+
+**Jack (外国朋友):**  
+Shang, I’ve always wondered — why do people in China work so hard? Everyone seems so busy and tired.  
+尚，我一直想知道——为什么中国人工作那么辛苦？大家看起来都很忙、很累。
+
+**Li Shang:**  
+Yeah, life here can be pretty stressful. We face big pressures from **housing prices, medical care, and especially education**.  
+是啊，这里的生活压力确实很大。我们要面对 **房价、医疗，还有最主要的教育** 压力。
+
+---
+
+## **房价 & 医疗压力**
+
+**Jack:**  
+Housing prices? Are they really that high?  
+房价？真的那么高吗？  
+
+**Li Shang:**  
+Oh, yes! In big cities like Beijing or Shanghai, buying an apartment is extremely expensive. Young couples often work for years just to save for the down payment.  
+真的！在北京、上海这种大城市，买房非常贵。年轻夫妇常常要拼命工作很多年才能攒够首付。
+
+**Jack:**  
+That sounds stressful. What about medical care?  
+听起来压力很大。那医疗呢？  
+
+**Li Shang:**  
+Medical care is improving, but good hospitals are mostly in big cities. People often have to wait in long lines or pay extra for better treatment. Many families save money just in case of emergencies.  
+医疗水平在进步，但好医院主要集中在大城市。人们常常需要排长队，或者为更好的治疗花很多钱。很多家庭会存钱以防万一。
+
+---
+
+## **教育为什么这么卷**
+
+**Jack:**  
+I see. But you said education is a big pressure too. Why is it so intense?  
+我明白了。但你说教育压力也很大，为什么呢？  
+
+**Li Shang:**  
+The competition for good schools and universities is fierce. Parents believe education is the key to a better life, so they start pushing their kids very early.  
+上好学校、好大学的竞争非常激烈。家长都相信教育是通往好生活的关键，所以很早就开始让孩子努力学习。
+
+**Jack:**  
+Isn’t regular school enough? Why all the extra classes?  
+正常学校课程不够吗？为什么还要上那么多补习班？  
+
+**Li Shang:**  
+Regular school is fine, but if you want your kid to stand out, you need extra tutoring — in math, English, music, or art. If you don’t, your child might fall behind.  
+正常学校是可以的，但如果想让孩子更突出，就得上补习班——数学、英语、音乐、美术。如果不上，可能会被别人超过。
+
+**Jack:**  
+That sounds exhausting for the kids. Do they still have time to play?  
+这对孩子来说听起来很累。他们还有时间玩耍吗？  
+
+**Li Shang:**  
+Not much. Many kids have classes even on weekends. It’s not that parents don’t want them to play, but they worry about exams, especially the **Gaokao** — the college entrance exam.  
+不多。很多孩子周末也要上课。不是家长不想让他们玩，而是担心考试，特别是 **高考** —— 大学入学考试。
+
+---
+
+## **孩子没有自由玩耍时间**
+
+**Jack:**  
+I noticed kids here don’t seem to have much free time. Is that because of the exams?  
+我注意到这里的孩子自由时间不多，是因为考试压力吗？  
+
+**Li Shang:**  
+Yes. The **Gaokao** is extremely important — it decides which university you can enter, and a good university can change your whole life. That’s why parents push so hard.  
+是的。**高考**非常重要——它决定了你能上哪所大学，而好大学可能改变一生。所以家长才会这么拼。
+
+**Jack:**  
+Wow. In my country, kids usually have lots of time to play after school.  
+哇。在我们国家，孩子放学后一般有很多时间玩。  
+
+**Li Shang:**  
+I wish it were like that here. Many parents feel sorry for their kids, but they’re afraid that if they don’t join the race, they’ll lose out.  
+我也希望这样。很多家长也心疼孩子，但他们担心如果不参加这场“赛跑”，孩子会被落下。
+
+---
+
+## **生活态度与反思**
+
+**Jack:**  
+So basically, people work hard for their kids — for education, for a house, and for a secure future?  
+所以说，人们辛苦工作主要是为了孩子——为了教育、房子和未来的保障？  
+
+**Li Shang:**  
+Exactly. Most parents just want their children to have a better life than they did.  
+没错。大部分家长只是想让孩子的生活比自己更好。
+
+**Jack:**  
+I get it now. It’s tough, but it shows how much family means to people here.  
+我明白了。虽然辛苦，但这也说明家人对你们有多重要。  
+
+**Li Shang:**  
+Yeah, that’s true. But I hope one day, kids can enjoy more free time, and life can be less stressful for everyone.  
+是的，没错。但我也希望有一天孩子们能有更多自由时间，大家的生活也能轻松一些。
+
+---
+
+## **口语亮点表达**
+1. **It’s not that parents don’t want them to play, but they worry about exams.**  
+   不是家长不想让他们玩，而是担心考试。  
+2. **If you don’t join the race, you’ll lose out.**  
+   如果不参与竞争，就会被淘汰。  
+3. **Parents believe education is the key to a better life.**  
+   家长相信教育是通往更好生活的关键。  
+4. **Many families save money just in case of emergencies.**  
+   很多家庭存钱以防万一。  
+5. **I hope one day, kids can enjoy more free time.**  
+   我希望有一天，孩子们能有更多自由时间。
+
+---
+
+## **练习建议**
+1. **录音练习**：将整段对话分成 A、B 两个角色，完整朗读一遍。  
+2. **扩展练习**：把 “housing prices” 换成 “job pressure” 再造 2 句话。  
+3. **口语问答**：用英语回答：  
+   - Why do Chinese kids have so many extra classes?  
+   - Do you think this will change in the future?
 
