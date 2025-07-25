@@ -701,3 +701,320 @@ Let’s talk about that another day.
 
 
 
+# 日常英语练习卡片：问候场景 Greetings
+
+---
+
+## **情景 1：初次见面**
+**A:** Hi, I’m Jack. Nice to meet you!  
+嗨，我是杰克，很高兴见到你！  
+**B:** Hello, I’m Mary. Nice to meet you too.  
+你好，我是玛丽，我也很高兴见到你。
+
+**A:** How are you today?  
+今天你怎么样？  
+**B:** I’m doing great, thanks. How about you?  
+我很好，谢谢，你呢？  
+**A:** I’m good, thanks for asking.  
+我也很好，谢谢你的问候。
+
+---
+
+## **情景 2：在朋友家门口**
+**A:** Hey, long time no see! How have you been?  
+嘿，好久不见！你最近怎么样？  
+**B:** I’ve been pretty good. How about you?  
+我挺好的，你呢？  
+**A:** I’m doing well. It’s really nice to see you again.  
+我也很好，很高兴再次见到你。
+
+---
+
+## **情景 3：在办公室/工作场所**
+**A:** Good morning, Sarah. How’s everything?  
+早上好，Sarah，一切都好吗？  
+**B:** Morning! Everything’s fine, just a bit busy.  
+早上好！一切都挺好的，就是有点忙。  
+**A:** I know, it’s been a busy week for everyone.  
+我懂，这周大家都挺忙的。
+
+---
+
+## **情景 4：在街上偶遇**
+**A:** Hi, Tom! What a surprise to see you here!  
+嗨，Tom！真巧在这里遇见你！  
+**B:** Oh hey, Jane! I didn’t expect to see you either.  
+嗨，Jane！我也没想到会遇到你。  
+**A:** Are you heading to work?  
+你要去上班吗？  
+**B:** Yeah, just on my way. How about you?  
+是的，刚要过去，你呢？
+
+---
+
+# 日常英语练习卡片：陌生人公园闲聊（天气 + 孩子 + 旅游）
+
+---
+
+## **情景对话（口语化+中英文对照）**
+
+**A:** Lovely day, isn’t it?  
+今天真不错，对吧？  
+
+**B:** Yeah, it’s perfect for a walk in the park.  
+是啊，今天特别适合在公园散步。  
+
+**A:** Do you come here often?  
+你经常来这里吗？  
+
+**B:** Yeah, I usually bring my kid here on weekends. What about you?  
+是的，我周末都会带孩子过来。你呢？  
+
+**A:** Same here. Is that your daughter? She looks full of energy!  
+我也是。那是你女儿吗？她看起来精力很旺盛！  
+
+**B:** Yeah, she’s seven. She loves running around and playing games.  
+是的，她七岁了。她喜欢跑跑跳跳、玩游戏。  
+
+**A:** Kids are amazing at this age. My daughter loves sports too, but she also loves drawing.  
+这个年纪的孩子真棒。我的女儿也很喜欢运动，但她也很爱画画。  
+
+**B:** That’s nice! Do you sign her up for art classes?  
+真好！你会给她报绘画班吗？  
+
+**A:** Yes, she goes to an art studio once a week.  
+是的，她每周都会去画室一次。  
+
+**B:** That’s great! By the way, do you guys travel often?  
+真棒！顺便问一下，你们经常去旅行吗？  
+
+**A:** Sometimes. Last summer we went to the beach. It was amazing!  
+偶尔会去。去年夏天我们去了海边，特别棒！  
+
+**B:** Sounds fun! I’m planning to take my kid to the mountains next holiday.  
+听起来很有趣！我打算下个假期带孩子去山里玩。  
+
+**A:** That’s a great idea! Nature trips are the best for kids.  
+这个主意真棒！亲近大自然对孩子最好。  
+
+---
+
+## **地道口语表达**
+1. **Lovely day, isn’t it?**  
+   今天天气不错吧？（非常常见的闲聊开场白）  
+2. **Do you come here often?**  
+   你经常来这里吗？  
+3. **She looks full of energy!**  
+   她看起来精力十足！  
+4. **By the way…**  
+   顺便问一下……  
+5. **Sounds fun!**  
+   听起来很有趣！
+
+---
+ 
+ 
+ # 日常英语练习卡片：公园闲聊升级版（天气→孩子→工作→兴趣）
+
+---
+
+## **情景对话（口语化+中英文对照）**
+
+**A:** Lovely day, isn’t it?  
+天气真好，对吧？  
+
+**B:** Yeah, perfect for a walk. I love coming to the park when it’s sunny.  
+是啊，特别适合散步。我很喜欢天气晴朗的时候来公园。  
+
+**A:** Me too. Do you come here often?  
+我也是。你经常来这里吗？  
+
+**B:** Yes, almost every weekend. I usually bring my daughter.  
+是的，几乎每个周末都会来。我一般带女儿过来。  
+
+**A:** Oh, is that your daughter playing over there? She’s got a lot of energy!  
+哦，那是你女儿在那边玩吗？她真有活力！  
+
+**B:** Yeah, she’s seven. She loves running around and trying new games.  
+是的，她七岁了。她喜欢到处跑，还喜欢尝试新游戏。  
+
+**A:** Kids are amazing at this age. Mine loves sports and drawing.  
+这个年纪的孩子真棒。我的女儿喜欢运动和画画。  
+
+**B:** That’s nice! Do you work during the week or stay home with her?  
+真不错！平时你上班还是在家陪她？  
+
+**A:** I work full-time. I’m a software engineer, so I spend most of my weekdays at the office.  
+我全职工作。我是一名软件工程师，所以平日大部分时间都在办公室。  
+
+**B:** Wow, that sounds busy. Do you still find time for hobbies?  
+哇，那一定很忙。你还有时间培养自己的爱好吗？  
+
+**A:** A little bit. I go swimming twice a week, and I sometimes read in the evenings.  
+有一点吧。我每周游两次泳，晚上有时也会读书。  
+
+**B:** That’s great! I like hiking and taking short trips with my family.  
+真棒！我喜欢爬山和带家人去短途旅行。  
+
+**A:** That’s a good way to relax. Any trips planned for the next holiday?  
+那是个放松的好方式。你下个假期有旅行计划吗？  
+
+**B:** Yes, we’re thinking of visiting the mountains. The fresh air will be good for the kids.  
+有的，我们打算去山里玩。新鲜空气对孩子很有好处。  
+
+**A:** Sounds like a great plan!  
+听起来真是个好计划！
+
+---
+
+## **地道口语表达**
+1. **Lovely day, isn’t it?**  
+   天气真好，不是吗？（最常见的公园开场白）  
+2. **Do you come here often?**  
+   你经常来这儿吗？  
+3. **She’s got a lot of energy!**  
+   她真有活力！（常用于夸孩子）  
+4. **Do you still find time for hobbies?**  
+   你还有时间培养爱好吗？  
+5. **Sounds like a great plan!**  
+   听起来真是个好计划！
+
+---
+
+## **练习任务**
+1. **角色扮演**：用手机录音，扮演 A 和 B，把对话读一遍。  
+2. **换话题**：把 “I go swimming twice a week” 换成 “I play tennis on weekends”。  
+3. **自问自答**：练习问答 “Do you come here often?” → “Yes, I bring my kid here every Saturday.”
+
+---
+
+## **口语小技巧**
+- **从天气开场**：比如 “It’s a beautiful day today!” 或 “The weather’s just perfect!”  
+- **用自然问句**：  
+  - “What do you usually do on weekends?”  
+  - “Any plans for the holiday?”  
+- **用积极回应**：  
+  - “Sounds awesome!”  
+  - “That’s cool!”  
+  - “Oh, nice!”
+
+
+
+# 日常英语练习卡片：公园闲聊进阶版（孩子→教育→旅游→未来计划）
+
+---
+
+## **情景对话（口语化+中英文对照）**
+
+**A:** Hi there! Beautiful day, isn’t it?  
+嗨！今天天气真不错吧？
+
+**B:** Yeah, it’s perfect for the kids to play outside.  
+是啊，今天特别适合让孩子们到外面玩。
+
+**A:** Is that your son playing over there?  
+那是你儿子在那边玩吗？
+
+**B:** Yeah, he’s mine. He’s five. What about you?  
+是的，是我儿子，他五岁了。你呢？
+
+**A:** I have a daughter, she’s seven. She loves running around like that too.  
+我有个女儿，她七岁了，也喜欢这样跑来跑去。
+
+**B:** Kids just never run out of energy, do they?  
+孩子们精力真的用不完，是吧？
+
+**A:** Totally! By the way, where does your son go to school?  
+可不是嘛！顺便问一下，你儿子在哪上学？
+
+**B:** He’s in kindergarten right now. We’re thinking about which primary school would be best.  
+他现在上幼儿园。我们正在考虑哪所小学最好。
+
+**A:** Yeah, choosing a good school is tough. My daughter’s in primary school. The pressure is already building up.  
+是啊，选好学校很难。我女儿已经上小学了，压力已经开始慢慢大了。
+
+**B:** Really? Do they have a lot of homework already?  
+真的吗？他们已经有很多作业了吗？
+
+**A:** Not too much yet, but the competition is pretty strong.  
+还不算多，但竞争已经挺激烈了。
+
+**B:** I know what you mean. Education is so different from when we were kids.  
+我明白你的意思。教育和我们小时候差别很大。
+
+**A:** Exactly. But I think letting kids enjoy their hobbies is just as important.  
+确实，但我觉得让孩子有自己的兴趣爱好也同样重要。
+
+**B:** Couldn’t agree more. Does your daughter take any classes after school?  
+完全同意。你女儿课后有上什么兴趣班吗？
+
+**A:** Yes, she takes drawing classes and swimming lessons. She’s really into arts.  
+是的，她上绘画课和游泳课。她特别喜欢艺术。
+
+**B:** That’s cool. We’re thinking of starting piano lessons for my son.  
+真棒。我们在考虑让儿子学钢琴。
+
+**A:** Oh, that’s nice! Music is a great skill.  
+哦，那真好！音乐是一门很棒的技能。
+
+**B:** Speaking of hobbies, do you guys travel much?  
+说到兴趣，你们会经常去旅游吗？
+
+**A:** Sometimes. Last year we went to the beach. My daughter still talks about building sandcastles.  
+偶尔会去。去年我们去了海边。我的女儿到现在还在说她堆的沙堡。
+
+**B:** That sounds fun! We’re planning a family trip to Japan next spring.  
+听起来很有趣！我们打算明年春天去日本旅行。
+
+**A:** Oh wow, that’s amazing! Are you going for the cherry blossoms?  
+哇，真棒！你们是为了看樱花去的吗？
+
+**B:** Yes! And maybe visit Disneyland. My son loves cartoons.  
+是的！还可能去迪士尼乐园。我儿子超爱卡通。
+
+**A:** He’s going to love it! We’ve been talking about going abroad too, but maybe when my daughter’s a bit older.  
+他一定会喜欢！我们也在考虑出国，但可能等我女儿再大一点。
+
+**B:** Yeah, traveling with kids takes planning. Do you have any dream trips in mind?  
+是的，带孩子旅行需要计划周全。你有想去的地方吗？
+
+**A:** I’d love to visit Europe — maybe Italy or France.  
+我很想去欧洲，比如意大利或法国。
+
+**B:** That would be amazing! Let’s hope our kids grow up loving to travel.  
+那会很棒！希望我们的孩子长大后也热爱旅行。
+
+---
+
+## **地道口语表达**
+1. **Kids just never run out of energy, do they?**  
+   孩子精力永远用不完，是吧？  
+2. **I know what you mean.**  
+   我懂你的意思。  
+3. **Couldn’t agree more.**  
+   太同意了。（非常地道）  
+4. **Speaking of hobbies...**  
+   说到兴趣爱好……  
+5. **That sounds fun!**  
+   听起来很有趣！
+
+---
+
+## **练习任务**
+1. **角色扮演**：扮演 A 和 B，完整朗读对话，注意语气自然。  
+2. **改写练习**：把 “beach” 换成 “mountains”，造 3 句话。  
+3. **即兴问答**：  
+   - *What’s your kid’s favorite hobby?*  
+   - *Where do you want to travel next?*
+
+---
+
+## **口语小技巧**
+- **从天气开始**：用 *“Beautiful day, isn’t it?”* 或 *“The weather’s great today.”* 自然开场。  
+- **提问技巧**：多用 *“What about you?”* 和 *“How about…?”*，保持互动。  
+- **话题衔接词**：  
+  - *By the way…*（顺便说）  
+  - *Speaking of…*（说到……）
+
+
+
