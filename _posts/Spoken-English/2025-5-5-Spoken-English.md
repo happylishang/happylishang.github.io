@@ -1511,3 +1511,241 @@ Yeah, that’s true. But I hope one day, kids can enjoy more free time, and life
    - Why do Chinese kids have so many extra classes?  
    - Do you think this will change in the future?
 
+
+# 模拟对话：为什么中国年轻人压力大、结婚难
+
+**Jack (外国朋友):**  
+Shang, I’ve heard that it’s really hard for young people in China to get married. Is that true?  
+尚，我听说中国年轻人很难结婚，是真的吗？  
+
+**Li Shang:**  
+Yeah, it’s true. Young people face a lot of pressure — from work, housing prices, and even things like bride price.  
+是的，是真的。年轻人要面对很多压力——工作压力、房价，甚至彩礼。
+
+---
+
+## **房价压力**
+
+**Jack:**  
+Housing prices again? Are they really that bad?  
+又是房价？真的那么严重吗？  
+
+**Li Shang:**  
+Oh, yes. In big cities, buying an apartment can cost millions of yuan. For many young men, buying a house is seen as a “must” before marriage.  
+是的。在大城市，买套房子可能要好几百万。对很多年轻男人来说，结婚前买房是必须的。
+
+**Jack:**  
+Wow, that’s a lot. So the man’s family usually buys the house?  
+哇，这太多了。那男方家一般要买房吗？  
+
+**Li Shang:**  
+Mostly, yes. Many families even spend all their savings to help their son buy one.  
+基本是这样。很多家庭甚至会花光积蓄帮儿子买房。
+
+---
+
+## **彩礼压力**
+
+**Jack:**  
+You also mentioned a “bride price.” What is that?  
+你还提到彩礼，那是什么？  
+
+**Li Shang:**  
+It’s a traditional custom. The groom’s family gives money or gifts to the bride’s family. In some places, the amount can be very high — sometimes hundreds of thousands of yuan.  
+这是一个传统习俗。男方家要给女方家钱或礼物。在有些地方，金额特别高，有时可能几十万人民币。
+
+**Jack:**  
+That must be tough for young couples.  
+这对年轻人来说一定很难。  
+
+**Li Shang:**  
+Yeah, it’s a big financial burden. Many people feel that marriage is not just about love anymore, but also about money.  
+是的，这是很大的经济负担。很多人觉得结婚已经不仅仅是爱情，还涉及很多钱。
+
+---
+
+## **工作压力**
+
+**Jack:**  
+And work? Is it really that stressful?  
+那工作呢？压力真的那么大吗？  
+
+**Li Shang:**  
+Yes. Many young people work long hours, like the “996” schedule — 9 a.m. to 9 p.m., six days a week. It’s hard to have time for dating, let alone marriage.  
+是的。很多年轻人要长时间工作，比如“996”——早9点到晚9点，一周工作六天。根本没时间谈恋爱，更别说结婚了。
+
+**Jack:**  
+That’s crazy. No wonder some people don’t want to get married.  
+太疯狂了。难怪有人不想结婚。  
+
+**Li Shang:**  
+Exactly. Some young people choose to stay single, or they focus on their career and personal life instead.  
+没错。有些年轻人选择单身，或者专注于自己的事业和生活。
+
+---
+
+## **态度与反思**
+
+**Jack:**  
+Do you think things will change in the future?  
+你觉得未来会改变吗？  
+
+**Li Shang:**  
+I hope so. Maybe as society develops, people will care less about money and more about happiness and balance.  
+我希望会。也许随着社会发展，人们会更重视幸福和生活平衡，而不是钱。
+
+**Jack:**  
+I hope so too. Everyone deserves to be happy.  
+我也希望如此。每个人都应该幸福。  
+
+**Li Shang:**  
+Yeah, that’s the most important thing.  
+是啊，这才是最重要的。
+
+
+
+# 模拟对话：外国人对结婚和彩礼的态度
+
+**Li Shang:**  
+Jack, in China, we often talk about “彩礼” (bride price) when a couple wants to get married. How do people in your country see this?  
+Jack，在中国，结婚时经常要谈“彩礼”。你们国家是怎么看待的？
+
+**Jack:**  
+In my country, we don’t have a bride price. Usually, both families or the couple share the wedding costs. Some people even skip the big ceremony and just have a small celebration.  
+在我们国家，没有彩礼。婚礼费用一般由两家人或者新人自己分担，有些人甚至不办大型婚礼，只举办小型聚会。
+
+**Li Shang:**  
+That sounds much simpler. Here, the bride price can be very expensive in some places, which puts a lot of pressure on the groom’s family.  
+那听起来简单多了。在中国，有些地方彩礼特别高，这给男方家庭带来了很大压力。
+
+**Jack:**  
+Wow, that must be tough. I think marriage should be more about love and commitment, not money.  
+哇，那真的不容易。我觉得婚姻应该更多的是爱和承诺，而不是金钱。
+
+---
+
+## **结婚难不难？**
+
+**Li Shang:**  
+Do you think marriage is difficult in your country?  
+你们国家结婚难吗？  
+
+**Jack:**  
+Not really. Most couples just decide when they feel ready. It’s not tied to owning a house or having a certain amount of money.  
+不算难。大多数情侣就是等感觉准备好了再结婚，不需要一定买房或者积累多少钱。
+
+**Li Shang:**  
+In China, many families think a man must have a house and a stable job before he can marry.  
+在中国，很多家庭觉得男生必须有房、有稳定的工作才能结婚。
+
+**Jack:**  
+That’s very different. We care more about the relationship itself, not these conditions.  
+那很不一样。我们更在意感情本身，而不是这些条件。
+
+---
+
+## **如何对待婚姻？**
+
+**Li Shang:**  
+How do people in your country view marriage? Do they think it’s necessary?  
+你们国家的人怎么看婚姻？他们觉得结婚是必须的吗？  
+
+**Jack:**  
+Not necessarily. Some couples live together for years without getting married. It’s more about personal choice and happiness.  
+不一定。有些情侣同居多年也不结婚，这更多是个人选择和幸福感的问题。
+
+**Li Shang:**  
+Here, if you don’t get married by a certain age, especially for women, there’s a lot of social pressure.  
+在中国，如果过了某个年龄还不结婚，尤其是女性，会有很多社会压力。
+
+**Jack:**  
+I’ve heard of that. In my culture, marriage is just one option in life, not the only path.  
+我听说过。在我们文化中，结婚只是人生的一个选择，而不是唯一的路。
+
+---
+
+## **结论**
+
+**Li Shang:**  
+It seems marriage in your country is more about personal freedom and less about social expectations.  
+看来在你们国家，婚姻更强调个人自由，而不是社会期待。
+
+**Jack:**  
+Exactly. We believe if you’re happy together, that’s what matters most — with or without a wedding.  
+没错。我们认为两个人幸福才最重要，不论有没有婚礼。
+
+
+# 模拟对话：国内外养老的态度对比
+
+**Jack (外国朋友):**  
+Shang, I’ve noticed that in China, many elderly parents live with their children. Is that common?  
+尚，我发现中国很多老人会和子女一起住，这常见吗？  
+
+**Li Shang:**  
+Yes, it’s quite common. In our culture, taking care of parents is seen as a duty. We call it “孝顺” (filial piety).  
+是的，这很常见。在我们的文化里，照顾父母是一种责任，我们叫它“孝顺”。
+
+---
+
+## **国内养老观念**
+
+**Jack:**  
+So kids are expected to take care of their parents when they grow old?  
+所以孩子长大后就要照顾父母吗？  
+
+**Li Shang:**  
+Exactly. Many parents spend their life savings raising their kids, so when they’re old, they hope to be taken care of by their children.  
+没错。很多父母把一生积蓄都用来养育孩子，所以老了希望能得到子女照顾。  
+
+**Jack:**  
+Does that put pressure on young people?  
+这会给年轻人带来压力吗？  
+
+**Li Shang:**  
+Yes, especially when they have to take care of both kids and elderly parents at the same time. We call this the “sandwich generation.”  
+是的，特别是当他们要同时照顾孩子和父母时。我们称这种情况为“三明治一代”。
+
+---
+
+## **国外养老观念**
+
+**Jack:**  
+In my country, it’s quite different. Most elderly people prefer to live independently or in retirement communities.  
+在我们国家，这不一样。大多数老人更愿意独立生活，或者住在养老社区。  
+
+**Li Shang:**  
+So children don’t usually live with their parents?  
+那你们不和父母住在一起？  
+
+**Jack:**  
+Not really. Of course, we visit and help them, but both sides value independence. Older people don’t want to burden their kids.  
+不太会。当然，我们会探望和帮忙，但大家更看重独立，老人不想成为孩子的负担。
+
+---
+
+## **对比态度**
+
+**Li Shang:**  
+That’s very different from here. Many Chinese parents feel lonely if they don’t live with their children.  
+这和我们很不一样。很多中国父母如果不和孩子一起住会觉得孤独。  
+
+**Jack:**  
+Yes, but some older people enjoy living with friends in retirement homes. They have activities, travel, and hobbies there.  
+是的，但有些老人喜欢和朋友住在养老院。他们可以一起参加活动、旅游、做兴趣爱好。  
+
+**Li Shang:**  
+Sounds nice. I think China is also slowly changing. Some young people prefer professional nursing homes for their parents, especially in big cities.  
+听起来不错。我觉得中国也在慢慢变化，特别是在大城市，有些年轻人更愿意选择专业养老院。  
+
+---
+
+## **态度总结**
+
+**Jack:**  
+So in China, family responsibility is the key, while in my country, independence is more important.  
+所以在中国，家庭责任最重要，而在我们国家，更看重独立。  
+
+**Li Shang:**  
+Exactly. Both have pros and cons. I think a balance between family care and independence might be the best.  
+没错。两者都有好处。我觉得家庭照顾和独立养老相结合可能是最好的方式。
+
