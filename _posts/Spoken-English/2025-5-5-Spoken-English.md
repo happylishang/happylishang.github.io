@@ -1071,7 +1071,7 @@ Let’s talk about that another day.
 ---
 
 ## **自我介绍模板（示例）**
-**Hi, my name is Li Hua. I’m from Shanghai, China. I work as a software engineer at a tech company. I’m really into swimming and traveling. In my free time, I like playing tennis with friends or taking my daughter to the park. Nice to meet you!**  
+**Hi, my name is Li Hua. I’m from Sahai, China. I work as a software engineer at a tech company. I’m really into swimming and traveling. In my free time, I like playing tennis with friends or taking my daughter to the park. Nice to meet you!**  
 嗨，我叫李华，来自中国上海。我在一家科技公司做软件工程师。我特别喜欢游泳和旅游。空闲时，我喜欢和朋友打网球，或者带女儿去公园。很高兴认识你！
 
 ---
@@ -1098,10 +1098,10 @@ Let’s talk about that another day.
 # 模拟对话：为什么中国人这么累？
 
 **Jack (外国朋友):**  
-Hey, Shang, I always wonder — why do people in China work so hard? Everyone seems so busy and tired.  
+Hey, Sa, I always wonder — why do people in China work so hard? Everyone seems so busy and tired.  
 嘿，尚，我一直想知道——为什么中国人工作那么辛苦？大家看起来都很忙、很累。  
 
-**Li Shang:**  
+**Sa:**  
 Yeah, that’s true. Life here can be pretty stressful.  
 是啊，确实这样。这里的生活压力挺大的。  
 
@@ -1109,7 +1109,7 @@ Yeah, that’s true. Life here can be pretty stressful.
 What makes it so stressful? Is it work?  
 为什么会这么累？是因为工作吗？  
 
-**Li Shang:**  
+**Sa:**  
 Work is part of it, but not the only reason. We also have big pressure from **education, medical costs, and housing prices**.  
 工作是其中一个原因，但不是唯一的。我们还要面对 **教育、医疗和房价** 的压力。  
 
@@ -1117,7 +1117,7 @@ Work is part of it, but not the only reason. We also have big pressure from **ed
 Education? How does that make you so tired?  
 教育？这和累有什么关系？  
 
-**Li Shang:**  
+**Sa:**  
 Parents put a lot of energy and money into their kids’ education. Competition is tough. Many kids go to school all day, then have extra classes at night or on weekends. Parents have to work hard to afford all this.  
 家长要花大量精力和金钱在孩子教育上。竞争很激烈。很多孩子白天上学，晚上或周末还要上补习班。家长必须拼命工作才能负担这些费用。  
 
@@ -1125,7 +1125,7 @@ Parents put a lot of energy and money into their kids’ education. Competition 
 Wow, that sounds intense. What about medical care?  
 哇，这听起来压力很大。医疗呢？  
 
-**Li Shang:**  
+**Sa:**  
 Medical care is improving, but good hospitals are usually in big cities, and people often need to pay a lot for good treatment. We save money just in case of emergencies.  
 医疗条件在改善，但好医院一般都在大城市，而且好的治疗往往要花不少钱。我们得攒钱以防万一。  
 
@@ -1133,15 +1133,15 @@ Medical care is improving, but good hospitals are usually in big cities, and peo
 I see. And housing prices?  
 我明白了。房价呢？  
 
-**Li Shang:**  
-Housing is super expensive, especially in big cities like Beijing or Shanghai. Many young people have to work for years just to afford an apartment. Buying a house is considered necessary for starting a family, so people feel the pressure to earn more.  
+**Sa:**  
+Housing is super expensive, especially in big cities like Beijing or Sahai. Many young people have to work for years just to afford an apartment. Buying a house is considered necessary for starting a family, so people feel the pressure to earn more.  
 房价超级贵，特别是在北京、上海这种大城市。很多年轻人要工作很多年才能买得起房子。买房被认为是成家立业的必须条件，所以大家都很有压力。  
 
 **Jack:**  
 That explains a lot. So people work hard because they want a better future for their family?  
 这就能解释很多了。所以人们努力工作是为了给家人更好的未来？  
 
-**Li Shang:**  
+**Sa:**  
 Exactly. Most of us are just trying to give our kids better education, better healthcare, and a stable home.  
 没错。大多数人只是想让孩子有更好的教育、更好的医疗，还有一个稳定的家。  
 
@@ -1149,17 +1149,17 @@ Exactly. Most of us are just trying to give our kids better education, better he
 I get it now. That’s really tough, but also kind of inspiring.  
 我现在明白了。虽然很辛苦，但也挺让人敬佩的。  
 
-**Li Shang:**  
+**Sa:**  
 Yeah, we’re used to it, but I hope life will get easier in the future.  
 是啊，我们习惯了，但我希望未来能轻松一些。
 
 # 模拟对话：为什么中国教育这么“卷”？
 
 **Jack (外国朋友):**  
-Shang, you just mentioned education is stressful. Why is it so intense in China?  
+Sa, you just mentioned education is stressful. Why is it so intense in China?  
 尚，你刚提到教育压力大。为什么中国的教育会这么“卷”？  
 
-**Li Shang:**  
+**Sa:**  
 Well, the competition for good schools and universities is huge. Parents want their kids to have a better future, so they push them to study hard from a young age.  
 嗯，因为上好学校、好大学的竞争非常激烈。家长都希望孩子未来更好，所以从小就逼孩子努力学习。  
 
@@ -1167,7 +1167,7 @@ Well, the competition for good schools and universities is huge. Parents want th
 Isn’t regular school enough? Why do kids need extra classes?  
 正常学校的课程不够吗？为什么孩子还要上补习班？  
 
-**Li Shang:**  
+**Sa:**  
 Regular school is fine, but if you want to stand out, you need extra help. Most kids take **after-school tutoring** in math, English, or even arts. If you don’t, you might fall behind.  
 学校教育是可以的，但如果想脱颖而出，就需要额外的帮助。大部分孩子要上 **课后辅导班**，比如数学、英语，甚至艺术类。如果不上，就可能被落下。  
 
@@ -1175,7 +1175,7 @@ Regular school is fine, but if you want to stand out, you need extra help. Most 
 That sounds exhausting for the kids. Do they still have time to play?  
 这对孩子来说听起来很累。他们还有时间玩耍吗？  
 
-**Li Shang:**  
+**Sa:**  
 Not much. Many kids have classes even on weekends. It’s not that parents don’t want them to play, but they worry about the **high school and college entrance exams**.  
 不多。很多孩子周末也要上课。不是家长不想让他们玩，而是担心 **中考和高考** 的竞争压力。  
 
@@ -1183,7 +1183,7 @@ Not much. Many kids have classes even on weekends. It’s not that parents don�
 College entrance exams? Are they that important?  
 高考？有那么重要吗？  
 
-**Li Shang:**  
+**Sa:**  
 Yes! The **Gaokao** (college entrance exam) decides which university you can go to. A good university means better job chances and a better life. That’s why parents put so much pressure on kids.  
 是的！**高考** 决定了你能上哪所大学。好大学就意味着更好的工作机会和生活。所以家长才这么用心、甚至有压力。  
 
@@ -1191,7 +1191,7 @@ Yes! The **Gaokao** (college entrance exam) decides which university you can go 
 Wow, that’s intense. Is everyone okay with this system?  
 哇，那真紧张。大家都能接受这种制度吗？  
 
-**Li Shang:**  
+**Sa:**  
 Not really. Many parents feel tired, and kids are under a lot of stress. But it’s hard to change because everyone is afraid to fall behind.  
 也不完全是。很多家长觉得累，孩子也很有压力。但大家都怕被别人超过，所以很难改变。  
 
@@ -1199,7 +1199,7 @@ Not really. Many parents feel tired, and kids are under a lot of stress. But it�
 I see. It’s like a race, right?  
 我明白了。这就像一场比赛，是吧？  
 
-**Li Shang:**  
+**Sa:**  
 Exactly, it’s like an endless race. But we’re starting to talk more about **letting kids enjoy life**, not just study.  
 没错，就像一场无休止的比赛。不过现在也有人开始讨论 **让孩子更享受生活**，而不只是学习。  
 
@@ -1210,10 +1210,10 @@ Exactly, it’s like an endless race. But we’re starting to talk more about **
 ---
 
 **Jack (外国朋友):**  
-Shang, I’ve always been curious — why do people in China work so hard? Everyone looks so busy and tired.  
+Sa, I’ve always been curious — why do people in China work so hard? Everyone looks so busy and tired.  
 尚，我一直很好奇——为什么中国人工作那么辛苦？大家看起来都很忙、很累。
 
-**Li Shang:**  
+**Sa:**  
 Yeah, life here can be pretty stressful. We face big pressures from **education, housing prices, and medical care**.  
 是啊，这里的生活压力确实很大。我们要面对 **教育、房价和医疗** 的压力。
 
@@ -1225,15 +1225,15 @@ Yeah, life here can be pretty stressful. We face big pressures from **education,
 Housing prices? Are they that high?  
 房价？真的那么高吗？  
 
-**Li Shang:**  
-Oh, yes! In big cities like Beijing or Shanghai, buying an apartment is extremely expensive. Young people often work for years just to pay the down payment.  
+**Sa:**  
+Oh, yes! In big cities like Beijing or Sahai, buying an apartment is extremely expensive. Young people often work for years just to pay the down payment.  
 真的！在北京、上海这样的城市，买房特别贵。年轻人常常要工作很多年才能付得起首付。
 
 **Jack:**  
 That sounds tough. What about medical care?  
 听起来挺难的。医疗呢？  
 
-**Li Shang:**  
+**Sa:**  
 Medical care is improving, but good hospitals are mostly in big cities. People often save a lot just in case something happens.  
 医疗条件在改善，但好医院主要集中在大城市。大家通常要存很多钱，以防意外。
 
@@ -1245,7 +1245,7 @@ Medical care is improving, but good hospitals are mostly in big cities. People o
 And education? Why is it so stressful?  
 那教育呢？为什么会那么有压力？  
 
-**Li Shang:**  
+**Sa:**  
 The competition for good schools is huge. Parents want their kids to get into top universities, so they start pushing them from a young age.  
 上好学校的竞争特别激烈。家长都希望孩子能上好大学，所以从小就逼孩子努力学习。
 
@@ -1253,7 +1253,7 @@ The competition for good schools is huge. Parents want their kids to get into to
 Isn’t regular school enough?  
 正常学校课程不够吗？  
 
-**Li Shang:**  
+**Sa:**  
 Not really. Most kids have **after-school tutoring** — math, English, music… If you don’t take extra classes, you might fall behind.  
 不够。大部分孩子要上 **课外补习班** —— 数学、英语、音乐…… 如果不上，可能就被落下了。
 
@@ -1261,7 +1261,7 @@ Not really. Most kids have **after-school tutoring** — math, English, music…
 Wow, that must be exhausting for the kids. Do they still have time to play?  
 哇，这对孩子来说一定很累。他们还有时间玩耍吗？  
 
-**Li Shang:**  
+**Sa:**  
 Not much. Even weekends are full of classes. Parents worry about the **college entrance exam (Gaokao)**, which decides a kid’s future.  
 不多。连周末也要上课。家长都担心 **高考**，因为它决定孩子的未来。
 
@@ -1273,7 +1273,7 @@ Not much. Even weekends are full of classes. Parents worry about the **college e
 So that’s why you say education is “crazy competitive,” or as you say, “卷”?  
 所以这就是你们说的教育很“卷”吗？  
 
-**Li Shang:**  
+**Sa:**  
 Exactly. Everyone’s afraid of falling behind. It’s like a race — if you stop, you lose.  
 没错。大家都怕被超过，就像一场比赛——停下就会输。
 
@@ -1281,7 +1281,7 @@ Exactly. Everyone’s afraid of falling behind. It’s like a race — if you st
 That sounds exhausting for both kids and parents.  
 听起来对孩子和家长都很累。  
 
-**Li Shang:**  
+**Sa:**  
 It is. Parents work long hours to pay for classes, and kids study all the time.  
 确实。家长要长时间工作来支付补课费，而孩子也一直在学习。
 
@@ -1293,7 +1293,7 @@ It is. Parents work long hours to pay for classes, and kids study all the time.
 So, people work so hard mainly to give their family a better future?  
 所以，人们这么努力主要是为了给家人更好的未来？  
 
-**Li Shang:**  
+**Sa:**  
 Exactly. We want good education for our kids, better healthcare, and a stable home.  
 没错。我们希望孩子能上好学校，有更好的医疗，还有一个稳定的家。
 
@@ -1301,7 +1301,7 @@ Exactly. We want good education for our kids, better healthcare, and a stable ho
 I see. It’s tough, but also admirable.  
 我明白了。这很辛苦，但也挺让人敬佩的。  
 
-**Li Shang:**  
+**Sa:**  
 Yeah, we’re used to it, but I hope life will get easier in the future.  
 是啊，我们习惯了，但我希望未来能轻松一点。
 
@@ -1331,10 +1331,10 @@ Yeah, we’re used to it, but I hope life will get easier in the future.
 # 模拟对话：为什么中国孩子没那么多自由玩耍时间？
 
 **Jack (外国朋友):**  
-Shang, I’ve noticed that kids here don’t seem to have as much free time to play. Why is that?  
+Sa, I’ve noticed that kids here don’t seem to have as much free time to play. Why is that?  
 尚，我发现中国的孩子似乎没有那么多自由玩耍的时间。为什么呢？  
 
-**Li Shang:**  
+**Sa:**  
 Yeah, that’s true. Most kids are busy with homework and after-school classes.  
 是的，确实如此。大部分孩子都忙着写作业和上课外班。  
 
@@ -1342,7 +1342,7 @@ Yeah, that’s true. Most kids are busy with homework and after-school classes.
 Really? In my country, kids usually have a lot of free time after school.  
 真的吗？在我们国家，孩子放学后一般都有很多自由时间。  
 
-**Li Shang:**  
+**Sa:**  
 Here, the competition is pretty strong. Parents worry their kids will fall behind if they just play.  
 在这里，竞争非常激烈。家长担心孩子只玩的话会被落下。  
 
@@ -1350,7 +1350,7 @@ Here, the competition is pretty strong. Parents worry their kids will fall behin
 So they have extra classes every day?  
 所以他们每天都有额外的课程吗？  
 
-**Li Shang:**  
+**Sa:**  
 Not every day, but many kids have tutoring at least two or three times a week. Weekends are also filled with activities like English, math, or piano lessons.  
 不一定每天，但很多孩子一周至少有两三次补习。周末也排满了英语、数学、钢琴等课程。  
 
@@ -1358,7 +1358,7 @@ Not every day, but many kids have tutoring at least two or three times a week. W
 Wow, that sounds intense. Do kids like it?  
 哇，听起来好紧张。孩子们喜欢这样吗？  
 
-**Li Shang:**  
+**Sa:**  
 Honestly, not really. Most of them would rather play. But parents feel they have no choice because of school and exam pressure.  
 说实话，并不喜欢。大多数孩子都想玩。但因为学校和考试压力，家长觉得没办法。  
 
@@ -1366,7 +1366,7 @@ Honestly, not really. Most of them would rather play. But parents feel they have
 Is it because of the college entrance exam?  
 是因为高考吗？  
 
-**Li Shang:**  
+**Sa:**  
 Exactly. The **Gaokao** decides which university you can enter. A good university can change your whole life. That’s why the competition starts so early.  
 没错。**高考** 决定了你能上哪所大学。一所好大学可以改变一生，所以竞争从很早就开始了。  
 
@@ -1374,7 +1374,7 @@ Exactly. The **Gaokao** decides which university you can enter. A good universit
 I get it now. Parents just want the best for their kids, right?  
 我懂了。家长只是想给孩子最好的未来，对吧？  
 
-**Li Shang:**  
+**Sa:**  
 Yeah, but now more parents are starting to realize that kids also need time to relax and play.  
 是的，不过现在越来越多的家长开始意识到孩子也需要时间放松和玩耍。  
 
@@ -1382,7 +1382,7 @@ Yeah, but now more parents are starting to realize that kids also need time to r
 That’s good to hear. I hope they can find a balance.  
 那挺好的。我希望他们能找到平衡。  
 
-**Li Shang:**  
+**Sa:**  
 Me too. A happy childhood is just as important as good grades.  
 我也是。快乐的童年和好成绩一样重要。
 
@@ -1393,10 +1393,10 @@ Me too. A happy childhood is just as important as good grades.
 ---
 
 **Jack (外国朋友):**  
-Shang, I’ve always wondered — why do people in China work so hard? Everyone seems so busy and tired.  
+Sa, I’ve always wondered — why do people in China work so hard? Everyone seems so busy and tired.  
 尚，我一直想知道——为什么中国人工作那么辛苦？大家看起来都很忙、很累。
 
-**Li Shang:**  
+**Sa:**  
 Yeah, life here can be pretty stressful. We face big pressures from **housing prices, medical care, and especially education**.  
 是啊，这里的生活压力确实很大。我们要面对 **房价、医疗，还有最主要的教育** 压力。
 
@@ -1408,15 +1408,15 @@ Yeah, life here can be pretty stressful. We face big pressures from **housing pr
 Housing prices? Are they really that high?  
 房价？真的那么高吗？  
 
-**Li Shang:**  
-Oh, yes! In big cities like Beijing or Shanghai, buying an apartment is extremely expensive. Young couples often work for years just to save for the down payment.  
+**Sa:**  
+Oh, yes! In big cities like Beijing or Sahai, buying an apartment is extremely expensive. Young couples often work for years just to save for the down payment.  
 真的！在北京、上海这种大城市，买房非常贵。年轻夫妇常常要拼命工作很多年才能攒够首付。
 
 **Jack:**  
 That sounds stressful. What about medical care?  
 听起来压力很大。那医疗呢？  
 
-**Li Shang:**  
+**Sa:**  
 Medical care is improving, but good hospitals are mostly in big cities. People often have to wait in long lines or pay extra for better treatment. Many families save money just in case of emergencies.  
 医疗水平在进步，但好医院主要集中在大城市。人们常常需要排长队，或者为更好的治疗花很多钱。很多家庭会存钱以防万一。
 
@@ -1428,7 +1428,7 @@ Medical care is improving, but good hospitals are mostly in big cities. People o
 I see. But you said education is a big pressure too. Why is it so intense?  
 我明白了。但你说教育压力也很大，为什么呢？  
 
-**Li Shang:**  
+**Sa:**  
 The competition for good schools and universities is fierce. Parents believe education is the key to a better life, so they start pushing their kids very early.  
 上好学校、好大学的竞争非常激烈。家长都相信教育是通往好生活的关键，所以很早就开始让孩子努力学习。
 
@@ -1436,7 +1436,7 @@ The competition for good schools and universities is fierce. Parents believe edu
 Isn’t regular school enough? Why all the extra classes?  
 正常学校课程不够吗？为什么还要上那么多补习班？  
 
-**Li Shang:**  
+**Sa:**  
 Regular school is fine, but if you want your kid to stand out, you need extra tutoring — in math, English, music, or art. If you don’t, your child might fall behind.  
 正常学校是可以的，但如果想让孩子更突出，就得上补习班——数学、英语、音乐、美术。如果不上，可能会被别人超过。
 
@@ -1444,7 +1444,7 @@ Regular school is fine, but if you want your kid to stand out, you need extra tu
 That sounds exhausting for the kids. Do they still have time to play?  
 这对孩子来说听起来很累。他们还有时间玩耍吗？  
 
-**Li Shang:**  
+**Sa:**  
 Not much. Many kids have classes even on weekends. It’s not that parents don’t want them to play, but they worry about exams, especially the **Gaokao** — the college entrance exam.  
 不多。很多孩子周末也要上课。不是家长不想让他们玩，而是担心考试，特别是 **高考** —— 大学入学考试。
 
@@ -1456,7 +1456,7 @@ Not much. Many kids have classes even on weekends. It’s not that parents don�
 I noticed kids here don’t seem to have much free time. Is that because of the exams?  
 我注意到这里的孩子自由时间不多，是因为考试压力吗？  
 
-**Li Shang:**  
+**Sa:**  
 Yes. The **Gaokao** is extremely important — it decides which university you can enter, and a good university can change your whole life. That’s why parents push so hard.  
 是的。**高考**非常重要——它决定了你能上哪所大学，而好大学可能改变一生。所以家长才会这么拼。
 
@@ -1464,7 +1464,7 @@ Yes. The **Gaokao** is extremely important — it decides which university you c
 Wow. In my country, kids usually have lots of time to play after school.  
 哇。在我们国家，孩子放学后一般有很多时间玩。  
 
-**Li Shang:**  
+**Sa:**  
 I wish it were like that here. Many parents feel sorry for their kids, but they’re afraid that if they don’t join the race, they’ll lose out.  
 我也希望这样。很多家长也心疼孩子，但他们担心如果不参加这场“赛跑”，孩子会被落下。
 
@@ -1476,7 +1476,7 @@ I wish it were like that here. Many parents feel sorry for their kids, but they�
 So basically, people work hard for their kids — for education, for a house, and for a secure future?  
 所以说，人们辛苦工作主要是为了孩子——为了教育、房子和未来的保障？  
 
-**Li Shang:**  
+**Sa:**  
 Exactly. Most parents just want their children to have a better life than they did.  
 没错。大部分家长只是想让孩子的生活比自己更好。
 
@@ -1484,7 +1484,7 @@ Exactly. Most parents just want their children to have a better life than they d
 I get it now. It’s tough, but it shows how much family means to people here.  
 我明白了。虽然辛苦，但这也说明家人对你们有多重要。  
 
-**Li Shang:**  
+**Sa:**  
 Yeah, that’s true. But I hope one day, kids can enjoy more free time, and life can be less stressful for everyone.  
 是的，没错。但我也希望有一天孩子们能有更多自由时间，大家的生活也能轻松一些。
 
@@ -1515,10 +1515,10 @@ Yeah, that’s true. But I hope one day, kids can enjoy more free time, and life
 # 模拟对话：为什么中国年轻人压力大、结婚难
 
 **Jack (外国朋友):**  
-Shang, I’ve heard that it’s really hard for young people in China to get married. Is that true?  
+Sa, I’ve heard that it’s really hard for young people in China to get married. Is that true?  
 尚，我听说中国年轻人很难结婚，是真的吗？  
 
-**Li Shang:**  
+**Sa:**  
 Yeah, it’s true. Young people face a lot of pressure — from work, housing prices, and even things like bride price.  
 是的，是真的。年轻人要面对很多压力——工作压力、房价，甚至彩礼。
 
@@ -1530,7 +1530,7 @@ Yeah, it’s true. Young people face a lot of pressure — from work, housing pr
 Housing prices again? Are they really that bad?  
 又是房价？真的那么严重吗？  
 
-**Li Shang:**  
+**Sa:**  
 Oh, yes. In big cities, buying an apartment can cost millions of yuan. For many young men, buying a house is seen as a “must” before marriage.  
 是的。在大城市，买套房子可能要好几百万。对很多年轻男人来说，结婚前买房是必须的。
 
@@ -1538,7 +1538,7 @@ Oh, yes. In big cities, buying an apartment can cost millions of yuan. For many 
 Wow, that’s a lot. So the man’s family usually buys the house?  
 哇，这太多了。那男方家一般要买房吗？  
 
-**Li Shang:**  
+**Sa:**  
 Mostly, yes. Many families even spend all their savings to help their son buy one.  
 基本是这样。很多家庭甚至会花光积蓄帮儿子买房。
 
@@ -1550,7 +1550,7 @@ Mostly, yes. Many families even spend all their savings to help their son buy on
 You also mentioned a “bride price.” What is that?  
 你还提到彩礼，那是什么？  
 
-**Li Shang:**  
+**Sa:**  
 It’s a traditional custom. The groom’s family gives money or gifts to the bride’s family. In some places, the amount can be very high — sometimes hundreds of thousands of yuan.  
 这是一个传统习俗。男方家要给女方家钱或礼物。在有些地方，金额特别高，有时可能几十万人民币。
 
@@ -1558,7 +1558,7 @@ It’s a traditional custom. The groom’s family gives money or gifts to the br
 That must be tough for young couples.  
 这对年轻人来说一定很难。  
 
-**Li Shang:**  
+**Sa:**  
 Yeah, it’s a big financial burden. Many people feel that marriage is not just about love anymore, but also about money.  
 是的，这是很大的经济负担。很多人觉得结婚已经不仅仅是爱情，还涉及很多钱。
 
@@ -1570,7 +1570,7 @@ Yeah, it’s a big financial burden. Many people feel that marriage is not just 
 And work? Is it really that stressful?  
 那工作呢？压力真的那么大吗？  
 
-**Li Shang:**  
+**Sa:**  
 Yes. Many young people work long hours, like the “996” schedule — 9 a.m. to 9 p.m., six days a week. It’s hard to have time for dating, let alone marriage.  
 是的。很多年轻人要长时间工作，比如“996”——早9点到晚9点，一周工作六天。根本没时间谈恋爱，更别说结婚了。
 
@@ -1578,7 +1578,7 @@ Yes. Many young people work long hours, like the “996” schedule — 9 a.m. t
 That’s crazy. No wonder some people don’t want to get married.  
 太疯狂了。难怪有人不想结婚。  
 
-**Li Shang:**  
+**Sa:**  
 Exactly. Some young people choose to stay single, or they focus on their career and personal life instead.  
 没错。有些年轻人选择单身，或者专注于自己的事业和生活。
 
@@ -1590,7 +1590,7 @@ Exactly. Some young people choose to stay single, or they focus on their career 
 Do you think things will change in the future?  
 你觉得未来会改变吗？  
 
-**Li Shang:**  
+**Sa:**  
 I hope so. Maybe as society develops, people will care less about money and more about happiness and balance.  
 我希望会。也许随着社会发展，人们会更重视幸福和生活平衡，而不是钱。
 
@@ -1598,7 +1598,7 @@ I hope so. Maybe as society develops, people will care less about money and more
 I hope so too. Everyone deserves to be happy.  
 我也希望如此。每个人都应该幸福。  
 
-**Li Shang:**  
+**Sa:**  
 Yeah, that’s the most important thing.  
 是啊，这才是最重要的。
 
@@ -1606,7 +1606,7 @@ Yeah, that’s the most important thing.
 
 # 模拟对话：外国人对结婚和彩礼的态度
 
-**Li Shang:**  
+**Sa:**  
 Jack, in China, we often talk about “彩礼” (bride price) when a couple wants to get married. How do people in your country see this?  
 Jack，在中国，结婚时经常要谈“彩礼”。你们国家是怎么看待的？
 
@@ -1614,7 +1614,7 @@ Jack，在中国，结婚时经常要谈“彩礼”。你们国家是怎么看�
 In my country, we don’t have a bride price. Usually, both families or the couple share the wedding costs. Some people even skip the big ceremony and just have a small celebration.  
 在我们国家，没有彩礼。婚礼费用一般由两家人或者新人自己分担，有些人甚至不办大型婚礼，只举办小型聚会。
 
-**Li Shang:**  
+**Sa:**  
 That sounds much simpler. Here, the bride price can be very expensive in some places, which puts a lot of pressure on the groom’s family.  
 那听起来简单多了。在中国，有些地方彩礼特别高，这给男方家庭带来了很大压力。
 
@@ -1626,7 +1626,7 @@ Wow, that must be tough. I think marriage should be more about love and commitme
 
 ## **结婚难不难？**
 
-**Li Shang:**  
+**Sa:**  
 Do you think marriage is difficult in your country?  
 你们国家结婚难吗？  
 
@@ -1634,7 +1634,7 @@ Do you think marriage is difficult in your country?
 Not really. Most couples just decide when they feel ready. It’s not tied to owning a house or having a certain amount of money.  
 不算难。大多数情侣就是等感觉准备好了再结婚，不需要一定买房或者积累多少钱。
 
-**Li Shang:**  
+**Sa:**  
 In China, many families think a man must have a house and a stable job before he can marry.  
 在中国，很多家庭觉得男生必须有房、有稳定的工作才能结婚。
 
@@ -1646,7 +1646,7 @@ That’s very different. We care more about the relationship itself, not these c
 
 ## **如何对待婚姻？**
 
-**Li Shang:**  
+**Sa:**  
 How do people in your country view marriage? Do they think it’s necessary?  
 你们国家的人怎么看婚姻？他们觉得结婚是必须的吗？  
 
@@ -1654,7 +1654,7 @@ How do people in your country view marriage? Do they think it’s necessary?
 Not necessarily. Some couples live together for years without getting married. It’s more about personal choice and happiness.  
 不一定。有些情侣同居多年也不结婚，这更多是个人选择和幸福感的问题。
 
-**Li Shang:**  
+**Sa:**  
 Here, if you don’t get married by a certain age, especially for women, there’s a lot of social pressure.  
 在中国，如果过了某个年龄还不结婚，尤其是女性，会有很多社会压力。
 
@@ -1666,7 +1666,7 @@ I’ve heard of that. In my culture, marriage is just one option in life, not th
 
 ## **结论**
 
-**Li Shang:**  
+**Sa:**  
 It seems marriage in your country is more about personal freedom and less about social expectations.  
 看来在你们国家，婚姻更强调个人自由，而不是社会期待。
 
@@ -1678,10 +1678,10 @@ Exactly. We believe if you’re happy together, that’s what matters most — w
 # 模拟对话：国内外养老的态度对比
 
 **Jack (外国朋友):**  
-Shang, I’ve noticed that in China, many elderly parents live with their children. Is that common?  
+Sa, I’ve noticed that in China, many elderly parents live with their children. Is that common?  
 尚，我发现中国很多老人会和子女一起住，这常见吗？  
 
-**Li Shang:**  
+**Sa:**  
 Yes, it’s quite common. In our culture, taking care of parents is seen as a duty. We call it “孝顺” (filial piety).  
 是的，这很常见。在我们的文化里，照顾父母是一种责任，我们叫它“孝顺”。
 
@@ -1693,7 +1693,7 @@ Yes, it’s quite common. In our culture, taking care of parents is seen as a du
 So kids are expected to take care of their parents when they grow old?  
 所以孩子长大后就要照顾父母吗？  
 
-**Li Shang:**  
+**Sa:**  
 Exactly. Many parents spend their life savings raising their kids, so when they’re old, they hope to be taken care of by their children.  
 没错。很多父母把一生积蓄都用来养育孩子，所以老了希望能得到子女照顾。  
 
@@ -1701,7 +1701,7 @@ Exactly. Many parents spend their life savings raising their kids, so when they�
 Does that put pressure on young people?  
 这会给年轻人带来压力吗？  
 
-**Li Shang:**  
+**Sa:**  
 Yes, especially when they have to take care of both kids and elderly parents at the same time. We call this the “sandwich generation.”  
 是的，特别是当他们要同时照顾孩子和父母时。我们称这种情况为“三明治一代”。
 
@@ -1713,7 +1713,7 @@ Yes, especially when they have to take care of both kids and elderly parents at 
 In my country, it’s quite different. Most elderly people prefer to live independently or in retirement communities.  
 在我们国家，这不一样。大多数老人更愿意独立生活，或者住在养老社区。  
 
-**Li Shang:**  
+**Sa:**  
 So children don’t usually live with their parents?  
 那你们不和父母住在一起？  
 
@@ -1725,7 +1725,7 @@ Not really. Of course, we visit and help them, but both sides value independence
 
 ## **对比态度**
 
-**Li Shang:**  
+**Sa:**  
 That’s very different from here. Many Chinese parents feel lonely if they don’t live with their children.  
 这和我们很不一样。很多中国父母如果不和孩子一起住会觉得孤独。  
 
@@ -1733,7 +1733,7 @@ That’s very different from here. Many Chinese parents feel lonely if they don�
 Yes, but some older people enjoy living with friends in retirement homes. They have activities, travel, and hobbies there.  
 是的，但有些老人喜欢和朋友住在养老院。他们可以一起参加活动、旅游、做兴趣爱好。  
 
-**Li Shang:**  
+**Sa:**  
 Sounds nice. I think China is also slowly changing. Some young people prefer professional nursing homes for their parents, especially in big cities.  
 听起来不错。我觉得中国也在慢慢变化，特别是在大城市，有些年轻人更愿意选择专业养老院。  
 
@@ -1745,7 +1745,7 @@ Sounds nice. I think China is also slowly changing. Some young people prefer pro
 So in China, family responsibility is the key, while in my country, independence is more important.  
 所以在中国，家庭责任最重要，而在我们国家，更看重独立。  
 
-**Li Shang:**  
+**Sa:**  
 Exactly. Both have pros and cons. I think a balance between family care and independence might be the best.  
 没错。两者都有好处。我觉得家庭照顾和独立养老相结合可能是最好的方式。
 
