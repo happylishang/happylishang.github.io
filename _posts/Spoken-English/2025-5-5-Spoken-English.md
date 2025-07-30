@@ -1739,6 +1739,17 @@ Sounds nice. I think China is also slowly changing. Some young people prefer pro
 
 ---
 
+		https://yx.mail.netease.com/yxrms/xhr/tag/insert
+	{
+	    "dimension":"userid",
+	    "dimensionValue":"26248555173",
+	    // "tagName":"bindMobile",
+	    "tagName":"zhan_black_group",
+	    "tagValue":"",
+	    "expireTime":315360000,
+	    // "expireTime":315360000,
+	    "extension":""
+	}
 ## **态度总结**
 
 **Jack:**  
