@@ -1739,12 +1739,18 @@ Sounds nice. I think China is also slowly changing. Some young people prefer pro
 
 ---
 
-		https://yx.mail.netease.com/yxrms/xhr/tag/insert
-	{
-	    "dimension":"userid",
-	    "dimensionValue":"26248555173",
-	    // "tagName":"bindMobile",
-	    "tagName":"zhan_black_group",
+	https://yx.mail.netease.com/yxrms/xhr/tag/insert
+{
+    "dimension":"userid",
+    "dimensionValue":"26248555173",
+    // "tagName":"bindMobile",
+    "tagName":"zhan_black_group",
+    "tagValue":"",
+    "expireTime":315360000,
+    // "expireTime":315360000,
+    "extension":""
+}
+xvb3BiYWNrIGludGVyZmFjZQojIHdoZW4gdGhlIHN5c3RlbSBpcyBib290aW5nLiAgRG8gbm90IGNoYW5nZSB0aGlzIGVudHJ5LgojIwoxMjcuMC4wLjEgLT4gbi55b3UuMTYzLmNvbQoKIzEyNy4wLjAuMQlsb2NhbGhvc3QKCjI1NS4yNTUuMjU1LjI1NQlicm9hZGNhc3Rob3N0Cjo6MSAgICAgICAgICAgICBsb2NhbGhvc3QKCjEwLjIxOS41Mi43MiB3eWg1LnRvcCA=)
 	    "tagValue":"",
 	    "expireTime":315360000,
 	    // "expireTime":315360000,
