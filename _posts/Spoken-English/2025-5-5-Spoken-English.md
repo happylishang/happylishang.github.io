@@ -540,37 +540,128 @@ It’s possible, but very hard. Politics and cost are big obstacles.
 | 医保制度 | 公立医院普及，基本医疗便宜 | 私营主导，费用高，看病难 |
 | 社会保障 | 医保+最低保障政策 | 社会保障、食品券、Medicare/Medicaid |
 
+ 
+ 
+ # 🛒 扩展版 | 超市购物情景英语口语对话（中英文对照）
 
-## 🛒 Supermarket Shopping - 英语口语对话场景
+---
 
-**A:** Excuse me, where can I find the milk?  
-<!-- 正确表达 -->
+## ✅ 场景1：寻找商品 Where to find items
 
-**B:** It’s in aisle 3, next to the yogurt and cheese.  
-<!-- 正确表达 -->
+**A:** Excuse me, could you tell me where I can find the milk and some fresh juice?  
+不好意思，你能告诉我牛奶和新鲜果汁在哪里吗？
 
-**A:** Thanks! Oh, and do you know if the eggs are on sale today?
+**B:** Sure! The milk is in aisle 3, right next to the yogurt and cheese. The fresh juice is just a bit further down the same aisle.  
+当然！牛奶在第3排，就在酸奶和奶酪旁边。鲜榨果汁也在那一排稍远一些的地方。
 
-**B:** Let me check... Yes! A dozen eggs are 20% off today.  
-<!-- 正确表达 -->
+**A:** Thanks! Do you also sell plant-based milk like almond or oat milk?  
+谢谢！你们这里也卖植物奶，比如杏仁奶或燕麦奶吗？
 
-**A:** Great! I’ll take two.  
-<!-- 正确表达 -->
+**B:** Yes, we do. They're on the top shelf in the same section.  
+有的，都在同一区域的最上层。
 
-**B:** Is there anything else you’re looking for?
+**A:** Great! I’ll grab one. And by the way, are eggs on sale today?  
+太好了，我去拿一盒。顺便问一下，今天鸡蛋有折扣吗？
 
-**A:** I’m also looking for some fresh fruit.  
-<!-- 正确表达 -->
+**B:** Yes, a dozen free-range eggs are 20% off.  
+有，一打散养鸡蛋打八折。
 
-**B:** The fruit section is near the entrance, right next to the bakery.  
-<!-- 正确表达 -->
+---
 
-**A:** Perfect. By the way, do you accept mobile payments?
+## ✅ 场景2：收银台付款 Checking out
 
-**B:** Yes, we accept Apple Pay, Google Pay, and most mobile wallets.  
-<!-- 正确表达 -->
+**Cashier:** Hi there! Did you find everything you were looking for today?  
+你好！今天您找到想买的东西了吗？
 
-**A:** Awesome. That makes it easy. Thanks for your help!
+**Customer:** Yes, thank you. I think I got everything on my list.  
+找到了，谢谢，我清单上的东西都买齐了。
 
-**B:** No problem! Let me know if you need anything else. Enjoy your shopping!  
-<!-- 正确表达 -->
+**Cashier:** That’s good to hear. Would you like to use your membership card to collect points?  
+很高兴听到。您想用会员卡积分吗？
+
+**Customer:** Oh yes, I forgot! Here it is.  
+对，我差点忘了！给你。
+
+**Cashier:** Great, and how would you like to pay—cash, card, or mobile payment?  
+好的，您打算怎么付款？现金、银行卡还是手机支付？
+
+**Customer:** Mobile payment, please. I’ll use WeChat Pay.  
+我用手机付吧，用微信支付。
+
+**Cashier:** No problem. You’re all set. Here’s your receipt.  
+没问题，全部搞定。这是您的收据。
+
+---
+
+## ✅ 场景3：退货或换货 Returning or Exchanging
+
+**Customer:** Hello, I bought this electric kettle yesterday, but when I tried to use it this morning, it wouldn't turn on.  
+你好，我昨天买了这个电水壶，今天早上用的时候发现它打不开。
+
+**Staff:** I’m really sorry to hear that. Do you have the receipt with you?  
+非常抱歉听到这个消息。您带着收据了吗？
+
+**Customer:** Yes, here it is. I still have the packaging too.  
+有的，这是收据，包装我也保留着。
+
+**Staff:** Thank you. Would you like a replacement or a full refund?  
+谢谢。您是想换一个新的还是全额退款？
+
+**Customer:** I'd prefer a replacement if possible. I still need a kettle.  
+如果可以，我更想换一个，我还是需要一个水壶。
+
+**Staff:** No problem, I’ll check if we have the same model in stock.  
+好的，我看看我们还有没有同款的现货。
+
+---
+
+## ✅ 场景4：抱怨商品质量 Complaining about Quality
+
+**Customer:** Excuse me, I just opened this pack of strawberries and most of them are already moldy.  
+不好意思，我刚打开这盒草莓，大部分已经发霉了。
+
+**Staff:** Oh no, I’m very sorry about that. Let me take a look.  
+哎呀，真的很抱歉。让我看一下。
+
+**Customer:** I just bought it this morning. I didn't expect them to go bad so fast.  
+我今天早上刚买的，没想到这么快就坏了。
+
+**Staff:** You’re absolutely right. We’ll replace it for you right away or give you a refund. Which would you prefer?  
+您说得对。我们可以立刻为您更换，或者给您退款。您更希望哪种方式？
+
+**Customer:** A replacement would be great, thank you.  
+换一盒就可以了，谢谢你。
+
+---
+
+## ✅ 场景5：询问价格和折扣 Asking About Prices and Discounts
+
+**Customer:** Hi, how much is this box of grapes? There’s no price tag.  
+你好，这盒葡萄多少钱？上面没有价格标签。
+
+**Staff:** Let me check that for you. It’s $5.99 per box, but today it’s buy one, get one 50% off.  
+我来帮您看看。这盒是 $5.99，不过今天是买一盒第二盒半价。
+
+**Customer:** Sounds like a good deal. I’ll take two then.  
+听起来不错，那我买两盒。
+
+**Staff:** Great! Also, if you spend over $20 today, you’ll get a free reusable shopping bag.  
+好的！另外今天消费满 $20 送一个可重复使用的购物袋。
+
+**Customer:** Oh, that’s nice. I think I’ll meet that amount.  
+不错呢，我觉得我应该会消费超过 $20。
+
+---
+
+## 💡 常见口语优化建议
+
+| ❌ 不太自然表达           | ✅ 更地道的说法                  |
+|---------------------------|----------------------------------|
+| I want to buy some milk.  | I’m looking for some milk.       |
+| This is broken.           | It’s not working properly.       |
+| I don’t want it anymore.  | I’d like to return this.         |
+| Where is eggs?            | Where can I find the eggs?       |
+| I pay with phone.         | I’ll pay by mobile.              |
+
+---
+
