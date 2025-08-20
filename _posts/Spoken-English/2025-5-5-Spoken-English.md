@@ -725,3 +725,56 @@ It’s possible, but very hard. Politics and cost are big obstacles.
 
 ---
  
+
+
+
+I’m from China. On the internet, it feels like a lot of people have hostility toward China. But I really hope people can separate the government from ordinary people, and also distinguish between the rich or powerful and regular folks.
+
+Many of the people who travel to your country are probably rich bosses, second-generation wealthy kids, or people with connections. They rarely care about people at the bottom. They think they’re above others, but in reality their manners can be pretty bad.
+
+As for us ordinary people, we also long for freedom— freedom of speech, freedom to travel abroad, and private property rights. But we just can’t have it. The government’s policies, even the constitution, are more like decorations. The law doesn’t restrain those in power, it only restrains regular people. It’s extremely unfair.
+
+Normal people are crushed by the burden of housing and children’s education. We don’t have guns, we don’t even have the right to protest. Ordinary people like us feel really helpless and suffocated.
+
+
+I’m from China. I know a lot of people online don’t really like China, I respect their point of view, but I just hope they can tell the difference between the government and regular people. We’re not the same.
+
+Most of the Chinese who travel abroad are rich business owners, “second-gen” kids, or people with connections. They don’t really care about ordinary folks. They think they’re above others, but honestly, their manners can be pretty bad.
+
+For people like us, we want the same things as anyone else—freedom of speech, the chance to travel freely, the right to own our property. But we don’t get those. The government’s policies, even the constitution, are basically for show. The law only works against normal people, not those in power. It’s super unfair.
+
+Everyday families are struggling with housing costs and kids’ education. We can’t own guns, we don’t even have the right to protest. So yeah, a lot of us feel powerless and trapped.
+
+
+对比
+
+I’m from China. I’m from mainland China， I know many people online have negative feelings about China,I respect their opinions ,  but I hope they can tell the difference between the government and ordinary people.  Most of us are just regular folks,We are very kind and dont hurt anyone .
+
+**I hope I didn’t offend you.**
+
+Maybe the rich and powerful Chinese who travel abroad are part of the reason why people don’t like China.  they  act like they’re above everyone, and  they often have poor manners. but For ordinary people, Most of us are very kind , though life is tough—  we also  want freedom of speech, freedom to travel, and a fair life, but we can’t get it. 
+
+Housing costs, kids’ education, and unfair laws weigh us down. We don’t have the right to protest, so many of us feel helpless and trapped.
+
+
+![在这里插入图片描述](https://i-blog.csdnimg.cn/direct/e5b6da335b7e469b8541627f5402a690.png)
+
+![在这里插入图片描述](https://i-blog.csdnimg.cn/direct/924cbd092b9544169611c5014a694226.png)
+
+
+
++----------------------+----------------------------+----------------------------+----------------------+
+| Preposition          | Usage                      | Examples                   | Tip                  |
++----------------------+----------------------------+----------------------------+----------------------+
+| in                   | Longer periods of time     | in July, in 2020, in the  | Think: “general”    |
+|                      | (months, years, centuries)| 19th century               |                      |
++----------------------+----------------------------+----------------------------+----------------------+
+| on                   | Specific days & dates      | on Monday, on Sept 5th,   | Think: “day/date”   |
+|                      |                            | on Christmas Day           |                      |
++----------------------+----------------------------+----------------------------+----------------------+
+| at                   | Specific points in time    | at 6:30 p.m., at noon,    | Think: “exact time” |
+|                      |                            | at midnight                |                      |
++----------------------+----------------------------+----------------------------+----------------------+
+| for                  | Duration / length of time  | for 5 years, for a month, | Think: “how long”   |
+|                      |                            | for 2 hours                |                      |
++----------------------+----------------------------+----------------------------+----------------------+
