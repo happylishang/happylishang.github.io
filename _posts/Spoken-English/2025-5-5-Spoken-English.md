@@ -778,3 +778,9 @@ Housing costs, kids’ education, and unfair laws weigh us down. We don’t have
 | for                  | Duration / length of time  | for 5 years, for a month, | Think: “how long”   |
 |                      |                            | for 2 hours                |                      |
 +----------------------+----------------------------+----------------------------+----------------------+
+
+### Discord
+
+I feel a little offended.
+
+
