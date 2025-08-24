@@ -781,6 +781,20 @@ Housing costs, kids’ education, and unfair laws weigh us down. We don’t have
 
 ### Discord
 
-I feel a little offended.
+How’s your day going   practice speaking English   practice spoken English   
+ 
+Our countries are very close to each other  My wife and I are having some trouble.  There’s some trouble between my wife and me. 
+
+
+I feel a little offended.   I want to  share my story with someone , maybe you could give me some suggestion. 
+
+She said that our relationship of more than ten years is over, and that really hurt me. 
+
+I’m having some trouble in my marriage.  and it feels like that my wife suddenly become a totally different person.
+
+of Course ,i have loved her ,  I love her  for fourteen years  Before this year, I always thought she loved me too, I honestly don’t know how to handle it, and sometimes I wonder if I ever really knew her at all.
+
+Now we don’t really talk to each other; we take care of our daughter separately. but this year , But this year she’s changed, and I hardly recognize her.”
+
 
 
