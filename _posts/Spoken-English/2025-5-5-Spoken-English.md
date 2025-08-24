@@ -781,10 +781,13 @@ Housing costs, kids’ education, and unfair laws weigh us down. We don’t have
 
 ### Discord
 
-How’s your day going   practice speaking English   practice spoken English   
+How’s your day going   practice speaking English   practice spoken English      I’m fed up with work  I’m tired of work 
  
 Our countries are very close to each other  My wife and I are having some trouble.  There’s some trouble between my wife and me. 
 
+Our passport doesn’t work well in a lot of countries.   
+
+It’s a great country, but it has a terrible government.
 
 I feel a little offended.   I want to  share my story with someone , maybe you could give me some suggestion. 
 
