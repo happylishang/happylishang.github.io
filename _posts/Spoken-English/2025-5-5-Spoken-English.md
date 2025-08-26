@@ -779,7 +779,7 @@ Housing costs, kids’ education, and unfair laws weigh us down. We don’t have
 |                      |                            | for 2 hours                |                      |
 +----------------------+----------------------------+----------------------------+----------------------+
 
-### Discord
+### Discord  Story
 
 How’s your day going   practice speaking English   practice spoken English      I’m fed up with work  I’m tired of work 
  
