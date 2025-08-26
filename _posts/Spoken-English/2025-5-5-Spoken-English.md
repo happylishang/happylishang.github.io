@@ -789,15 +789,25 @@ Our passport doesn’t work well in a lot of countries.
 
 It’s a great country, but it has a terrible government.
 
-I feel a little offended.   I want to  share my story with someone , maybe you could give me some suggestion. 
-
-She said that our relationship of more than ten years is over, and that really hurt me. 
-
-I’m having some trouble in my marriage.  and it feels like that my wife suddenly become a totally different person.
-
-of Course ,i have loved her ,  I love her  for fourteen years  Before this year, I always thought she loved me too, I honestly don’t know how to handle it, and sometimes I wonder if I ever really knew her at all.
-
-Now we don’t really talk to each other; we take care of our daughter separately. but this year , But this year she’s changed, and I hardly recognize her.”
+I feel a little offended.  
 
 
+
+I want to  share my story with someone , maybe you could give me some suggestion. I’m having some trouble in my marriage. My wife and I have been married for ten years. 
+
+we met in high school,and  got married after we graduated from college. I’ve always thought we had a happy marriage.  bug 
+
+SomeDay ， She suddenly said that our relationship of more than ten years is over, and that really hurt me. 
+
+and it feels like that my wife suddenly become a totally different person.
+
+of Course ,i have loved her ,  I love her  for fourteen years  Before this year, I always thought she loved me too, I really don’t know how to handle it, and sometimes I wonder if I ever really knew her at all. 
+
+Now we don’t really talk to each other; Even if we take care of our daughter separately. She has become a completely different person to me. I can hardly recognize her anymore. 
+
+I can’t understand why someone could become such a completely different person so quickly. 
+
+when i want to talk with her ,she become very annoyd ,and angry ,We cant have a peacefull conversation at all. 
+
+Has anyone of you ever faced such a problem?
 
