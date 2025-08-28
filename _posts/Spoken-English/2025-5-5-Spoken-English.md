@@ -889,3 +889,23 @@ Have you ever been in love with someone?
 | 49 | I am afraid about spiders | I am afraid of spiders | afraid后接of |
 | 50 | I’m interested about music | I’m interested in music | interested后接介词in |
 
+
+
+# 🌟 Most Common 300 English Words
+
+## 1️⃣ 代词 & 冠词
+I, you, he, she, it, we, they, me, him, her, us, them, my, your, his, her, its, our, their, mine, yours, this, that, these, those, a, an, the
+
+## 2️⃣ 常用动词
+be, have, do, say, get, make, go, know, take, see, come, think, look, want, give, use, find, tell, ask, work, seem, feel, try, leave, call, put, mean, keep, let, begin, help, talk, turn, start, show, hear, play, run, move, like, live, believe, hold, bring, happen, write, provide, sit, stand
+
+## 3️⃣ 常用名词
+time, person, year, way, day, thing, man, world, life, hand, part, child, eye, woman, place, work, week, case, point, government, company, number, group, problem, fact, home, school, friend, family, money, water, air, food, country, city, story, idea, word, night, car
+
+## 4️⃣ 常用形容词 & 副词
+good, new, first, last, long, great, little, own, other, old, right, big, high, different, small, large, next, early, young, important, few, public, bad, same, able, well, really, very, always, never, often, sometimes, usually, likely
+
+## 5️⃣ 常用介词 &连词
+in, on, at, by, with, about, against, between, under, over, through, during, without, within, for, from, to, of, and, but, or, so, because, although, if, while, as, than, before, after, until, since, though, nor, either, neither, whether
+
+
