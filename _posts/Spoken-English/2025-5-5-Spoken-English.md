@@ -811,3 +811,81 @@ Has anyone of you ever faced such a problem?
 
 Have you ever been in love with someone?
 
+
+
+# ⚠️ Expanded English Trap Phrases by Scenario (≈550 Words)
+
+## 1️⃣ 自我介绍 & 寒暄
+| #  | ❌ 错误句 | ✅ 正确句 | 中文解释 |
+|----|-----------|-----------|-----------|
+| 1  | I’m boring | I’m bored | 描述自己感到无聊用bored，boring描述事物 |
+| 2  | I have 20 years old | I’m 20 years old | 表示年龄时不用have，用am |
+| 3  | I am interesting in music | I am interested in music | interested描述人兴趣 |
+| 4  | I’m agree with you | I agree with you | agree不用be动词 |
+| 5  | I’m interesting in art | I’m interested in art | interesting用于事物，interested描述人 |
+| 6  | I’m live in Beijing | I live in Beijing | live是动词，不用be动词连用 |
+| 7  | My name is called Li | My name is Li | called多余 |
+| 8  | I am very like coffee | I like coffee very much | like不用am，副词位置调整 |
+
+## 2️⃣ 问路 & 出行
+| #  | ❌ 错误句 | ✅ 正确句 | 中文解释 |
+|----|-----------|-----------|-----------|
+| 9  | Where is the station at? | Where is the station? | at多余 |
+| 10 | Can you borrow me a pen? | Can you lend me a pen? | borrow/lend混淆 |
+| 11 | I go to home | I go home | go home不加to |
+| 12 | He asked me can help | He asked me to help | ask + to + 原形动词 |
+| 13 | I’m used to swim | I’m used to swimming | used to + 动名词表示习惯 |
+| 14 | Is far from here? | Is it far from here? | 缺主语it |
+
+## 3️⃣ 饮食 & 购物
+| #  | ❌ 错误句 | ✅ 正确句 | 中文解释 |
+|----|-----------|-----------|-----------|
+| 15 | I want eat something | I want to eat something | 不定式to漏掉 |
+| 16 | How much it is? | How much is it? | 句子倒装错误 |
+| 17 | Let’s to eat | Let’s eat | let’s + 原形动词 |
+| 18 | I prefer tea than coffee | I prefer tea to coffee | prefer搭配to，不用than |
+| 19 | I enjoyed to watch the movie | I enjoyed watching the movie | enjoy + 动名词，不用to |
+| 20 | Do you have some water? | Do you have any water? | some通常用于肯定句，疑问用any |
+
+## 4️⃣ 情绪 & 表达
+| #  | ❌ 错误句 | ✅ 正确句 | 中文解释 |
+|----|-----------|-----------|-----------|
+| 21 | I am exciting | I am excited | exciting描述事物，excited描述人 |
+| 22 | I am boring in class | I am bored in class | bored描述人，boring描述事物 |
+| 23 | I very like it | I like it very much | 副词位置错误 |
+| 24 | I am afraid from spiders | I am afraid of spiders | afraid后接介词用of |
+| 25 | She looks like very happy | She looks very happy | 副词very放置位置错误 |
+| 26 | I feel boring | I feel bored | boring/ bored混淆 |
+| 27 | I am exciting about it | I am excited about it | exciting描述事物，excited描述人 |
+| 28 | I’m interest in learning English | I’m interested in learning English | interested描述人兴趣 |
+
+## 5️⃣ 网络 & 通讯
+| #  | ❌ 错误句 | ✅ 正确句 | 中文解释 |
+|----|-----------|-----------|-----------|
+| 29 | My internet not good | My internet is not very good | 缺be动词 |
+| 30 | I no understand | I don’t understand | 否定表达需用do/does/did |
+| 31 | He said me hello | He said hello to me | say后加to表示“对某人说” |
+| 32 | I look forward to see you | I look forward to seeing you | look forward to + 动名词 |
+| 33 | He explained me the rules | He explained the rules to me | explain + to表示“向某人解释” |
+| 34 | I’m waiting you | I’m waiting for you | wait + for |
+
+## 6️⃣ 其他常见语法
+| #  | ❌ 错误句 | ✅ 正确句 | 中文解释 |
+|----|-----------|-----------|-----------|
+| 35 | I am married since 2010 | I have been married since 2010 | 表示从过去到现在状态，用现在完成时 |
+| 36 | I suggest to go | I suggest going / I suggest that we go | suggest + 动名词或从句 |
+| 37 | She is married with him | She is married to him | married后接to |
+| 38 | We discussed about the topic | We discussed the topic | discuss不用about |
+| 39 | He did a mistake | He made a mistake | 做“错误”用make，不用do |
+| 40 | I am agree that it’s true | I agree that it’s true | agree不用am |
+| 41 | He suggested me to go | He suggested that I go / He suggested going | suggest + 人 + 动词原形，不加to |
+| 42 | I’m looking forward to meet you | I’m looking forward to meeting you | look forward to + 动名词 |
+| 43 | I’m boring | I’m bored | boring/ bored混淆 |
+| 44 | She depends of her parents | She depends on her parents | depend后接on |
+| 45 | I explained him the problem | I explained the problem to him | explain后接to |
+| 46 | He returned back home | He returned home | return本身有“回去”的意思，back多余 |
+| 47 | I suggest you to study | I suggest you study | suggest + 人 + 动词原形，不加to |
+| 48 | She looks like her mother very much | She looks very much like her mother | 副词位置调整 |
+| 49 | I am afraid about spiders | I am afraid of spiders | afraid后接of |
+| 50 | I’m interested about music | I’m interested in music | interested后接介词in |
+
