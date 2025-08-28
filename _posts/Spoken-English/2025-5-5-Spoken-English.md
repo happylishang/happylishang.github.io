@@ -792,12 +792,9 @@ It’s a great country, but it has a terrible government.
 I feel a little offended.  
 
 
-
 I want to  share my story with someone , maybe you could give me some suggestion. I’m having some trouble in my marriage. My wife and I have been married for ten years. 
 
-we met in high school,and  got married after we graduated from college. I’ve always thought we had a happy marriage.  bug 
-
-SomeDay ， She suddenly said that our relationship of more than ten years is over, and that really hurt me. 
+we met in high school,and  got married after we graduated from college. I’ve always thought we had a happy marriage.  bug SomeDay ， She suddenly said that our relationship of more than ten years is over, and that really hurt me. 
 
 and it feels like that my wife suddenly become a totally different person.
 
@@ -810,4 +807,7 @@ I can’t understand why someone could become such a completely different person
 when i want to talk with her ,she become very annoyd ,and angry ,We cant have a peacefull conversation at all. 
 
 Has anyone of you ever faced such a problem?
+
+
+Have you ever been in love with someone?
 
