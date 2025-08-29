@@ -916,3 +916,70 @@ good, new, first, last, long, great, little, own, other, old, right, big, high, 
 in, on, at, by, with, about, against, between, under, over, through, during, without, within, for, from, to, of, and, but, or, so, because, although, if, while, as, than, before, after, until, since, though, nor, either, neither, whether
 
 
+
+
+### what do you do for a living
+
+# Dialogue: A Student and a Worker with 10 Years of Experience
+ 
+ # Dialogue: A Student and a Worker (Simple Version)
+
+**A (student):** Hi! Out of curiosity, what do you do for a living?  
+嗨！出于好奇，你是做什么工作的？  
+
+**B (worker):** Hi! I’m a project manager. I’ve been doing this for ten years. How about you?  
+嗨！我是项目经理，做了十年。你呢？  
+
+**A:** Wow, ten years! I’m still a student. I study computer science.  
+哇，十年！我还是学生，学计算机。  
+
+**B:** That’s cool. How do you like university?  
+不错啊。你觉得大学生活怎么样？  
+
+**A:** It’s fun, but sometimes I feel confused. There are many choices—coding, AI, design. I don’t know what to pick.  
+挺有趣的，但有时我很迷茫。选择太多了——编程、人工智能、设计。我不知道该选哪个。  
+
+**B:** I understand. When I was your age, I felt the same. Even now, sometimes I’m still confused at work.  
+我懂。我你这个年纪也有同样的感觉。现在工作，有时我也会困惑。  
+
+**A:** Really? I thought people with experience know everything.  
+真的吗？我以为有经验的人都知道该怎么做。  
+
+**B:** Haha, I wish! Work changes all the time. New tech, new problems. The key is to keep learning.  
+哈哈，我也希望！工作一直在变，新技术、新问题。关键是不断学习。  
+
+**A:** That makes sense. But what if I pick the wrong path? What if I spend years on something I don’t like?  
+有道理。但如果我选错路怎么办？如果我花几年做不喜欢的事情呢？  
+
+**B:** That happens. I changed jobs a few times. Skills you learn are never wasted.  
+这种事会发生。我换过几次工作。学到的技能永远不会浪费。  
+
+**A:** Hmm, that’s good to know. It makes me feel better.  
+嗯，这样很好，让我放心多了。  
+
+**B:** You’ll be fine. Try different things while you’re young. It’s the best time to explore.  
+你会没事的。年轻的时候多尝试，这是探索的最好时间。  
+
+**A:** Thanks! And what about you? After ten years, do you still like your job?  
+谢谢！那你呢？工作十年，你还喜欢吗？  
+
+**B:** Most of the time, yes. I like helping my team, but sometimes work is tiring. Work-life balance is hard.  
+大多数时候是的。我喜欢帮助团队，但有时工作很累。生活工作平衡很难。  
+
+**A:** Yeah, I’ve heard working adults have little free time.  
+是啊，我听说上班族几乎没有空闲时间。  
+
+**B:** True, but you can manage. I make time for hobbies—sports, reading, friends. It helps me relax.  
+确实，但你可以安排时间。我会做运动、读书、和朋友出去玩。这让我放松。  
+
+**A:** Good idea. I should start building good habits now.  
+好主意。我现在就该开始养成好习惯。  
+
+**B:** Exactly. Don’t wait until you’re too tired. Practice balance early.  
+没错。别等太累才想平衡，早点练习。  
+
+**A:** Thanks, I really learned a lot.  
+谢谢，我学到很多东西。  
+
+**B:** Anytime! And if you need advice, just ask me.  
+随时！如果你需要建议，随时问我。
