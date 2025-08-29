@@ -816,6 +816,7 @@ Have you ever been in love with someone?
 # ⚠️ Expanded English Trap Phrases by Scenario (≈550 Words)
 
 ## 1️⃣ 自我介绍 & 寒暄
+
 | #  | ❌ 错误句 | ✅ 正确句 | 中文解释 |
 |----|-----------|-----------|-----------|
 | 1  | I’m boring | I’m bored | 描述自己感到无聊用bored，boring描述事物 |
@@ -828,6 +829,7 @@ Have you ever been in love with someone?
 | 8  | I am very like coffee | I like coffee very much | like不用am，副词位置调整 |
 
 ## 2️⃣ 问路 & 出行
+
 | #  | ❌ 错误句 | ✅ 正确句 | 中文解释 |
 |----|-----------|-----------|-----------|
 | 9  | Where is the station at? | Where is the station? | at多余 |
