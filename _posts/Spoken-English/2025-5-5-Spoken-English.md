@@ -837,7 +837,9 @@ Have you ever been in love with someone?
 | 13 | I’m used to swim | I’m used to swimming | used to + 动名词表示习惯 |
 | 14 | Is far from here? | Is it far from here? | 缺主语it |
 
+
 ## 3️⃣ 饮食 & 购物
+
 | #  | ❌ 错误句 | ✅ 正确句 | 中文解释 |
 |----|-----------|-----------|-----------|
 | 15 | I want eat something | I want to eat something | 不定式to漏掉 |
@@ -848,6 +850,7 @@ Have you ever been in love with someone?
 | 20 | Do you have some water? | Do you have any water? | some通常用于肯定句，疑问用any |
 
 ## 4️⃣ 情绪 & 表达
+
 | #  | ❌ 错误句 | ✅ 正确句 | 中文解释 |
 |----|-----------|-----------|-----------|
 | 21 | I am exciting | I am excited | exciting描述事物，excited描述人 |
@@ -860,6 +863,7 @@ Have you ever been in love with someone?
 | 28 | I’m interest in learning English | I’m interested in learning English | interested描述人兴趣 |
 
 ## 5️⃣ 网络 & 通讯
+
 | #  | ❌ 错误句 | ✅ 正确句 | 中文解释 |
 |----|-----------|-----------|-----------|
 | 29 | My internet not good | My internet is not very good | 缺be动词 |
@@ -870,6 +874,7 @@ Have you ever been in love with someone?
 | 34 | I’m waiting you | I’m waiting for you | wait + for |
 
 ## 6️⃣ 其他常见语法
+
 | #  | ❌ 错误句 | ✅ 正确句 | 中文解释 |
 |----|-----------|-----------|-----------|
 | 35 | I am married since 2010 | I have been married since 2010 | 表示从过去到现在状态，用现在完成时 |
