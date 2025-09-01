@@ -1014,5 +1014,38 @@ in, on, at, by, with, about, against, between, under, over, through, during, wit
 **B:** Perfect! See? You’re already speaking Chinese.  
 完美！看吧，你已经会说中文了。
 
+The descriptions of settings, fights, and martial arts in Chinese are incredibly beautiful and unique.
+
+# Praising the Chinese Language (口语化表达)
+
+1. Chinese is so beautiful when describing scenes and settings.  
+中文在描写场景和环境时非常优美。
+
+2. The way Chinese depicts fights and battles is truly vivid.  
+中文描写打斗和战斗的方式非常生动。
+
+3. Martial arts techniques sound poetic in Chinese.  
+中文中功夫招式的描述听起来像诗一样。
+
+4. Chinese has a unique elegance that makes stories more immersive.  
+中文独有的优雅让故事更加引人入胜。
+
+5. The language flows beautifully when narrating combat scenes.  
+在叙述战斗场面时，中文的语言流畅而美丽。
+
+6. Chinese is unmatched in expressing the subtleties of martial arts.  
+中文在表达功夫的细腻方面无与伦比。
+
+7. Every description in Chinese feels rich and full of imagery.  
+中文的每一句描写都充满画面感和丰富细节。
+
+8. Reading a Chinese novel makes the fight scenes come alive.  
+读中文小说让打斗场面仿佛跃然纸上。
+
+9. The beauty of Chinese lies in its ability to convey both action and emotion.  
+中文的美在于它能够同时传达动作和情感。
+
+10. I love how Chinese can turn even a simple scene into a vivid picture.  
+我喜欢中文能把简单的场景也描写得栩栩如生。
 
 	
