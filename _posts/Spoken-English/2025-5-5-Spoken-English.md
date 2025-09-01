@@ -986,3 +986,33 @@ in, on, at, by, with, about, against, between, under, over, through, during, wit
 
 
 	You’re such a good host.
+	
+	
+# Dialogue: Talking about Chinese
+
+**A:** I’ve always wanted to learn Chinese. Is it hard?  
+我一直想学中文。它难吗？  
+
+**B:** It can be challenging at first, but Chinese is a beautiful language.  
+一开始可能有点难，不过中文是一门很漂亮的语言。  
+
+**A:** Really? What do you like most about it?  
+真的吗？你最喜欢它的什么？  
+
+**B:** I love the characters and the tones. They make the language very expressive.  
+我喜欢汉字和声调。它们让语言非常有表现力。  
+
+**A:** That sounds interesting. I want to try speaking some words.  
+听起来很有趣。我想试着说几句话。  
+
+**B:** Sure! Start with “你好” (nǐ hǎo). It means “hello.”  
+当然！先从“你好”开始吧，它的意思是“你好”。  
+
+**A:** 你好! Did I say it right?  
+你好！我说得对吗？  
+
+**B:** Perfect! See? You’re already speaking Chinese.  
+完美！看吧，你已经会说中文了。
+
+
+	
