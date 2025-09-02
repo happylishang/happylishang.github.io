@@ -1048,4 +1048,14 @@ The descriptions of settings, fights, and martial arts in Chinese are incredibly
 10. I love how Chinese can turn even a simple scene into a vivid picture.  
 我喜欢中文能把简单的场景也描写得栩栩如生。
 
+* **Hey, why didn’t you accept my friend request?**
+
+
+Chinese is so beautiful when describing scenes 、 settings、Martial arts techniques 、battles
+中文在描写场景和环境时非常优美。 打斗和战斗的方式
+
+ 
+
+
+	
 	
