@@ -1101,5 +1101,19 @@ Chinese is so beautiful when describing scenes 、 settings、Martial arts techn
 3. **状语从句**：修饰动词、形容词或整个句子，说明时间、原因等。  
 每类从句根据具体功能和引导词有不同的用法。
 
+
+### 从句：通常使用陈述语序（主语+谓语），即使从句由疑问词引导。
+
+
+例：I wonder where she lives. （where引导名词性从句，语序为she lives，不是疑问句的lives she）
+
+
+### 正常句子：如果是疑问句，可能使用倒装语序（助动词/系动词+主语+谓语）。
+
+例：Where does she live? （疑问句，语序倒装）
+
+
+注意：在名词性从句中，即使以疑问词开头，也不要使用疑问句的倒装语序。
+
 	
 	
