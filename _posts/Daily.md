@@ -1,4 +1,4 @@
-1.  Time to wake up 
+1. Time to wake up 
 2. Are you awake
 3. Get out of bed 下床了
 4. The alarm didnot go off

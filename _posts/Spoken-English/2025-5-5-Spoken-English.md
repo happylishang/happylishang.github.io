@@ -1055,7 +1055,51 @@ Chinese is so beautiful when describing scenes 、 settings、Martial arts techn
 中文在描写场景和环境时非常优美。 打斗和战斗的方式
 
  
+####  英语从句 (Clauses)
+ # 英语从句的种类
 
+英语中的从句主要分为以下三种类型：
+
+## 一、名词性从句 (Noun Clause)
+
+**功能**：在句子中充当主语、宾语、表语或同位语。  
+**引导词**：that, whether, if, what, who, whom, whose, which, when, where, why, how 等。
+
+### 例子
+- **作主语**：What he said is true. → 他所说的是真的。  
+- **作宾语**：I know who he is. → 我知道他是谁。  
+- **作表语**：The problem is that we are late. → 问题是我们迟到了。  
+- **作同位语**：The fact that he lied surprised me. → 他撒谎的事实让我吃惊。
+
+## 二、定语从句 (Adjective / Relative Clause)
+
+**功能**：修饰名词或代词，相当于形容词。  
+**引导词**：who, whom, whose, which, that, where, when, why 等。
+
+### 例子
+- **修饰人**：The man who is talking to Tom is my brother. → 正在和汤姆说话的那个人是我哥哥。  
+- **修饰物**：The book that you gave me is interesting. → 你给我的书很有趣。  
+- **修饰时间/地点/原因**：I remember the day when we met. → 我记得我们见面的那天。
+
+## 三、状语从句 (Adverbial Clause)
+
+**功能**：作句子的状语，说明时间、原因、条件、目的、结果、让步等。  
+**引导词**：when, while, before, after, because, since, if, unless, although, though, so that, as if 等。
+
+### 例子
+- **时间状语从句**：I will call you when I arrive. → 我到的时候会打电话给你。  
+- **原因状语从句**：Because it was raining, we stayed home. → 因为下雨，我们待在家。  
+- **条件状语从句**：I will go if it doesn’t rain. → 如果不下雨，我就去。  
+- **目的状语从句**：He works hard so that he can buy a car. → 他努力工作，为了买车。  
+- **结果状语从句**：He was so tired that he fell asleep immediately. → 他太累了，以至于立刻睡着了。  
+- **让步状语从句**：Although he was tired, he kept working. → 虽然他累了，他还是继续工作。
+
+## 总结
+英语从句共分为三种主要类型：  
+1. **名词性从句**：充当句子成分，如主语、宾语等。  
+2. **定语从句**：修饰名词或代词，起形容词作用。  
+3. **状语从句**：修饰动词、形容词或整个句子，说明时间、原因等。  
+每类从句根据具体功能和引导词有不同的用法。
 
 	
 	
