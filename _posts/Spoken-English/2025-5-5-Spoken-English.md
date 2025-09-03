@@ -1051,10 +1051,35 @@ The descriptions of settings, fights, and martial arts in Chinese are incredibly
 * **Hey, why didn’t you accept my friend request?**
 
 
-Chinese is so beautiful when describing scenes 、 settings、Martial arts techniques 、battles
+**Chinese is so beautiful when describing scenes 、 settings、Martial arts techniques 、battles
+**
+
 中文在描写场景和环境时非常优美。 打斗和战斗的方式
 
+###  Classical Chinese vs Modern Chinese
+
  
+ **Alice:** Lately I’ve been diving into Classical Chinese. The beauty of the language… it’s just amazing.  
+
+**Ben:** Classical Chinese? Isn’t that super hard to learn?  
+
+**Alice:** Totally. It’s concise, every character carries so much meaning. That’s part of what makes it beautiful.  
+
+**Ben:** How does it compare to Modern Chinese then?  
+
+**Alice:** Modern Chinese is easier to use in daily life. It’s more flexible, more expressive. But it still has elegance if you pay attention.  
+
+**Ben:** So you’re saying Classical Chinese is like a painting, and Modern Chinese is like a photograph?  
+
+**Alice:** Exactly! And learning them is a challenge. You really have to memorize characters, understand historical context… it’s not easy at all.  
+
+**Ben:** Wow, no wonder people say Chinese is hard. But I guess that’s also why it’s so fascinating.  
+
+**Alice:** Yep. Even struggling with it, you start to feel the depth of thousands of years of culture in every word.  
+
+
+
+
 ####  英语从句 (Clauses)
  # 英语从句的种类
 
