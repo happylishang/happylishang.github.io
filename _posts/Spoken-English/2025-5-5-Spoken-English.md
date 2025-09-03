@@ -1141,4 +1141,28 @@ The descriptions of settings, fights, and martial arts in Chinese are incredibly
 注意：在名词性从句中，即使以疑问词开头，也不要使用疑问句的倒装语序。
 
 	
-	
+I’ve been working a long time today. so i am just watching now , 
+
+I want to understand what you’re talking about.
+
+I remember you’re from Australia.
+
+The government is very controlling
+
+Do you support Putin’s war?
+
+They know, but they turn a blind eye.
+
+We have a real-name system.
+
+What do you think of Putin?
+
+
+There’s no democracy here.
+
+They don’t really have democracy.
+
+
+There are tools for that. Unity 
+
+You need to become an Android developer and make an app for people to use.  
