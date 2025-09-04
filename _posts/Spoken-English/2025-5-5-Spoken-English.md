@@ -1166,3 +1166,5 @@ They don’t really have democracy.
 There are tools for that. Unity 
 
 You need to become an Android developer and make an app for people to use.  
+
+I’m not studying, I’m already working.
