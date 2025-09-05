@@ -757,6 +757,103 @@ Maybe the rich and powerful Chinese who travel abroad are part of the reason why
 Housing costs, kids’ education, and unfair laws weigh us down. We don’t have the right to protest, so many of us feel helpless and trapped.
 
 
+it’s pretty good. I mean, sure, freedom of speech is limited, but on the other side, it’s super safe. you can walk around at midnight, and you don’t really worry about crime. That’s something I really appreciate. 
+
+And what about work life?  I’ve heard the nightlife is fun?
+
+Yeah, totally! There are night markets, bars... the city never really sleeps. And the best part is, it still feels safe even if you’re out really late.
+
+
+# What are the two things you are most satisfied with about your country?  
+你们国家最令你满意的两个点是什么？
+
+---
+
+### 回答示例 1（生活类）
+One thing I’m most satisfied with is the healthcare system, because it’s affordable and accessible.  
+我最满意的一点是医疗体系，因为它既负担得起，又很容易获得。  
+
+Another thing is the food. The variety and taste of our local dishes are amazing.  
+另一个是美食。我们本地菜肴的种类和味道都非常棒。  
+
+---
+
+### 回答示例 2（环境类）
+The first thing is the natural scenery. We have beautiful mountains and rivers.  
+第一点是自然风景。我们有美丽的山河。  
+
+The second is public safety. I feel safe walking around even at night.  
+第二点是公共安全。即使晚上出门，我也觉得很安全。  
+
+---
+
+### 回答示例 3（文化类）
+What I like most is our long history and culture. It gives me a strong sense of identity.  
+我最喜欢的是我们的悠久历史和文化，它让我有很强的认同感。  
+
+The other thing is the people. They are friendly and always willing to help.  
+另一个是人民。他们很友好，总是乐于助人。  
+
+
+
+## 场景：在公园里随意聊天  
+Scene: Casual talk in the park  
+
+---
+
+**A:** What are the two things you are most satisfied with about your country?  
+你们国家最令你满意的两个点是什么？  
+
+**B:** Well, the first thing is safety. I can walk around at night without worrying too much.  
+嗯，第一点是安全。我晚上出门走动也不用太担心。  
+
+**A:** That sounds nice. What about the second one?  
+听起来不错。那第二点呢？  
+
+**B:** Definitely the food! We have so many different dishes, and the flavors are amazing.  
+当然是美食！我们有很多不同的菜肴，而且味道非常棒。  
+
+**A:** I see. So safety and food are the top two for you.  
+我明白了，所以安全和美食是你最满意的两个点。  
+
+**B:** Exactly. How about your country? What are the two things you’re most satisfied with?  
+没错。那你呢？你对你们国家最满意的两点是什么？  
+
+**A:** For me, it’s healthcare and transportation. The healthcare system is affordable, and public transport is really convenient.  
+对我来说，是医疗和交通。医疗体系负担得起，而且公共交通非常方便。  
+
+**B:** That’s great! Sounds like we both have reasons to be proud of our countries.  
+太棒了！听起来我们都有值得自豪的理由。  
+
+
+
+🗣️ 日常对话 (Daily Conversation)
+
+A: What do you like the most about living in China?
+A: 你最喜欢住在中国的哪一点？
+
+B: I think the two things I’m most satisfied with are safety and food.
+B: 我觉得最让我满意的两点是安全和美食。
+
+A: Oh, really? Tell me more about that.
+A: 哦，真的吗？说说看。
+
+B: Well, I feel really safe walking outside, even late at night. That’s not always the case in other countries.
+B: 嗯，我觉得即使晚上很晚走在外面也很安全。这在其他一些国家并不一定有。
+
+A: That sounds nice. And what about the food?
+A: 听起来不错。那美食呢？
+
+B: The food here is amazing! Every city has its own style and flavors. I love trying different dishes.
+B: 中国的食物太棒了！每个城市都有自己的风味。我很喜欢尝试各种不同的菜。
+
+A: I totally agree. Chinese cuisine is one of the best in the world.
+A: 我完全同意。中国菜是世界上最棒的之一
+
+
+
+
+
 ![在这里插入图片描述](https://i-blog.csdnimg.cn/direct/e5b6da335b7e469b8541627f5402a690.png)
 
 ![在这里插入图片描述](https://i-blog.csdnimg.cn/direct/924cbd092b9544169611c5014a694226.png)
@@ -1056,6 +1153,7 @@ The descriptions of settings, fights, and martial arts in Chinese are incredibly
 
 中文在描写场景和环境时非常优美。 打斗和战斗的方式
 
+<<<<<<< Updated upstream
 ###  Classical Chinese vs Modern Chinese
 
  
@@ -1177,3 +1275,10 @@ The descriptions of settings, fights, and martial arts in Chinese are incredibly
 * 	•	I don’t understand what you’re saying.（强调“我听不懂你说的”）
 * 	•	I don’t get what you mean.（更随意、口语化）
 *  	•	What is the average salary in Brazil?（最常用、自然）
+ 
+ #### get非常重要  被动句中get 口语中非常重要
+ 
+ Did anyone get arrested / Was anybody arrested? 
+ 
+ underground parking lot /gound parking lot 
+ 
