@@ -1270,11 +1270,12 @@ The descriptions of settings, fights, and martial arts in Chinese are incredibly
 * .
 * 	Are you in college or high school?
 *  	Vietnam is a great place to travel.
-*   	•	I don’t know how to say it in English 
-*    •	I don’t know what you mean.（最常用、自然） 	•	I’m not sure what you mean.（口语化，也很常用）
-* 	•	I don’t understand what you’re saying.（强调“我听不懂你说的”）
-* 	•	I don’t get what you mean.（更随意、口语化）
-*  	•	What is the average salary in Brazil?（最常用、自然）
+*   I don’t know how to say it in English 
+*    I don’t know what you mean.（最常用、自然） 	
+*     I’m not sure what you mean.（口语化，也很常用）
+* 	 I don’t understand what you’re saying.（强调“我听不懂你说的”）
+* 	 I don’t get what you mean.（更随意、口语化）
+*  	 What is the average salary in Brazil?（最常用、自然）
  
  #### get非常重要  被动句中get 口语中非常重要
  
