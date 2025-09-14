@@ -1172,8 +1172,22 @@ The descriptions of settings, fights, and martial arts in Chinese are incredibly
 * .
 * 	Are you in college or high school?
 *  	Vietnam is a great place to travel.
-*   	•	I don’t know how to say it in English 
-*    •	I don’t know what you mean.（最常用、自然） 	•	I’m not sure what you mean.（口语化，也很常用）
-* 	•	I don’t understand what you’re saying.（强调“我听不懂你说的”）
-* 	•	I don’t get what you mean.（更随意、口语化）
-*  	•	What is the average salary in Brazil?（最常用、自然）
+*   I don’t know how to say it in English 
+*   I don’t know what you mean.（最常用、自然） 	 I’m not sure what you mean.（口语化，也很常用）
+* 	 I don’t understand what you’re saying.（强调“我听不懂你说的”）
+* 	 I don’t get what you mean.（更随意、口语化）
+*  	 What is the average salary in Brazil?（最常用、自然）
+*   	 Do you invest in stocks?（
+*   It’s not easy to make a AAA game, and it’s even harder to make it popular all over the world
+*    “India is strong in software.”
+*    Our salary is not high./👉 “We don’t earn a high salary.”（稍微正式）
+*     Are the salaries in your country high? My salary is high, but it’s not stable.” I’ll probably lose my job after I’m 35.
+*      I love The Last of Us the most.”（口语化，更强调喜爱）
+*      Our government is very dictatorial.
+*      Have you asked your wife’s opinion /	 Do you respect your wife’s opinion? 、 He is a bit extreme.
+*      I don’t believe in a god.  with a human form.
+*      a democratic country 
+*      Our corruption is too serious.
+*      video game console 
+
+ 
