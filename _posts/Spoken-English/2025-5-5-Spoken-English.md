@@ -1189,5 +1189,11 @@ The descriptions of settings, fights, and martial arts in Chinese are incredibly
 *      a democratic country 
 *      Our corruption is too serious.
 *      video game console 
+* *      	•	the Chinese government
+* （中国政府，正式用法）
+* 	•	China’s government
+* （中国的政府，更口语化）
+* 	•	The Chinese government announced a new policy yesterday.
+中国政府昨天宣布了一项新政策。
 
  
