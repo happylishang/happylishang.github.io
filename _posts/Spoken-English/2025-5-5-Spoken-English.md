@@ -1193,7 +1193,15 @@ The descriptions of settings, fights, and martial arts in Chinese are incredibly
 * （中国政府，正式用法）
 * 	•	China’s government
 * （中国的政府，更口语化）
-* 	•	The Chinese government announced a new policy yesterday.
-中国政府昨天宣布了一项新政策。
+* 	•	The Chinese government announced a new policy yesterday. 中国政府昨天宣布了一项新政策。
+*  The Chinese government is a one-party system, 
+*  	It’s hard for us to oppose any government policy, whether it’s reasonable or not.   It is very difficult for us to challenge government policies,
+*   You’re very lively.  	Has your protest ended?  
+*   	I believe it’s their decision, and I respect it.  They look very beautiful, but their voice sounds a bit unusual.
+*    	 Only if you study hard can you make progress.     You can only improve by speaking more.
+*     You can only get better if you practice.  	Only by asking questions can you learn faster.
+*      We don’t have the right to vote.
+
+
 
  
