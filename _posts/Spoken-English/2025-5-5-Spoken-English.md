@@ -1142,7 +1142,7 @@ The descriptions of settings, fights, and martial arts in Chinese are incredibly
 
 	
 * I’ve been working a long time today. so i am just watching now , 
-* 
+ 
 * I want to understand what you’re talking about.
 * 
 * I remember you’re from Australia.
@@ -1157,10 +1157,9 @@ The descriptions of settings, fights, and martial arts in Chinese are incredibly
 * 
 * What do you think of Putin?
 * 
-* 
 * There’s no democracy here.
 * 
-* They don’t really have democracy.
+* They/we  don’t really have democracy.
 * 
 *  China held a military parade today.
 * 
@@ -1177,7 +1176,7 @@ The descriptions of settings, fights, and martial arts in Chinese are incredibly
 * 	 I don’t understand what you’re saying.（强调“我听不懂你说的”）
 * 	 I don’t get what you mean.（更随意、口语化）
 *  	 What is the average salary in Brazil?（最常用、自然）
-*   	 Do you invest in stocks?（
+*   	 Do you invest in stocks?
 *   It’s not easy to make a AAA game, and it’s even harder to make it popular all over the world
 *    “India is strong in software.”
 *    Our salary is not high./👉 “We don’t earn a high salary.”（稍微正式）
@@ -1189,10 +1188,7 @@ The descriptions of settings, fights, and martial arts in Chinese are incredibly
 *      a democratic country 
 *      Our corruption is too serious.
 *      video game console 
-* *      	•	the Chinese government
-* （中国政府，正式用法）
-* 	•	China’s government
-* （中国的政府，更口语化）
+* *    the Chinese government （中国政府，正式用法） China’s government （中国的政府，更口语化）
 * 	•	The Chinese government announced a new policy yesterday. 中国政府昨天宣布了一项新政策。
 *  The Chinese government is a one-party system, 
 *  	It’s hard for us to oppose any government policy, whether it’s reasonable or not.   It is very difficult for us to challenge government policies,
