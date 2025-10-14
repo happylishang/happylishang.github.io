@@ -1203,5 +1203,8 @@ The descriptions of settings, fights, and martial arts in Chinese are incredibly
 *      We don’t have the right to vote.
 
 
+# 如何保持对话的持续
 
+* 1、回答问题之后，解释一下，更加友好
+* 准备topics 、最喜欢的漫画、政治、猜猜我来自哪个国家、你对这个国家的印象、国家最满意最不满意的点、适合旅游吗、出过国吗、对于某些事情怎么看、支持反对为什么、
  
