@@ -1199,5 +1199,22 @@ The descriptions of settings, fights, and martial arts in Chinese are incredibly
 *      We don’t have the right to vote.
 
 
+# 如何保持对话的持续
 
+* 1、回答问题之后，解释一下，更加友好
+* 准备topics 、最喜欢的漫画、政治、猜猜我来自哪个国家、你对这个国家的印象、国家最满意最不满意的点、适合旅游吗、出过国吗、对于某些事情怎么看、支持反对为什么、
  
+* Hey guys, what’s up?	嘿，大家在干嘛？	最常见的随意问候
+* Hey, what are you guys talking about?	嘿，你们在聊什么？想融入话题时用
+* I’m just trying to figure out the topic. 我在试着搞清楚话题。
+* Wait, what does that mean? 等等，那是什么意思 
+* Oh really? That’s interesting. 真的？那挺有意思的
+* You’re kidding, right? 你在开玩笑吧？
+* Alright guys, I gotta go. 好啦，我得走了。
+* It was nice talking to you all! 很高兴跟大家聊天！
+* Take care, everyone. 大家保重。
+* Can you guess where I’m from? 
+* I’ll give you a hint — it’s in Asia.
+* Have you ever been abroad? 
+* What do you think about that? 
+
