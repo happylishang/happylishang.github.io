@@ -1216,4 +1216,7 @@ The descriptions of settings, fights, and martial arts in Chinese are incredibly
 * It shocked me when I heard the news
 * How did you know 
 * why do you think so 
+* The Chinese passport isn’t very powerful.
+* 	Our government isn’t very open-minded.
+*  Seek a better life
 
