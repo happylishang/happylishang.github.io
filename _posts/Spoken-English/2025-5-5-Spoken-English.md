@@ -737,7 +737,7 @@ As for us ordinary people, we also long for freedom— freedom of speech, freedo
 Normal people are crushed by the burden of housing and children’s education. We don’t have guns, we don’t even have the right to protest. Ordinary people like us feel really helpless and suffocated.
 
 
-I’m from China. I know a lot of people online don’t really like China, I respect their point of view, but I just hope they can tell the difference between the government and regular people. We’re not the same.
+I’m from China. I know many people online have **negative feelings about China**, I respect their opinions ,  but I hope they can tell the difference between the government and ordinary people.  Most of us are just regular folks,We are very kind and dont hurt anyone .
 
 Most of the Chinese who travel abroad are rich business owners, “second-gen” kids, or people with connections. They don’t really care about ordinary folks. They think they’re above others, but honestly, their manners can be pretty bad.
 
@@ -745,10 +745,6 @@ For people like us, we want the same things as anyone else—freedom of speech, 
 
 Everyday families are struggling with housing costs and kids’ education. We can’t own guns, we don’t even have the right to protest. So yeah, a lot of us feel powerless and trapped.
 
-
-对比
-
-I’m from China. I’m from mainland China， I know many people online have negative feelings about China,I respect their opinions ,  but I hope they can tell the difference between the government and ordinary people.  Most of us are just regular folks,We are very kind and dont hurt anyone .
 
 **I hope I didn’t offend you.**
 
@@ -1217,4 +1213,7 @@ The descriptions of settings, fights, and martial arts in Chinese are incredibly
 * I’ll give you a hint — it’s in Asia.
 * Have you ever been abroad? 
 * What do you think about that? 
+* It shocked me when I heard the news
+* How did you know 
+* why do you think so 
 
