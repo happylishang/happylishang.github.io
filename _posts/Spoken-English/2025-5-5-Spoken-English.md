@@ -1219,4 +1219,7 @@ The descriptions of settings, fights, and martial arts in Chinese are incredibly
 * The Chinese passport isn’t very powerful.
 * 	Our government isn’t very open-minded.
 *  Seek a better life
+*  What do you think of the working environment in Brazil?
+*  How do you find the working environment in Brazil?
+
 
