@@ -4,4 +4,5 @@
 * Go away bugs 
 * Help me **make** a wall 
 * watch me run / play around the rock /up/down the hill  / across the log 
+* I like to talk / I want to eat fruits 
 * 
