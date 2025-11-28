@@ -8,4 +8,5 @@
 * Stop playing hide and seek with me. Just tell me the truth.
 * See where I sit , I sit on the log   Can you move like this  ,yes I can move like that 
 * You will fall off the log  \can you hold this rock 
+* “The air was hot and steamy. The  air is fresh 
 * 
