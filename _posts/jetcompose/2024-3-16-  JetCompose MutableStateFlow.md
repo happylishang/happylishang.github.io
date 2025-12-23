@@ -1,4 +1,6 @@
-# 核心  ViewModel处理数据[服务器]的获取、整理、[服务器]更新 +UI响应+[内聚]，ViewModel是变化的Presenter，不过Compose内涵了响应式编程，其实就是数据绑定
+# 核心 
+
+ ViewModel处理数据[服务器]的获取、整理、[服务器]更新 +UI响应+[内聚]，ViewModel是变化的Presenter，不过Compose内涵了响应式编程，其实就是数据绑定
 
 ## MVVM框架
 
